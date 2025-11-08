@@ -4,6 +4,7 @@ A comprehensive Science Olympiad test-taking application with PDF parsing capabi
 
 ## Features
 
+- **User Authentication**: Secure Google OAuth login with user profiles
 - **PDF Parser**: Upload Science Olympiad test PDFs and automatically extract questions
 - **Test Browser**: Browse tests by year, topic, and difficulty
 - **Interactive Test Taking**:
@@ -15,16 +16,21 @@ A comprehensive Science Olympiad test-taking application with PDF parsing capabi
   - Detailed score breakdown
   - Question-by-question review
   - Export results as JSON
+  - Track progress across sessions
+- **User Profiles**: View your statistics, test history, and account info
+- **SQLite Database**: Persistent storage for tests, questions, and user data
 - **Responsive Design**: Works on mobile, tablet, and desktop
 
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
+- **Authentication**: NextAuth.js v5 (Auth.js)
+- **Database**: SQLite (better-sqlite3)
 - **Styling**: Tailwind CSS
 - **PDF Parsing**: pdf-parse
 - **Icons**: Lucide React
-- **State Management**: React hooks + localStorage
+- **State Management**: React hooks + Server Components
 
 ## Getting Started
 
@@ -32,6 +38,7 @@ A comprehensive Science Olympiad test-taking application with PDF parsing capabi
 
 - Node.js 20.x or later
 - npm or yarn
+- Google OAuth credentials (for authentication)
 
 ### Installation
 
@@ -46,12 +53,29 @@ cd ScienceOlympiadTests
 npm install
 ```
 
-3. Run the development server:
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` and add:
+- `AUTH_SECRET`: Generate using `openssl rand -base64 32`
+- `GOOGLE_CLIENT_ID`: From Google Cloud Console
+- `GOOGLE_CLIENT_SECRET`: From Google Cloud Console
+
+4. Set up Google OAuth:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project
+   - Enable Google+ API
+   - Create OAuth 2.0 credentials
+   - Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+
+5. Run the development server:
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Usage
 
@@ -157,12 +181,15 @@ npm start
 
 ## Deployment
 
-This app can be deployed to any platform that supports Next.js:
+This app can be deployed to any platform that supports Next.js. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
-- Vercel (recommended)
-- Netlify
-- AWS Amplify
-- Self-hosted with Node.js
+**Recommended Platforms**:
+- **Vercel** (easiest, zero-config)
+- **Railway.app** (great for apps with SQLite)
+- **Fly.io** (persistent storage support)
+- **Netlify** (with Next.js plugin)
+
+For production, consider using **Turso** (distributed SQLite) for the database instead of local SQLite.
 
 ## License
 

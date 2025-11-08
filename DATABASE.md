@@ -16,8 +16,18 @@ The Science Olympiad Tests app now uses SQLite database for persistent storage o
 
 #### Tables
 
+**users**
+- `id` (TEXT, PRIMARY KEY)
+- `email` (TEXT, UNIQUE)
+- `name` (TEXT, optional)
+- `image` (TEXT, optional)
+- `provider` (TEXT, e.g., "google")
+- `provider_account_id` (TEXT)
+- `created_at`, `updated_at` (DATETIME)
+
 **tests**
 - `id` (TEXT, PRIMARY KEY)
+- `user_id` (TEXT, FOREIGN KEY to users, optional)
 - `year` (INTEGER)
 - `title` (TEXT)
 - `description` (TEXT)
@@ -27,6 +37,7 @@ The Science Olympiad Tests app now uses SQLite database for persistent storage o
 - `topic` (TEXT)
 - `source_url` (TEXT, optional)
 - `pdf_path` (TEXT, optional)
+- `is_public` (BOOLEAN, default true)
 - `created_at`, `updated_at` (DATETIME)
 
 **questions**
@@ -48,7 +59,8 @@ The Science Olympiad Tests app now uses SQLite database for persistent storage o
 
 **test_results**
 - `id` (TEXT, PRIMARY KEY)
-- `test_id` (TEXT, FOREIGN KEY)
+- `test_id` (TEXT, FOREIGN KEY to tests)
+- `user_id` (TEXT, FOREIGN KEY to users, optional)
 - `score`, `total_points`, `percentage` (INTEGER/REAL)
 - `correct_answers`, `total_questions` (INTEGER)
 - `time_spent` (INTEGER, seconds)
@@ -186,12 +198,33 @@ If upgrading from the localStorage version:
 
 The database file can be backed up by simply copying `scioly.db`. Results can be exported as JSON via the results screen.
 
+## Authentication
+
+The app now includes Google OAuth authentication via NextAuth.js:
+
+- Users can sign in with their Google account
+- User data is stored in the `users` table
+- Tests and results are associated with users
+- Protected routes require authentication (generate, import, profile)
+- Public tests remain visible to all users
+
+### User Management Functions
+
+Available in `/lib/database.ts`:
+
+- `createUser(user)` - Create or update user
+- `getUserByEmail(email)` - Find user by email
+- `getUserById(id)` - Find user by ID
+- `updateUser(userId, updates)` - Update user profile
+
 ## Future Enhancements
 
 Potential improvements:
 - Automated database backups
 - Export/import database to JSON
 - Test result analytics and statistics
-- User accounts and progress tracking
+- User progress tracking and achievements
 - Advanced search with full-text search
 - Test scheduling and reminders
+- Social features (sharing tests, leaderboards)
+- Email notifications for new tests

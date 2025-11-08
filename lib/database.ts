@@ -15,10 +15,25 @@ export function getDatabase(): Database.Database {
 }
 
 function initializeDatabase(database: Database.Database) {
+  // Create users table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT,
+      image TEXT,
+      provider TEXT,
+      provider_account_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create tests table
   database.exec(`
     CREATE TABLE IF NOT EXISTS tests (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       year INTEGER NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
@@ -28,8 +43,10 @@ function initializeDatabase(database: Database.Database) {
       topic TEXT NOT NULL,
       source_url TEXT,
       pdf_path TEXT,
+      is_public BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
 
@@ -65,6 +82,7 @@ function initializeDatabase(database: Database.Database) {
     CREATE TABLE IF NOT EXISTS test_results (
       id TEXT PRIMARY KEY,
       test_id TEXT NOT NULL,
+      user_id TEXT,
       score INTEGER NOT NULL,
       total_points INTEGER NOT NULL,
       percentage REAL NOT NULL,
@@ -72,17 +90,21 @@ function initializeDatabase(database: Database.Database) {
       total_questions INTEGER NOT NULL,
       time_spent INTEGER NOT NULL,
       completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
+      FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
 
   // Create indexes
   database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_tests_year ON tests(year);
     CREATE INDEX IF NOT EXISTS idx_tests_topic ON tests(topic);
     CREATE INDEX IF NOT EXISTS idx_tests_difficulty ON tests(difficulty);
+    CREATE INDEX IF NOT EXISTS idx_tests_user_id ON tests(user_id);
     CREATE INDEX IF NOT EXISTS idx_questions_test_id ON questions(test_id);
     CREATE INDEX IF NOT EXISTS idx_question_options_question_id ON question_options(question_id);
+    CREATE INDEX IF NOT EXISTS idx_test_results_user_id ON test_results(user_id);
   `);
 }
 
@@ -279,4 +301,89 @@ export function closeDatabase() {
     db.close();
     db = null;
   }
+}
+
+// User operations
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+  provider?: string;
+  providerAccountId?: string;
+}
+
+export function createUser(user: User) {
+  const db = getDatabase();
+  const insertUser = db.prepare(`
+    INSERT OR REPLACE INTO users
+    (id, email, name, image, provider, provider_account_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+
+  insertUser.run(
+    user.id,
+    user.email,
+    user.name || null,
+    user.image || null,
+    user.provider || null,
+    user.providerAccountId || null
+  );
+
+  return user;
+}
+
+export function getUserByEmail(email: string): User | null {
+  const db = getDatabase();
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+    provider: user.provider,
+    providerAccountId: user.provider_account_id,
+  };
+}
+
+export function getUserById(id: string): User | null {
+  const db = getDatabase();
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+    provider: user.provider,
+    providerAccountId: user.provider_account_id,
+  };
+}
+
+export function updateUser(userId: string, updates: Partial<User>) {
+  const db = getDatabase();
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  if (updates.name !== undefined) {
+    fields.push('name = ?');
+    values.push(updates.name);
+  }
+  if (updates.image !== undefined) {
+    fields.push('image = ?');
+    values.push(updates.image);
+  }
+
+  if (fields.length === 0) return;
+
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(userId);
+
+  const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
+  db.prepare(query).run(...values);
 }
