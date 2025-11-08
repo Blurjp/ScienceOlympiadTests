@@ -45,7 +45,7 @@ export default function PDFParserPage() {
     }
   };
 
-  const handleSaveToLibrary = () => {
+  const handleSaveToLibrary = async () => {
     if (!testMetadata.title) {
       alert('Please enter a test title');
       return;
@@ -60,13 +60,26 @@ export default function PDFParserPage() {
       totalPoints,
     };
 
-    // Save to localStorage
-    const existingTests = JSON.parse(localStorage.getItem('scioly-tests') || '[]');
-    existingTests.push(test);
-    localStorage.setItem('scioly-tests', JSON.stringify(existingTests));
+    // Save to database via API
+    try {
+      const response = await fetch('/api/save-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test }),
+      });
 
-    alert('Test saved to library!');
-    window.location.href = '/';
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert('Test saved to library!');
+        window.location.href = '/';
+      } else {
+        alert('Failed to save test: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error saving test:', error);
+      alert('Failed to save test. Please try again.');
+    }
   };
 
   if (parsedQuestions.length === 0) {

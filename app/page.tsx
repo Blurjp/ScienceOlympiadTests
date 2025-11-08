@@ -15,102 +15,63 @@ import {
   Upload,
   Calendar,
   Target,
-  Plus,
+  Sparkles,
   Trophy,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 
-// Sample tests for demonstration
-const sampleTests: Test[] = [
-  {
-    id: 'sample-1',
-    year: 2024,
-    title: 'Biology Division C - Sample',
-    description: 'Practice test covering cell biology, genetics, and ecology',
-    difficulty: 'Medium',
-    totalTime: 3000, // 50 minutes
-    totalPoints: 100,
-    topic: 'Biology',
-    questions: [
-      {
-        id: 'q1',
-        type: 'multiple-choice',
-        question: 'What is the powerhouse of the cell?',
-        options: ['Nucleus', 'Mitochondria', 'Ribosome', 'Endoplasmic Reticulum'],
-        correctAnswer: 'Mitochondria',
-        points: 2,
-        category: 'Cell Biology',
-      },
-      {
-        id: 'q2',
-        type: 'multiple-choice',
-        question: 'Which organelle is responsible for protein synthesis?',
-        options: ['Golgi apparatus', 'Lysosome', 'Ribosome', 'Vacuole'],
-        correctAnswer: 'Ribosome',
-        points: 2,
-        category: 'Cell Biology',
-      },
-      {
-        id: 'q3',
-        type: 'short-answer',
-        question: 'Describe the process of photosynthesis in plants.',
-        correctAnswer: 'Photosynthesis is the process by which plants convert light energy into chemical energy, using carbon dioxide and water to produce glucose and oxygen.',
-        points: 5,
-        category: 'Plant Biology',
-      },
-    ],
-  },
-  {
-    id: 'sample-2',
-    year: 2024,
-    title: 'Chemistry Division C - Sample',
-    description: 'Practice test covering atomic structure, chemical reactions, and stoichiometry',
-    difficulty: 'Hard',
-    totalTime: 3600, // 60 minutes
-    totalPoints: 120,
-    topic: 'Chemistry',
-    questions: [
-      {
-        id: 'q1',
-        type: 'multiple-choice',
-        question: 'What is the atomic number of Carbon?',
-        options: ['4', '6', '8', '12'],
-        correctAnswer: '6',
-        points: 1,
-        category: 'Atomic Structure',
-      },
-      {
-        id: 'q2',
-        type: 'calculation',
-        question: 'Calculate the molecular weight of H2O (Hydrogen = 1, Oxygen = 16)',
-        correctAnswer: '18',
-        points: 3,
-        category: 'Stoichiometry',
-      },
-    ],
-  },
-];
-
 export default function HomePage() {
   const [currentView, setCurrentView] = useState<ViewType>('browse');
-  const [tests, setTests] = useState<Test[]>(sampleTests);
+  const [tests, setTests] = useState<Test[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(2024);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [timeSpent, setTimeSpent] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load tests from localStorage on mount
+  // Load tests from database on mount
   useEffect(() => {
-    const savedTests = localStorage.getItem('scioly-tests');
-    if (savedTests) {
-      try {
-        const parsed = JSON.parse(savedTests);
-        setTests([...sampleTests, ...parsed]);
-      } catch (e) {
-        console.error('Error loading saved tests:', e);
-      }
-    }
+    loadTests();
+    loadYears();
   }, []);
+
+  // Reload when year changes
+  useEffect(() => {
+    if (selectedYear !== null) {
+      loadTests(selectedYear);
+    }
+  }, [selectedYear]);
+
+  const loadTests = async (year?: number) => {
+    setIsLoading(true);
+    try {
+      const url = year ? `/api/tests?year=${year}` : '/api/tests';
+      const response = await fetch(url);
+      const data = await response.json();
+      setTests(data.tests || []);
+    } catch (error) {
+      console.error('Error loading tests:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadYears = async () => {
+    try {
+      const response = await fetch('/api/tests?action=years');
+      const data = await response.json();
+      const years = data.years || [];
+      setAvailableYears(years);
+      if (years.length > 0 && selectedYear === null) {
+        setSelectedYear(years[0]);
+      }
+    } catch (error) {
+      console.error('Error loading years:', error);
+    }
+  };
 
   const handleStartTest = (test: Test) => {
     setSelectedTest(test);
@@ -136,12 +97,6 @@ export default function HomePage() {
     setSelectedTest(null);
     setUserAnswers([]);
   };
-
-  const availableYears = Array.from(
-    new Set(tests.map((t) => t.year))
-  ).sort((a, b) => b - a);
-
-  const filteredTests = tests.filter((t) => t.year === selectedYear);
 
   // Render based on current view
   if (currentView === 'test' && selectedTest) {
@@ -179,13 +134,34 @@ export default function HomePage() {
           <p className="text-xl text-blue-100">
             Practice tests, track your progress, and ace your Science Olympiad competitions
           </p>
-          <div className="mt-6 flex gap-4">
+          <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/pdf-parser">
               <Button size="lg" variant="secondary" className="gap-2">
                 <Upload className="h-5 w-5" />
                 Upload PDF Test
               </Button>
             </Link>
+            <Link href="/import">
+              <Button size="lg" variant="secondary" className="gap-2">
+                <Download className="h-5 w-5" />
+                Import from URL
+              </Button>
+            </Link>
+            <Link href="/generate">
+              <Button size="lg" variant="secondary" className="gap-2">
+                <Sparkles className="h-5 w-5" />
+                Generate Test
+              </Button>
+            </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              className="gap-2 border-white text-white hover:bg-white hover:text-blue-600"
+              onClick={() => loadTests(selectedYear || undefined)}
+            >
+              <RefreshCw className="h-5 w-5" />
+              Refresh
+            </Button>
           </div>
         </div>
       </div>
@@ -234,44 +210,88 @@ export default function HomePage() {
 
         {/* Year Selector */}
         <div className="mb-6">
-          <h2 className="mb-4 text-2xl font-bold text-gray-900">Browse Tests</h2>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {availableYears.map((year) => (
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Browse Tests</h2>
+            {selectedYear && (
               <Button
-                key={year}
-                variant={selectedYear === year ? 'default' : 'outline'}
-                onClick={() => setSelectedYear(year)}
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedYear(null);
+                  loadTests();
+                }}
+              >
+                View All Years
+              </Button>
+            )}
+          </div>
+          {availableYears.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <Button
+                variant={selectedYear === null ? 'default' : 'outline'}
+                onClick={() => {
+                  setSelectedYear(null);
+                  loadTests();
+                }}
                 className="gap-2"
               >
                 <Calendar className="h-4 w-4" />
-                {year}
+                All Years
               </Button>
-            ))}
-          </div>
+              {availableYears.map((year) => (
+                <Button
+                  key={year}
+                  variant={selectedYear === year ? 'default' : 'outline'}
+                  onClick={() => setSelectedYear(year)}
+                  className="gap-2"
+                >
+                  <Calendar className="h-4 w-4" />
+                  {year}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600">No tests in database yet. Import some tests to get started!</p>
+          )}
         </div>
 
         {/* Test Grid */}
-        {filteredTests.length === 0 ? (
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <RefreshCw className="mx-auto h-12 w-12 animate-spin text-gray-400" />
+              <p className="mt-4 text-lg font-medium text-gray-900">Loading tests...</p>
+            </CardContent>
+          </Card>
+        ) : tests.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <FileQuestion className="mx-auto h-12 w-12 text-gray-400" />
               <p className="mt-4 text-lg font-medium text-gray-900">
-                No tests available for {selectedYear}
+                No tests available{selectedYear ? ` for ${selectedYear}` : ''}
               </p>
               <p className="mt-2 text-gray-600">
-                Try selecting a different year or upload a new test
+                Get started by importing tests or uploading PDFs
               </p>
-              <Link href="/pdf-parser">
-                <Button className="mt-6 gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload Test PDF
-                </Button>
-              </Link>
+              <div className="mt-6 flex gap-3 justify-center flex-wrap">
+                <Link href="/import">
+                  <Button className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Import from URL
+                  </Button>
+                </Link>
+                <Link href="/pdf-parser">
+                  <Button variant="outline" className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload PDF
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredTests.map((test) => (
+            {tests.map((test) => (
               <Card
                 key={test.id}
                 className="transition-all hover:shadow-lg"
