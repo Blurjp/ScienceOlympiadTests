@@ -1,11 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pdf from 'pdf-parse';
 import { parseQuestionsFromText, cleanPdfText } from '@/lib/question-parser';
+import { rateLimit, getClientIp, sanitizeError, validateCsrf } from '@/lib/security';
+import { requireAuth } from '@/lib/auth-helpers';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication required
+    const authError = await requireAuth();
+    if (authError) return authError;
+
+    // CSRF protection
+    const csrfValidation = validateCsrf(request);
+    if (!csrfValidation.isValid) {
+      return NextResponse.json(
+        { error: 'Invalid request origin' },
+        { status: 403 }
+      );
+    }
+
+    // Rate limiting: 10 PDF uploads per minute per IP
+    const clientIp = getClientIp(request);
+    const rateLimitResult = rateLimit(`pdf-parse:${clientIp}`, 10, 60000);
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          },
+        }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -40,7 +73,7 @@ export async function POST(request: NextRequest) {
     try {
       data = await pdf(Buffer.from(buffer));
     } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
+      sanitizeError(pdfError, 'PDF parsing error');
       return NextResponse.json(
         { error: 'Failed to parse PDF. The file may be corrupted or password-protected.' },
         { status: 500 }
@@ -63,12 +96,9 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Server error:', error);
+    const errorMessage = sanitizeError(error, 'Server error');
     return NextResponse.json(
-      {
-        error: 'An unexpected error occurred while processing the PDF.',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: errorMessage },
       { status: 500 }
     );
   }

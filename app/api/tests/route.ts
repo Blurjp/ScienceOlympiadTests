@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllTests, getTestsByYear, getTestsByTopic, getAvailableYears, getAvailableTopics } from '@/lib/database';
+import { rateLimit, getClientIp, sanitizeError } from '@/lib/security';
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting: 30 requests per minute per IP
+    const clientIp = getClientIp(request);
+    const rateLimitResult = rateLimit(`tests-get:${clientIp}`, 30, 60000);
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '30',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          },
+        }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
     const topic = searchParams.get('topic');
@@ -32,9 +51,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ tests });
   } catch (error) {
-    console.error('Database error:', error);
+    const errorMessage = sanitizeError(error, 'Database error');
     return NextResponse.json(
-      { error: 'Failed to fetch tests from database' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

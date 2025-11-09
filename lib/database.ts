@@ -15,6 +15,19 @@ export function getDatabase(): Database.Database {
 }
 
 function initializeDatabase(database: Database.Database) {
+  // Create users table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT CHECK(role IN ('admin', 'user')) DEFAULT 'user',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create tests table
   database.exec(`
     CREATE TABLE IF NOT EXISTS tests (
@@ -78,6 +91,7 @@ function initializeDatabase(database: Database.Database) {
 
   // Create indexes
   database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_tests_year ON tests(year);
     CREATE INDEX IF NOT EXISTS idx_tests_topic ON tests(topic);
     CREATE INDEX IF NOT EXISTS idx_tests_difficulty ON tests(difficulty);
@@ -272,6 +286,64 @@ export function deleteTest(testId: string) {
   const db = getDatabase();
   const deleteStmt = db.prepare('DELETE FROM tests WHERE id = ?');
   deleteStmt.run(testId);
+}
+
+// User operations
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function createUser(id: string, email: string, name: string, passwordHash: string): void {
+  const db = getDatabase();
+  const insertUser = db.prepare(`
+    INSERT INTO users (id, email, name, password_hash, role)
+    VALUES (?, ?, ?, ?, 'user')
+  `);
+  insertUser.run(id, email, name, passwordHash);
+}
+
+export function getUserByEmail(email: string): User | null {
+  const db = getDatabase();
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    passwordHash: user.password_hash,
+    role: user.role,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
+  };
+}
+
+export function getUserById(id: string): User | null {
+  const db = getDatabase();
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    passwordHash: user.password_hash,
+    role: user.role,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
+  };
 }
 
 export function closeDatabase() {

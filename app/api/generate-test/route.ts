@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchQuestions, saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
+import { rateLimit, getClientIp, sanitizeError, validateCsrf } from '@/lib/security';
+import { requireAuth } from '@/lib/auth-helpers';
 
 interface GenerateTestRequest {
   topic?: string;
@@ -23,6 +25,37 @@ function shuffleArray<T>(array: T[]): T[] {
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication required
+    const authError = await requireAuth();
+    if (authError) return authError;
+
+    // CSRF protection
+    const csrfValidation = validateCsrf(request);
+    if (!csrfValidation.isValid) {
+      return NextResponse.json(
+        { error: 'Invalid request origin' },
+        { status: 403 }
+      );
+    }
+
+    // Rate limiting: 15 test generations per minute per IP
+    const clientIp = getClientIp(request);
+    const rateLimitResult = rateLimit(`generate-test:${clientIp}`, 15, 60000);
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '15',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          },
+        }
+      );
+    }
+
     const body: GenerateTestRequest = await request.json();
 
     const {
@@ -96,7 +129,7 @@ export async function POST(request: NextRequest) {
     try {
       saveTest(test);
     } catch (dbError) {
-      console.error('Database error:', dbError);
+      sanitizeError(dbError, 'Database error');
       return NextResponse.json(
         { error: 'Failed to save generated test' },
         { status: 500 }
@@ -111,12 +144,9 @@ export async function POST(request: NextRequest) {
       totalTime,
     });
   } catch (error) {
-    console.error('Server error:', error);
+    const errorMessage = sanitizeError(error, 'Server error');
     return NextResponse.json(
-      {
-        error: 'Failed to generate test',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: errorMessage },
       { status: 500 }
     );
   }
