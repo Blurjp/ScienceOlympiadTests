@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (topic) filters.topic = topic;
     if (difficulty) filters.difficulty = difficulty;
 
-    let questions = searchQuestions(filters);
+    let questions = await searchQuestions(filters);
 
     if (questions.length === 0) {
       return NextResponse.json(
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     try {
-      saveTest(test);
+      await saveTest(test);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(

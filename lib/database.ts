@@ -1,22 +1,33 @@
-import Database from 'better-sqlite3';
+import { createClient, Client } from '@libsql/client';
 import { Test, Question } from './types';
-import path from 'path';
 
-const dbPath = path.join(process.cwd(), 'scioly.db');
-let db: Database.Database | null = null;
+let db: Client | null = null;
 
-export function getDatabase(): Database.Database {
+export function getDatabase(): Client {
   if (!db) {
-    db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
-    initializeDatabase(db);
+    // Use Turso in production, local file in development
+    if (process.env.TURSO_DATABASE_URL) {
+      db = createClient({
+        url: process.env.TURSO_DATABASE_URL,
+        authToken: process.env.TURSO_AUTH_TOKEN,
+      });
+    } else {
+      // Local SQLite file for development
+      db = createClient({
+        url: 'file:scioly.db',
+      });
+    }
+    // Initialize database tables
+    initializeDatabase();
   }
   return db;
 }
 
-function initializeDatabase(database: Database.Database) {
+async function initializeDatabase() {
+  const database = getDatabase();
+
   // Create users table
-  database.exec(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
@@ -30,7 +41,7 @@ function initializeDatabase(database: Database.Database) {
   `);
 
   // Create tests table
-  database.exec(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS tests (
       id TEXT PRIMARY KEY,
       user_id TEXT,
@@ -51,7 +62,7 @@ function initializeDatabase(database: Database.Database) {
   `);
 
   // Create questions table
-  database.exec(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS questions (
       id TEXT PRIMARY KEY,
       test_id TEXT NOT NULL,
@@ -67,7 +78,7 @@ function initializeDatabase(database: Database.Database) {
   `);
 
   // Create question_options table for multiple choice
-  database.exec(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS question_options (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       question_id TEXT NOT NULL,
@@ -78,7 +89,7 @@ function initializeDatabase(database: Database.Database) {
   `);
 
   // Create test_results table
-  database.exec(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS test_results (
       id TEXT PRIMARY KEY,
       test_id TEXT NOT NULL,
@@ -96,102 +107,121 @@ function initializeDatabase(database: Database.Database) {
   `);
 
   // Create indexes
-  database.exec(`
-    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_tests_year ON tests(year);
-    CREATE INDEX IF NOT EXISTS idx_tests_topic ON tests(topic);
-    CREATE INDEX IF NOT EXISTS idx_tests_difficulty ON tests(difficulty);
-    CREATE INDEX IF NOT EXISTS idx_tests_user_id ON tests(user_id);
-    CREATE INDEX IF NOT EXISTS idx_questions_test_id ON questions(test_id);
-    CREATE INDEX IF NOT EXISTS idx_question_options_question_id ON question_options(question_id);
-    CREATE INDEX IF NOT EXISTS idx_test_results_user_id ON test_results(user_id);
-  `);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_year ON tests(year)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_topic ON tests(topic)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_difficulty ON tests(difficulty)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_user_id ON tests(user_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_questions_test_id ON questions(test_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_question_options_question_id ON question_options(question_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_test_results_user_id ON test_results(user_id)`);
+}
+
+// Ensure database is initialized
+let initPromise: Promise<void> | null = null;
+export async function ensureInitialized() {
+  if (!initPromise) {
+    initPromise = initializeDatabase();
+  }
+  await initPromise;
 }
 
 // Test operations
-export function saveTest(test: Test, sourceUrl?: string, pdfPath?: string) {
-  const db = getDatabase();
+export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string) {
+  await ensureInitialized();
+  const database = getDatabase();
 
-  const insertTest = db.prepare(`
-    INSERT OR REPLACE INTO tests
-    (id, year, title, description, difficulty, total_time, total_points, topic, source_url, pdf_path)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  insertTest.run(
-    test.id,
-    test.year,
-    test.title,
-    test.description,
-    test.difficulty,
-    test.totalTime,
-    test.totalPoints,
-    test.topic,
-    sourceUrl || null,
-    pdfPath || null
-  );
+  await database.execute({
+    sql: `INSERT OR REPLACE INTO tests
+      (id, year, title, description, difficulty, total_time, total_points, topic, source_url, pdf_path)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      test.id,
+      test.year,
+      test.title,
+      test.description,
+      test.difficulty,
+      test.totalTime,
+      test.totalPoints,
+      test.topic,
+      sourceUrl || null,
+      pdfPath || null
+    ]
+  });
 
   // Delete existing questions for this test
-  const deleteQuestions = db.prepare('DELETE FROM questions WHERE test_id = ?');
-  deleteQuestions.run(test.id);
+  await database.execute({
+    sql: 'DELETE FROM questions WHERE test_id = ?',
+    args: [test.id]
+  });
 
   // Insert questions
-  const insertQuestion = db.prepare(`
-    INSERT INTO questions
-    (id, test_id, type, question, correct_answer, points, category, question_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertOption = db.prepare(`
-    INSERT INTO question_options (question_id, option_text, option_order)
-    VALUES (?, ?, ?)
-  `);
-
-  test.questions.forEach((question, index) => {
-    insertQuestion.run(
-      question.id,
-      test.id,
-      question.type,
-      question.question,
-      question.correctAnswer,
-      question.points,
-      question.category,
-      index
-    );
+  for (let index = 0; index < test.questions.length; index++) {
+    const question = test.questions[index];
+    await database.execute({
+      sql: `INSERT INTO questions
+        (id, test_id, type, question, correct_answer, points, category, question_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        question.id,
+        test.id,
+        question.type,
+        question.question,
+        question.correctAnswer,
+        question.points,
+        question.category,
+        index
+      ]
+    });
 
     if (question.options) {
-      question.options.forEach((option, optIndex) => {
-        insertOption.run(question.id, option, optIndex);
-      });
+      for (let optIndex = 0; optIndex < question.options.length; optIndex++) {
+        await database.execute({
+          sql: `INSERT INTO question_options (question_id, option_text, option_order) VALUES (?, ?, ?)`,
+          args: [question.id, question.options[optIndex], optIndex]
+        });
+      }
     }
-  });
+  }
 }
 
-export function getTest(testId: string): Test | null {
-  const db = getDatabase();
+export async function getTest(testId: string): Promise<Test | null> {
+  await ensureInitialized();
+  const database = getDatabase();
 
-  const test = db.prepare('SELECT * FROM tests WHERE id = ?').get(testId) as any;
-  if (!test) return null;
-
-  const questions = db
-    .prepare('SELECT * FROM questions WHERE test_id = ? ORDER BY question_order')
-    .all(testId) as any[];
-
-  const questionWithOptions: Question[] = questions.map((q) => {
-    const options = db
-      .prepare('SELECT option_text FROM question_options WHERE question_id = ? ORDER BY option_order')
-      .all(q.id) as any[];
-
-    return {
-      id: q.id,
-      type: q.type,
-      question: q.question,
-      correctAnswer: q.correct_answer,
-      points: q.points,
-      category: q.category,
-      options: options.length > 0 ? options.map((o) => o.option_text) : undefined,
-    };
+  const testResult = await database.execute({
+    sql: 'SELECT * FROM tests WHERE id = ?',
+    args: [testId]
   });
+
+  if (testResult.rows.length === 0) return null;
+  const test = testResult.rows[0] as any;
+
+  const questionsResult = await database.execute({
+    sql: 'SELECT * FROM questions WHERE test_id = ? ORDER BY question_order',
+    args: [testId]
+  });
+
+  const questionWithOptions: Question[] = await Promise.all(
+    questionsResult.rows.map(async (q: any) => {
+      const optionsResult = await database.execute({
+        sql: 'SELECT option_text FROM question_options WHERE question_id = ? ORDER BY option_order',
+        args: [q.id]
+      });
+
+      return {
+        id: q.id,
+        type: q.type,
+        question: q.question,
+        correctAnswer: q.correct_answer,
+        points: q.points,
+        category: q.category,
+        options: optionsResult.rows.length > 0
+          ? optionsResult.rows.map((o: any) => o.option_text)
+          : undefined,
+      };
+    })
+  );
 
   return {
     id: test.id,
@@ -206,71 +236,90 @@ export function getTest(testId: string): Test | null {
   };
 }
 
-export function getAllTests(): Test[] {
-  const db = getDatabase();
-  const tests = db.prepare('SELECT id FROM tests ORDER BY year DESC, title').all() as any[];
-  return tests.map((t) => getTest(t.id)).filter((t) => t !== null) as Test[];
+export async function getAllTests(): Promise<Test[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute('SELECT id FROM tests ORDER BY year DESC, title');
+  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
+  return tests.filter((t): t is Test => t !== null);
 }
 
-export function getTestsByYear(year: number): Test[] {
-  const db = getDatabase();
-  const tests = db.prepare('SELECT id FROM tests WHERE year = ? ORDER BY title').all(year) as any[];
-  return tests.map((t) => getTest(t.id)).filter((t) => t !== null) as Test[];
+export async function getTestsByYear(year: number): Promise<Test[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT id FROM tests WHERE year = ? ORDER BY title',
+    args: [year]
+  });
+  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
+  return tests.filter((t): t is Test => t !== null);
 }
 
-export function getTestsByTopic(topic: string): Test[] {
-  const db = getDatabase();
-  const tests = db.prepare('SELECT id FROM tests WHERE topic = ? ORDER BY year DESC, title').all(topic) as any[];
-  return tests.map((t) => getTest(t.id)).filter((t) => t !== null) as Test[];
+export async function getTestsByTopic(topic: string): Promise<Test[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT id FROM tests WHERE topic = ? ORDER BY year DESC, title',
+    args: [topic]
+  });
+  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
+  return tests.filter((t): t is Test => t !== null);
 }
 
-export function getTestsByYearAndTopic(year: number, topic: string): Test[] {
-  const db = getDatabase();
-  const tests = db.prepare('SELECT id FROM tests WHERE year = ? AND topic = ? ORDER BY title').all(year, topic) as any[];
-  return tests.map((t) => getTest(t.id)).filter((t) => t !== null) as Test[];
+export async function getTestsByYearAndTopic(year: number, topic: string): Promise<Test[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT id FROM tests WHERE year = ? AND topic = ? ORDER BY title',
+    args: [year, topic]
+  });
+  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
+  return tests.filter((t): t is Test => t !== null);
 }
 
-export function searchQuestions(filters: {
+export async function searchQuestions(filters: {
   topic?: string;
   category?: string;
   type?: string;
   difficulty?: string;
-}): Question[] {
-  const db = getDatabase();
+}): Promise<Question[]> {
+  await ensureInitialized();
+  const database = getDatabase();
 
   let query = `
     SELECT DISTINCT q.* FROM questions q
     JOIN tests t ON q.test_id = t.id
     WHERE 1=1
   `;
-  const params: any[] = [];
+  const args: any[] = [];
 
   if (filters.topic) {
     query += ' AND t.topic = ?';
-    params.push(filters.topic);
+    args.push(filters.topic);
   }
 
   if (filters.category) {
     query += ' AND q.category = ?';
-    params.push(filters.category);
+    args.push(filters.category);
   }
 
   if (filters.type) {
     query += ' AND q.type = ?';
-    params.push(filters.type);
+    args.push(filters.type);
   }
 
   if (filters.difficulty) {
     query += ' AND t.difficulty = ?';
-    params.push(filters.difficulty);
+    args.push(filters.difficulty);
   }
 
-  const questions = db.prepare(query).all(...params) as any[];
+  const result = await database.execute({ sql: query, args });
 
-  return questions.map((q) => {
-    const options = db
-      .prepare('SELECT option_text FROM question_options WHERE question_id = ? ORDER BY option_order')
-      .all(q.id) as any[];
+  return Promise.all(result.rows.map(async (q: any) => {
+    const optionsResult = await database.execute({
+      sql: 'SELECT option_text FROM question_options WHERE question_id = ? ORDER BY option_order',
+      args: [q.id]
+    });
 
     return {
       id: q.id,
@@ -279,34 +328,34 @@ export function searchQuestions(filters: {
       correctAnswer: q.correct_answer,
       points: q.points,
       category: q.category,
-      options: options.length > 0 ? options.map((o) => o.option_text) : undefined,
+      options: optionsResult.rows.length > 0
+        ? optionsResult.rows.map((o: any) => o.option_text)
+        : undefined,
     };
+  }));
+}
+
+export async function getAvailableYears(): Promise<number[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute('SELECT DISTINCT year FROM tests ORDER BY year DESC');
+  return result.rows.map((y: any) => y.year);
+}
+
+export async function getAvailableTopics(): Promise<string[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute('SELECT DISTINCT topic FROM tests ORDER BY topic');
+  return result.rows.map((t: any) => t.topic);
+}
+
+export async function deleteTest(testId: string) {
+  await ensureInitialized();
+  const database = getDatabase();
+  await database.execute({
+    sql: 'DELETE FROM tests WHERE id = ?',
+    args: [testId]
   });
-}
-
-export function getAvailableYears(): number[] {
-  const db = getDatabase();
-  const years = db.prepare('SELECT DISTINCT year FROM tests ORDER BY year DESC').all() as any[];
-  return years.map((y) => y.year);
-}
-
-export function getAvailableTopics(): string[] {
-  const db = getDatabase();
-  const topics = db.prepare('SELECT DISTINCT topic FROM tests ORDER BY topic').all() as any[];
-  return topics.map((t) => t.topic);
-}
-
-export function deleteTest(testId: string) {
-  const db = getDatabase();
-  const deleteStmt = db.prepare('DELETE FROM tests WHERE id = ?');
-  deleteStmt.run(testId);
-}
-
-export function closeDatabase() {
-  if (db) {
-    db.close();
-    db = null;
-  }
 }
 
 // User operations
@@ -319,47 +368,35 @@ export interface User {
   providerAccountId?: string;
 }
 
-export function createUser(user: User) {
-  const db = getDatabase();
-  const insertUser = db.prepare(`
-    INSERT OR REPLACE INTO users
-    (id, email, name, image, provider, provider_account_id)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  insertUser.run(
-    user.id,
-    user.email,
-    user.name || null,
-    user.image || null,
-    user.provider || null,
-    user.providerAccountId || null
-  );
-
+export async function createUser(user: User) {
+  await ensureInitialized();
+  const database = getDatabase();
+  await database.execute({
+    sql: `INSERT OR REPLACE INTO users
+      (id, email, name, image, provider, provider_account_id)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [
+      user.id,
+      user.email,
+      user.name || null,
+      user.image || null,
+      user.provider || null,
+      user.providerAccountId || null
+    ]
+  });
   return user;
 }
 
-export function getUserByEmail(email: string): User | null {
-  const db = getDatabase();
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+export async function getUserByEmail(email: string): Promise<User | null> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT * FROM users WHERE email = ?',
+    args: [email]
+  });
 
-  if (!user) return null;
-
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    image: user.image,
-    provider: user.provider,
-    providerAccountId: user.provider_account_id,
-  };
-}
-
-export function getUserById(id: string): User | null {
-  const db = getDatabase();
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
-
-  if (!user) return null;
+  if (result.rows.length === 0) return null;
+  const user = result.rows[0] as any;
 
   return {
     id: user.id,
@@ -371,8 +408,30 @@ export function getUserById(id: string): User | null {
   };
 }
 
-export function updateUser(userId: string, updates: Partial<User>) {
-  const db = getDatabase();
+export async function getUserById(id: string): Promise<User | null> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT * FROM users WHERE id = ?',
+    args: [id]
+  });
+
+  if (result.rows.length === 0) return null;
+  const user = result.rows[0] as any;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+    provider: user.provider,
+    providerAccountId: user.provider_account_id,
+  };
+}
+
+export async function updateUser(userId: string, updates: Partial<User>) {
+  await ensureInitialized();
+  const database = getDatabase();
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -391,7 +450,7 @@ export function updateUser(userId: string, updates: Partial<User>) {
   values.push(userId);
 
   const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
-  db.prepare(query).run(...values);
+  await database.execute({ sql: query, args: values });
 }
 
 // Test results operations
@@ -407,66 +466,66 @@ export interface TestResultData {
   timeSpent: number;
 }
 
-export function saveTestResult(result: TestResultData) {
-  const db = getDatabase();
-  const insertResult = db.prepare(`
-    INSERT INTO test_results
-    (id, test_id, user_id, score, total_points, percentage, correct_answers, total_questions, time_spent)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  insertResult.run(
-    result.id,
-    result.testId,
-    result.userId || null,
-    result.score,
-    result.totalPoints,
-    result.percentage,
-    result.correctAnswers,
-    result.totalQuestions,
-    result.timeSpent
-  );
-
+export async function saveTestResult(result: TestResultData) {
+  await ensureInitialized();
+  const database = getDatabase();
+  await database.execute({
+    sql: `INSERT INTO test_results
+      (id, test_id, user_id, score, total_points, percentage, correct_answers, total_questions, time_spent)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      result.id,
+      result.testId,
+      result.userId || null,
+      result.score,
+      result.totalPoints,
+      result.percentage,
+      result.correctAnswers,
+      result.totalQuestions,
+      result.timeSpent
+    ]
+  });
   return result;
 }
 
-export function getUserStats(userId: string): {
+export async function getUserStats(userId: string): Promise<{
   testsCompleted: number;
   averageScore: number;
   testsCreated: number;
-} {
-  const db = getDatabase();
+}> {
+  await ensureInitialized();
+  const database = getDatabase();
 
-  // Get tests completed count and average score
-  const resultsStats = db.prepare(`
-    SELECT COUNT(*) as count, AVG(percentage) as avg_score
-    FROM test_results
-    WHERE user_id = ?
-  `).get(userId) as any;
+  const resultsStats = await database.execute({
+    sql: `SELECT COUNT(*) as count, AVG(percentage) as avg_score
+      FROM test_results WHERE user_id = ?`,
+    args: [userId]
+  });
 
-  // Get tests created count
-  const testsCreated = db.prepare(`
-    SELECT COUNT(*) as count
-    FROM tests
-    WHERE user_id = ?
-  `).get(userId) as any;
+  const testsCreated = await database.execute({
+    sql: `SELECT COUNT(*) as count FROM tests WHERE user_id = ?`,
+    args: [userId]
+  });
+
+  const stats = resultsStats.rows[0] as any;
+  const created = testsCreated.rows[0] as any;
 
   return {
-    testsCompleted: resultsStats?.count || 0,
-    averageScore: Math.round(resultsStats?.avg_score || 0),
-    testsCreated: testsCreated?.count || 0,
+    testsCompleted: stats?.count || 0,
+    averageScore: Math.round(stats?.avg_score || 0),
+    testsCreated: created?.count || 0,
   };
 }
 
-export function getUserTestResults(userId: string): TestResultData[] {
-  const db = getDatabase();
-  const results = db.prepare(`
-    SELECT * FROM test_results
-    WHERE user_id = ?
-    ORDER BY completed_at DESC
-  `).all(userId) as any[];
+export async function getUserTestResults(userId: string): Promise<TestResultData[]> {
+  await ensureInitialized();
+  const database = getDatabase();
+  const result = await database.execute({
+    sql: `SELECT * FROM test_results WHERE user_id = ? ORDER BY completed_at DESC`,
+    args: [userId]
+  });
 
-  return results.map((r) => ({
+  return result.rows.map((r: any) => ({
     id: r.id,
     testId: r.test_id,
     userId: r.user_id,

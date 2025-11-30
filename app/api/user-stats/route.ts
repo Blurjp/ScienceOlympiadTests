@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const stats = getUserStats(session.user.id);
+    const stats = await getUserStats(session.user.id);
 
     return NextResponse.json({ stats });
   } catch (error) {

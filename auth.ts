@@ -10,16 +10,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (!user.email) return false
 
       try {
         // Check if user exists
-        let existingUser = getUserByEmail(user.email)
+        let existingUser = await getUserByEmail(user.email)
 
         if (!existingUser) {
           // Create new user
-          existingUser = createUser({
+          existingUser = await createUser({
             id: user.id || crypto.randomUUID(),
             email: user.email,
             name: user.name || undefined,
@@ -35,9 +35,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return false
       }
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        const dbUser = getUserByEmail(user.email!)
+        const dbUser = await getUserByEmail(user.email!)
         if (dbUser) {
           token.id = dbUser.id
           token.email = dbUser.email

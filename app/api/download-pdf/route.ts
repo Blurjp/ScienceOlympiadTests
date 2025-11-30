@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     try {
-      saveTest(test, url);
+      await saveTest(test, url);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(

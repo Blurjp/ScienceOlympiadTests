@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = saveTestResult({
+    const result = await saveTestResult({
       id: `result-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       testId,
       userId: userId || undefined,

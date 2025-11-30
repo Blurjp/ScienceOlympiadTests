@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const test = getTest(params.id);
+    const test = await getTest(params.id);
 
     if (!test) {
       return NextResponse.json(
@@ -30,7 +30,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    deleteTest(params.id);
+    await deleteTest(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Database error:', error);

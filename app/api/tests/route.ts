@@ -10,13 +10,13 @@ export async function GET(request: NextRequest) {
 
     // Get available years
     if (action === 'years') {
-      const years = getAvailableYears();
+      const years = await getAvailableYears();
       return NextResponse.json({ years });
     }
 
     // Get available topics
     if (action === 'topics') {
-      const topics = getAvailableTopics();
+      const topics = await getAvailableTopics();
       return NextResponse.json({ topics });
     }
 
@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
     let tests;
     if (year && topic) {
       // Combined year and topic filter
-      tests = getTestsByYearAndTopic(parseInt(year), topic);
+      tests = await getTestsByYearAndTopic(parseInt(year), topic);
     } else if (year) {
-      tests = getTestsByYear(parseInt(year));
+      tests = await getTestsByYear(parseInt(year));
     } else if (topic) {
-      tests = getTestsByTopic(topic);
+      tests = await getTestsByTopic(topic);
     } else {
-      tests = getAllTests();
+      tests = await getAllTests();
     }
 
     return NextResponse.json({ tests });

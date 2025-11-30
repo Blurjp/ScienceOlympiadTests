@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Save test to database
     try {
-      saveTest(test as Test);
+      await saveTest(test as Test);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(

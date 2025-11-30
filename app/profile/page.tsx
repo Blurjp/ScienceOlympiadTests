@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, User, Mail, Calendar } from "lucide-react"
+import { User, Mail, Calendar } from "lucide-react"
 import { getUserById, getUserStats } from "@/lib/database"
 import { SignOutButton } from "@/components/auth/sign-out-button"
 
@@ -12,8 +12,8 @@ export default async function ProfilePage() {
     redirect("/login")
   }
 
-  const dbUser = getUserById(session.user.id)
-  const stats = getUserStats(session.user.id)
+  const dbUser = await getUserById(session.user.id)
+  const stats = await getUserStats(session.user.id)
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
