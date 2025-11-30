@@ -2,8 +2,9 @@ import { createClient, Client } from '@libsql/client';
 import { Test, Question } from './types';
 
 let db: Client | null = null;
+let initialized = false;
 
-export function getDatabase(): Client {
+function getClient(): Client {
   if (!db) {
     // Use Turso in production, local file in development
     if (process.env.TURSO_DATABASE_URL) {
@@ -17,14 +18,14 @@ export function getDatabase(): Client {
         url: 'file:scioly.db',
       });
     }
-    // Initialize database tables
-    initializeDatabase();
   }
   return db;
 }
 
 async function initializeDatabase() {
-  const database = getDatabase();
+  if (initialized) return;
+
+  const database = getClient();
 
   // Create users table
   await database.execute(`
@@ -115,21 +116,19 @@ async function initializeDatabase() {
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_questions_test_id ON questions(test_id)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_question_options_question_id ON question_options(question_id)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_test_results_user_id ON test_results(user_id)`);
+
+  initialized = true;
 }
 
-// Ensure database is initialized
-let initPromise: Promise<void> | null = null;
-export async function ensureInitialized() {
-  if (!initPromise) {
-    initPromise = initializeDatabase();
-  }
-  await initPromise;
+// Get database with initialization
+async function getDatabase(): Promise<Client> {
+  await initializeDatabase();
+  return getClient();
 }
 
 // Test operations
 export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string) {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
 
   await database.execute({
     sql: `INSERT OR REPLACE INTO tests
@@ -186,8 +185,7 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string)
 }
 
 export async function getTest(testId: string): Promise<Test | null> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
 
   const testResult = await database.execute({
     sql: 'SELECT * FROM tests WHERE id = ?',
@@ -237,16 +235,14 @@ export async function getTest(testId: string): Promise<Test | null> {
 }
 
 export async function getAllTests(): Promise<Test[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute('SELECT id FROM tests ORDER BY year DESC, title');
   const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
   return tests.filter((t): t is Test => t !== null);
 }
 
 export async function getTestsByYear(year: number): Promise<Test[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute({
     sql: 'SELECT id FROM tests WHERE year = ? ORDER BY title',
     args: [year]
@@ -256,8 +252,7 @@ export async function getTestsByYear(year: number): Promise<Test[]> {
 }
 
 export async function getTestsByTopic(topic: string): Promise<Test[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute({
     sql: 'SELECT id FROM tests WHERE topic = ? ORDER BY year DESC, title',
     args: [topic]
@@ -267,8 +262,7 @@ export async function getTestsByTopic(topic: string): Promise<Test[]> {
 }
 
 export async function getTestsByYearAndTopic(year: number, topic: string): Promise<Test[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute({
     sql: 'SELECT id FROM tests WHERE year = ? AND topic = ? ORDER BY title',
     args: [year, topic]
@@ -283,8 +277,7 @@ export async function searchQuestions(filters: {
   type?: string;
   difficulty?: string;
 }): Promise<Question[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
 
   let query = `
     SELECT DISTINCT q.* FROM questions q
@@ -336,22 +329,19 @@ export async function searchQuestions(filters: {
 }
 
 export async function getAvailableYears(): Promise<number[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute('SELECT DISTINCT year FROM tests ORDER BY year DESC');
   return result.rows.map((y: any) => y.year);
 }
 
 export async function getAvailableTopics(): Promise<string[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute('SELECT DISTINCT topic FROM tests ORDER BY topic');
   return result.rows.map((t: any) => t.topic);
 }
 
 export async function deleteTest(testId: string) {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   await database.execute({
     sql: 'DELETE FROM tests WHERE id = ?',
     args: [testId]
@@ -369,8 +359,7 @@ export interface User {
 }
 
 export async function createUser(user: User) {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   await database.execute({
     sql: `INSERT OR REPLACE INTO users
       (id, email, name, image, provider, provider_account_id)
@@ -388,8 +377,7 @@ export async function createUser(user: User) {
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute({
     sql: 'SELECT * FROM users WHERE email = ?',
     args: [email]
@@ -409,8 +397,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute({
     sql: 'SELECT * FROM users WHERE id = ?',
     args: [id]
@@ -430,8 +417,7 @@ export async function getUserById(id: string): Promise<User | null> {
 }
 
 export async function updateUser(userId: string, updates: Partial<User>) {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -467,8 +453,7 @@ export interface TestResultData {
 }
 
 export async function saveTestResult(result: TestResultData) {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   await database.execute({
     sql: `INSERT INTO test_results
       (id, test_id, user_id, score, total_points, percentage, correct_answers, total_questions, time_spent)
@@ -493,8 +478,7 @@ export async function getUserStats(userId: string): Promise<{
   averageScore: number;
   testsCreated: number;
 }> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
 
   const resultsStats = await database.execute({
     sql: `SELECT COUNT(*) as count, AVG(percentage) as avg_score
@@ -518,8 +502,7 @@ export async function getUserStats(userId: string): Promise<{
 }
 
 export async function getUserTestResults(userId: string): Promise<TestResultData[]> {
-  await ensureInitialized();
-  const database = getDatabase();
+  const database = await getDatabase();
   const result = await database.execute({
     sql: `SELECT * FROM test_results WHERE user_id = ? ORDER BY completed_at DESC`,
     args: [userId]
