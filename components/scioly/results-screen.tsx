@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Test, UserAnswer, TestResult } from '@/lib/types';
 import { QuestionDisplay } from './question-display';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ interface ResultsScreenProps {
   test: Test;
   userAnswers: UserAnswer[];
   timeSpent: number;
+  userId?: string;
   onRetakeTest: () => void;
   onBackToHome: () => void;
 }
@@ -30,6 +31,7 @@ export function ResultsScreen({
   test,
   userAnswers,
   timeSpent,
+  userId,
   onRetakeTest,
   onBackToHome,
 }: ResultsScreenProps) {
@@ -37,6 +39,36 @@ export function ResultsScreen({
     userAnswers,
     test.questions
   );
+  const hasSavedResult = useRef(false);
+
+  // Save result to database on mount
+  useEffect(() => {
+    if (hasSavedResult.current) return;
+    hasSavedResult.current = true;
+
+    const saveResult = async () => {
+      try {
+        await fetch('/api/save-result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            testId: test.id,
+            userId,
+            score,
+            totalPoints,
+            percentage: Math.round((score / totalPoints) * 100),
+            correctAnswers,
+            totalQuestions: test.questions.length,
+            timeSpent,
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving test result:', error);
+      }
+    };
+
+    saveResult();
+  }, [test.id, userId, score, totalPoints, correctAnswers, timeSpent, test.questions.length]);
 
   const percentage = Math.round((score / totalPoints) * 100);
   const passingGrade = 70;

@@ -1,20 +1,29 @@
 "use client"
 
+import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Chrome } from "lucide-react"
+import { Chrome, Loader2 } from "lucide-react"
 
 export default function LoginPage() {
+  const [isLoading, setIsLoading] = useState(false)
+
   const handleGoogleSignIn = async () => {
-    await signIn("google", { callbackUrl: "/" })
+    setIsLoading(true)
+    try {
+      await signIn("google", { callbackUrl: "/" })
+    } catch (error) {
+      console.error("Error signing in:", error)
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
+          <CardTitle className="text-3xl font-bold">Welcome</CardTitle>
           <CardDescription>
             Sign in to access your Science Olympiad tests and track your progress
           </CardDescription>
@@ -25,9 +34,14 @@ export default function LoginPage() {
             variant="outline"
             className="w-full h-12 text-lg"
             size="lg"
+            disabled={isLoading}
           >
-            <Chrome className="mr-2 h-5 w-5" />
-            Sign in with Google
+            {isLoading ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <Chrome className="mr-2 h-5 w-5" />
+            )}
+            {isLoading ? "Signing in..." : "Sign in with Google"}
           </Button>
 
           <div className="text-center text-sm text-gray-500">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { formatTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,6 +11,7 @@ interface TimerProps {
   isRunning: boolean;
   onToggle: () => void;
   onTimeUpdate: (time: number) => void;
+  onTimeUp?: () => void;
   timeRemaining: number;
 }
 
@@ -19,17 +20,27 @@ export function Timer({
   isRunning,
   onToggle,
   onTimeUpdate,
+  onTimeUp,
   timeRemaining,
 }: TimerProps) {
+  const hasTriggeredTimeUp = useRef(false);
+
   useEffect(() => {
     if (!isRunning || timeRemaining <= 0) return;
 
     const interval = setInterval(() => {
-      onTimeUpdate(timeRemaining - 1);
+      const newTime = timeRemaining - 1;
+      onTimeUpdate(newTime);
+
+      // Trigger onTimeUp when timer reaches 0
+      if (newTime === 0 && onTimeUp && !hasTriggeredTimeUp.current) {
+        hasTriggeredTimeUp.current = true;
+        onTimeUp();
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRunning, timeRemaining, onTimeUpdate]);
+  }, [isRunning, timeRemaining, onTimeUpdate, onTimeUp]);
 
   const percentage = (timeRemaining / totalTime) * 100;
   const isLowTime = percentage < 20;

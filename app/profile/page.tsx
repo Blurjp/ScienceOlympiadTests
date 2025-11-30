@@ -1,9 +1,9 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { LogOut, User, Mail, Calendar } from "lucide-react"
-import { getUserById } from "@/lib/database"
+import { getUserById, getUserStats } from "@/lib/database"
+import { SignOutButton } from "@/components/auth/sign-out-button"
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -13,6 +13,7 @@ export default async function ProfilePage() {
   }
 
   const dbUser = getUserById(session.user.id)
+  const stats = getUserStats(session.user.id)
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -68,7 +69,7 @@ export default async function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Statistics Card - Placeholder for future */}
+        {/* Statistics Card */}
         <Card>
           <CardHeader>
             <CardTitle>Your Statistics</CardTitle>
@@ -77,15 +78,15 @@ export default async function ProfilePage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">0</div>
+                <div className="text-2xl font-bold text-blue-600">{stats.testsCompleted}</div>
                 <div className="text-sm text-gray-600">Tests Completed</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">0%</div>
+                <div className="text-2xl font-bold text-green-600">{stats.averageScore}%</div>
                 <div className="text-sm text-gray-600">Average Score</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">0</div>
+                <div className="text-2xl font-bold text-purple-600">{stats.testsCreated}</div>
                 <div className="text-sm text-gray-600">Tests Created</div>
               </div>
             </div>
@@ -98,12 +99,7 @@ export default async function ProfilePage() {
             <CardTitle>Account Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <form action="/api/auth/signout" method="POST">
-              <Button type="submit" variant="destructive" className="w-full">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </Button>
-            </form>
+            <SignOutButton />
           </CardContent>
         </Card>
       </div>

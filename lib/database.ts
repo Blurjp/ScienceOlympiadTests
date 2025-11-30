@@ -224,6 +224,12 @@ export function getTestsByTopic(topic: string): Test[] {
   return tests.map((t) => getTest(t.id)).filter((t) => t !== null) as Test[];
 }
 
+export function getTestsByYearAndTopic(year: number, topic: string): Test[] {
+  const db = getDatabase();
+  const tests = db.prepare('SELECT id FROM tests WHERE year = ? AND topic = ? ORDER BY title').all(year, topic) as any[];
+  return tests.map((t) => getTest(t.id)).filter((t) => t !== null) as Test[];
+}
+
 export function searchQuestions(filters: {
   topic?: string;
   category?: string;
@@ -386,4 +392,89 @@ export function updateUser(userId: string, updates: Partial<User>) {
 
   const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
   db.prepare(query).run(...values);
+}
+
+// Test results operations
+export interface TestResultData {
+  id: string;
+  testId: string;
+  userId?: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  timeSpent: number;
+}
+
+export function saveTestResult(result: TestResultData) {
+  const db = getDatabase();
+  const insertResult = db.prepare(`
+    INSERT INTO test_results
+    (id, test_id, user_id, score, total_points, percentage, correct_answers, total_questions, time_spent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  insertResult.run(
+    result.id,
+    result.testId,
+    result.userId || null,
+    result.score,
+    result.totalPoints,
+    result.percentage,
+    result.correctAnswers,
+    result.totalQuestions,
+    result.timeSpent
+  );
+
+  return result;
+}
+
+export function getUserStats(userId: string): {
+  testsCompleted: number;
+  averageScore: number;
+  testsCreated: number;
+} {
+  const db = getDatabase();
+
+  // Get tests completed count and average score
+  const resultsStats = db.prepare(`
+    SELECT COUNT(*) as count, AVG(percentage) as avg_score
+    FROM test_results
+    WHERE user_id = ?
+  `).get(userId) as any;
+
+  // Get tests created count
+  const testsCreated = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM tests
+    WHERE user_id = ?
+  `).get(userId) as any;
+
+  return {
+    testsCompleted: resultsStats?.count || 0,
+    averageScore: Math.round(resultsStats?.avg_score || 0),
+    testsCreated: testsCreated?.count || 0,
+  };
+}
+
+export function getUserTestResults(userId: string): TestResultData[] {
+  const db = getDatabase();
+  const results = db.prepare(`
+    SELECT * FROM test_results
+    WHERE user_id = ?
+    ORDER BY completed_at DESC
+  `).all(userId) as any[];
+
+  return results.map((r) => ({
+    id: r.id,
+    testId: r.test_id,
+    userId: r.user_id,
+    score: r.score,
+    totalPoints: r.total_points,
+    percentage: r.percentage,
+    correctAnswers: r.correct_answers,
+    totalQuestions: r.total_questions,
+    timeSpent: r.time_spent,
+  }));
 }

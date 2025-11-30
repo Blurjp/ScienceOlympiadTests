@@ -64,6 +64,13 @@ export function TestViewer({ test, onSubmit, onBack }: TestViewerProps) {
     }
   };
 
+  const handleTimeUp = () => {
+    setIsTimerRunning(false);
+    const timeSpent = test.totalTime;
+    // Auto-submit when time is up (no confirmation needed)
+    onSubmit(userAnswers, timeSpent);
+  };
+
   const answeredQuestions = userAnswers.filter(ua => ua.answer.trim() !== '').length;
 
   return (
@@ -86,6 +93,7 @@ export function TestViewer({ test, onSubmit, onBack }: TestViewerProps) {
             isRunning={isTimerRunning}
             onToggle={() => setIsTimerRunning(!isTimerRunning)}
             onTimeUpdate={setTimeRemaining}
+            onTimeUp={handleTimeUp}
           />
         </div>
 

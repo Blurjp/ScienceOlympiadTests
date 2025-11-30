@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Test, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
@@ -19,15 +20,19 @@ import {
   Trophy,
   Download,
   RefreshCw,
+  Beaker,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
+  const { data: session } = useSession();
   const [currentView, setCurrentView] = useState<ViewType>('browse');
   const [tests, setTests] = useState<Test[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [timeSpent, setTimeSpent] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,19 +41,21 @@ export default function HomePage() {
   useEffect(() => {
     loadTests();
     loadYears();
+    loadTopics();
   }, []);
 
-  // Reload when year changes
+  // Reload when year or topic changes
   useEffect(() => {
-    if (selectedYear !== null) {
-      loadTests(selectedYear);
-    }
-  }, [selectedYear]);
+    loadTests(selectedYear ?? undefined, selectedTopic ?? undefined);
+  }, [selectedYear, selectedTopic]);
 
-  const loadTests = async (year?: number) => {
+  const loadTests = async (year?: number, topic?: string) => {
     setIsLoading(true);
     try {
-      const url = year ? `/api/tests?year=${year}` : '/api/tests';
+      const params = new URLSearchParams();
+      if (year) params.append('year', year.toString());
+      if (topic) params.append('topic', topic);
+      const url = params.toString() ? `/api/tests?${params}` : '/api/tests';
       const response = await fetch(url);
       const data = await response.json();
       setTests(data.tests || []);
@@ -65,11 +72,19 @@ export default function HomePage() {
       const data = await response.json();
       const years = data.years || [];
       setAvailableYears(years);
-      if (years.length > 0 && selectedYear === null) {
-        setSelectedYear(years[0]);
-      }
     } catch (error) {
       console.error('Error loading years:', error);
+    }
+  };
+
+  const loadTopics = async () => {
+    try {
+      const response = await fetch('/api/tests?action=topics');
+      const data = await response.json();
+      const topics = data.topics || [];
+      setAvailableTopics(topics);
+    } catch (error) {
+      console.error('Error loading topics:', error);
     }
   };
 
@@ -115,6 +130,7 @@ export default function HomePage() {
         test={selectedTest}
         userAnswers={userAnswers}
         timeSpent={timeSpent}
+        userId={session?.user?.id}
         onRetakeTest={handleRetakeTest}
         onBackToHome={handleBackToHome}
       />
@@ -208,49 +224,83 @@ export default function HomePage() {
           </Card>
         </div>
 
-        {/* Year Selector */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Filters Section */}
+        <div className="mb-6 space-y-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">Browse Tests</h2>
-            {selectedYear && (
+            {(selectedYear || selectedTopic) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setSelectedYear(null);
-                  loadTests();
+                  setSelectedTopic(null);
                 }}
               >
-                View All Years
+                Clear Filters
               </Button>
             )}
           </div>
-          {availableYears.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              <Button
-                variant={selectedYear === null ? 'default' : 'outline'}
-                onClick={() => {
-                  setSelectedYear(null);
-                  loadTests();
-                }}
-                className="gap-2"
-              >
+
+          {/* Year Filter */}
+          {availableYears.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                All Years
-              </Button>
-              {availableYears.map((year) => (
+                Filter by Year
+              </h3>
+              <div className="flex gap-2 overflow-x-auto pb-2">
                 <Button
-                  key={year}
-                  variant={selectedYear === year ? 'default' : 'outline'}
-                  onClick={() => setSelectedYear(year)}
-                  className="gap-2"
+                  variant={selectedYear === null ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedYear(null)}
                 >
-                  <Calendar className="h-4 w-4" />
-                  {year}
+                  All Years
                 </Button>
-              ))}
+                {availableYears.map((year) => (
+                  <Button
+                    key={year}
+                    variant={selectedYear === year ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedYear(year)}
+                  >
+                    {year}
+                  </Button>
+                ))}
+              </div>
             </div>
-          ) : (
+          )}
+
+          {/* Topic Filter */}
+          {availableTopics.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Beaker className="h-4 w-4" />
+                Filter by Topic
+              </h3>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                <Button
+                  variant={selectedTopic === null ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedTopic(null)}
+                >
+                  All Topics
+                </Button>
+                {availableTopics.map((topic) => (
+                  <Button
+                    key={topic}
+                    variant={selectedTopic === topic ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedTopic(topic)}
+                  >
+                    {topic}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {availableYears.length === 0 && availableTopics.length === 0 && (
             <p className="text-gray-600">No tests in database yet. Import some tests to get started!</p>
           )}
         </div>
@@ -268,7 +318,11 @@ export default function HomePage() {
             <CardContent className="py-12 text-center">
               <FileQuestion className="mx-auto h-12 w-12 text-gray-400" />
               <p className="mt-4 text-lg font-medium text-gray-900">
-                No tests available{selectedYear ? ` for ${selectedYear}` : ''}
+                No tests available
+                {selectedYear || selectedTopic ? ' for ' : ''}
+                {selectedYear ? `${selectedYear}` : ''}
+                {selectedYear && selectedTopic ? ' / ' : ''}
+                {selectedTopic ? `${selectedTopic}` : ''}
               </p>
               <p className="mt-2 text-gray-600">
                 Get started by importing tests or uploading PDFs
