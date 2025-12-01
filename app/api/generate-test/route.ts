@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchQuestions, saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
-import { Test, Question } from '@/lib/types';
+import { Test, Question, Region } from '@/lib/types';
 
 interface GenerateTestRequest {
   topic?: string;
@@ -10,6 +10,8 @@ interface GenerateTestRequest {
   timePerQuestion?: number;
   includeTypes?: string[];
   categories?: string[];
+  year?: number;
+  region?: string;
 }
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -32,18 +34,22 @@ export async function POST(request: NextRequest) {
       timePerQuestion = 120, // 2 minutes per question
       includeTypes,
       categories,
+      year,
+      region,
     } = body;
 
     // Search for questions matching criteria
     const filters: any = {};
     if (topic) filters.topic = topic;
     if (difficulty) filters.difficulty = difficulty;
+    if (year) filters.year = year;
+    if (region) filters.region = region;
 
     let questions = await searchQuestions(filters);
 
     if (questions.length === 0) {
       return NextResponse.json(
-        { error: 'No questions found matching the criteria' },
+        { error: 'No questions found matching the criteria. Try adjusting your filters.' },
         { status: 404 }
       );
     }
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     if (questions.length === 0) {
       return NextResponse.json(
-        { error: 'No questions found after applying filters' },
+        { error: 'No questions found after applying filters. Try adjusting your filters.' },
         { status: 404 }
       );
     }
@@ -79,16 +85,36 @@ export async function POST(request: NextRequest) {
     const totalPoints = newQuestions.reduce((sum, q) => sum + q.points, 0);
     const totalTime = newQuestions.length * timePerQuestion;
 
+    // Build descriptive title and description
+    const titleParts: string[] = ['AI Generated'];
+    if (topic) titleParts.push(topic);
+    if (year) titleParts.push(year.toString());
+    if (region) titleParts.push(region);
+    titleParts.push('Practice Test');
+
+    const descParts: string[] = [];
+    descParts.push(`This practice test contains ${newQuestions.length} questions`);
+    if (year || region || topic) {
+      descParts.push('generated based on the style of');
+      const styleParts: string[] = [];
+      if (year) styleParts.push(year.toString());
+      if (region) styleParts.push(region);
+      if (topic) styleParts.push(topic);
+      descParts.push(styleParts.join(' '));
+      descParts.push('Science Olympiad tests.');
+    }
+
     // Create test
     const test: Test = {
       id: generateId(),
-      year: new Date().getFullYear(),
-      title: `Generated Practice Test - ${topic || 'Mixed Topics'}`,
-      description: `Auto-generated test with ${newQuestions.length} questions${topic ? ` on ${topic}` : ''}${difficulty ? ` (${difficulty})` : ''}`,
+      year: year || new Date().getFullYear(),
+      title: titleParts.join(' '),
+      description: descParts.join(' '),
       difficulty: (difficulty as 'Easy' | 'Medium' | 'Hard') || 'Medium',
       totalTime,
       totalPoints,
       topic: topic || 'Mixed',
+      region: region as Region | undefined,
       questions: newQuestions,
     };
 
@@ -109,6 +135,11 @@ export async function POST(request: NextRequest) {
       questionCount: newQuestions.length,
       totalPoints,
       totalTime,
+      basedOn: {
+        year: year || null,
+        region: region || null,
+        topic: topic || null,
+      },
     });
   } catch (error) {
     console.error('Server error:', error);

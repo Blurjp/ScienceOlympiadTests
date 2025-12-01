@@ -53,6 +53,7 @@ async function initializeDatabase() {
       total_time INTEGER NOT NULL,
       total_points INTEGER NOT NULL,
       topic TEXT NOT NULL,
+      region TEXT CHECK(region IN ('Invitational', 'Regionals', 'States', 'Nationals')),
       source_url TEXT,
       pdf_path TEXT,
       is_public BOOLEAN DEFAULT 1,
@@ -61,6 +62,13 @@ async function initializeDatabase() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
+
+  // Add region column if it doesn't exist (for existing databases)
+  try {
+    await database.execute(`ALTER TABLE tests ADD COLUMN region TEXT CHECK(region IN ('Invitational', 'Regionals', 'States', 'Nationals'))`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create questions table
   await database.execute(`
@@ -132,8 +140,8 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string)
 
   await database.execute({
     sql: `INSERT OR REPLACE INTO tests
-      (id, year, title, description, difficulty, total_time, total_points, topic, source_url, pdf_path)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, year, title, description, difficulty, total_time, total_points, topic, region, source_url, pdf_path)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       test.id,
       test.year,
@@ -143,6 +151,7 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string)
       test.totalTime,
       test.totalPoints,
       test.topic,
+      test.region || null,
       sourceUrl || null,
       pdfPath || null
     ]
@@ -230,6 +239,7 @@ export async function getTest(testId: string): Promise<Test | null> {
     totalTime: test.total_time,
     totalPoints: test.total_points,
     topic: test.topic,
+    region: test.region || undefined,
     questions: questionWithOptions,
   };
 }
@@ -276,11 +286,13 @@ export async function searchQuestions(filters: {
   category?: string;
   type?: string;
   difficulty?: string;
+  year?: number;
+  region?: string;
 }): Promise<Question[]> {
   const database = await getDatabase();
 
   let query = `
-    SELECT DISTINCT q.* FROM questions q
+    SELECT DISTINCT q.*, t.year as test_year, t.region as test_region FROM questions q
     JOIN tests t ON q.test_id = t.id
     WHERE 1=1
   `;
@@ -304,6 +316,16 @@ export async function searchQuestions(filters: {
   if (filters.difficulty) {
     query += ' AND t.difficulty = ?';
     args.push(filters.difficulty);
+  }
+
+  if (filters.year) {
+    query += ' AND t.year = ?';
+    args.push(filters.year);
+  }
+
+  if (filters.region) {
+    query += ' AND t.region = ?';
+    args.push(filters.region);
   }
 
   const result = await database.execute({ sql: query, args });
@@ -338,6 +360,12 @@ export async function getAvailableTopics(): Promise<string[]> {
   const database = await getDatabase();
   const result = await database.execute('SELECT DISTINCT topic FROM tests ORDER BY topic');
   return result.rows.map((t: any) => t.topic);
+}
+
+export async function getAvailableRegions(): Promise<string[]> {
+  const database = await getDatabase();
+  const result = await database.execute('SELECT DISTINCT region FROM tests WHERE region IS NOT NULL ORDER BY region');
+  return result.rows.map((r: any) => r.region);
 }
 
 export async function deleteTest(testId: string) {

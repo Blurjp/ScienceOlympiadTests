@@ -8,6 +8,8 @@ export interface Question {
   category: string;
 }
 
+export type Region = 'Invitational' | 'Regionals' | 'States' | 'Nationals';
+
 export interface Test {
   id: string;
   year: number;
@@ -18,6 +20,7 @@ export interface Test {
   totalTime: number; // in seconds
   totalPoints: number;
   topic: string;
+  region?: Region;
 }
 
 export interface UserAnswer {

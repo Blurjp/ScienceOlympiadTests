@@ -5,19 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Sparkles, Loader2, Play } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+const REGIONS = ['Invitational', 'Regionals', 'States', 'Nationals'];
 
 export default function GenerateTestPage() {
   const router = useRouter();
   const [topics, setTopics] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [years, setYears] = useState<number[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [config, setConfig] = useState({
     topic: '',
+    year: '' as string,
+    region: '',
     difficulty: '' as '' | 'Easy' | 'Medium' | 'Hard',
     questionCount: 20,
     timePerQuestion: 120,
@@ -25,11 +28,16 @@ export default function GenerateTestPage() {
   });
 
   useEffect(() => {
-    // Fetch available topics
-    fetch('/api/tests?action=topics')
-      .then((res) => res.json())
-      .then((data) => setTopics(data.topics || []))
-      .catch((err) => console.error('Failed to fetch topics:', err));
+    // Fetch available topics and years
+    Promise.all([
+      fetch('/api/tests?action=topics').then((res) => res.json()),
+      fetch('/api/tests?action=years').then((res) => res.json()),
+    ])
+      .then(([topicsData, yearsData]) => {
+        setTopics(topicsData.topics || []);
+        setYears(yearsData.years || []);
+      })
+      .catch((err) => console.error('Failed to fetch data:', err));
   }, []);
 
   const toggleType = (type: string) => {
@@ -55,6 +63,8 @@ export default function GenerateTestPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: config.topic || undefined,
+          year: config.year ? parseInt(config.year) : undefined,
+          region: config.region || undefined,
           difficulty: config.difficulty || undefined,
           questionCount: config.questionCount,
           timePerQuestion: config.timePerQuestion,
@@ -97,31 +107,45 @@ export default function GenerateTestPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Sparkles className="h-8 w-8 text-purple-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Generate Practice Test</h1>
+            <h1 className="text-3xl font-bold text-gray-900">AI Test Generator</h1>
           </div>
           <p className="mt-2 text-gray-600">
-            Create a custom practice test from stored questions in the database
+            Generate practice tests based on past Science Olympiad competitions
           </p>
+        </div>
+
+        {/* Info Banner */}
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex gap-3">
+            <Info className="h-5 w-5 flex-shrink-0 text-blue-600" />
+            <div className="text-sm text-blue-800">
+              <p className="font-medium">How it works</p>
+              <p className="mt-1">
+                Tests are generated using questions from past Science Olympiad competitions stored in our database.
+                Select a year, region, and topic to get questions that match the style and difficulty of that specific competition.
+              </p>
+            </div>
+          </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Test Configuration</CardTitle>
             <CardDescription>
-              Configure your practice test parameters
+              Select the competition parameters to generate a practice test
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Topic Selection */}
+            {/* Topic/Event Selection */}
             <div>
-              <Label htmlFor="topic">Topic (optional)</Label>
+              <Label htmlFor="topic">Event/Topic</Label>
               <select
                 id="topic"
                 value={config.topic}
                 onChange={(e) => setConfig({ ...config, topic: e.target.value })}
                 className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               >
-                <option value="">All Topics</option>
+                <option value="">All Events</option>
                 {topics.map((topic) => (
                   <option key={topic} value={topic}>
                     {topic}
@@ -129,13 +153,55 @@ export default function GenerateTestPage() {
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-500">
-                Leave blank to include questions from all topics
+                Select a specific Science Olympiad event or leave blank for mixed questions
+              </p>
+            </div>
+
+            {/* Year Selection */}
+            <div>
+              <Label htmlFor="year">Competition Year</Label>
+              <select
+                id="year"
+                value={config.year}
+                onChange={(e) => setConfig({ ...config, year: e.target.value })}
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">All Years</option>
+                {years.map((year) => (
+                  <option key={year} value={year.toString()}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Questions will be based on tests from this competition year
+              </p>
+            </div>
+
+            {/* Region Selection */}
+            <div>
+              <Label htmlFor="region">Competition Level</Label>
+              <select
+                id="region"
+                value={config.region}
+                onChange={(e) => setConfig({ ...config, region: e.target.value })}
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">All Levels</option>
+                {REGIONS.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Invitational → Regionals → States → Nationals (increasing difficulty)
               </p>
             </div>
 
             {/* Difficulty Selection */}
             <div>
-              <Label htmlFor="difficulty">Difficulty (optional)</Label>
+              <Label htmlFor="difficulty">Difficulty Filter (optional)</Label>
               <select
                 id="difficulty"
                 value={config.difficulty}
@@ -168,7 +234,7 @@ export default function GenerateTestPage() {
                 }
               />
               <p className="mt-1 text-xs text-gray-500">
-                The actual number may be lower if not enough questions are available
+                The actual number may be lower if not enough matching questions are available
               </p>
             </div>
 
@@ -219,7 +285,13 @@ export default function GenerateTestPage() {
               <h3 className="mb-2 font-semibold text-purple-900">Test Summary</h3>
               <div className="space-y-1 text-sm text-purple-700">
                 <p>
-                  <strong>Topic:</strong> {config.topic || 'All Topics'}
+                  <strong>Event:</strong> {config.topic || 'All Events'}
+                </p>
+                <p>
+                  <strong>Year:</strong> {config.year || 'All Years'}
+                </p>
+                <p>
+                  <strong>Level:</strong> {config.region || 'All Levels'}
                 </p>
                 <p>
                   <strong>Difficulty:</strong> {config.difficulty || 'Mixed'}
@@ -242,6 +314,14 @@ export default function GenerateTestPage() {
                   </p>
                 )}
               </div>
+              {(config.topic || config.year || config.region) && (
+                <p className="mt-3 text-xs text-purple-600">
+                  Questions will be based on {config.year && `${config.year} `}
+                  {config.region && `${config.region} `}
+                  {config.topic && `${config.topic} `}
+                  Science Olympiad tests
+                </p>
+              )}
             </div>
 
             {/* Generate Button */}
@@ -259,30 +339,27 @@ export default function GenerateTestPage() {
               ) : (
                 <>
                   <Sparkles className="h-5 w-5" />
-                  Generate Test
+                  Generate Practice Test
                 </>
               )}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Info Card */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-lg">How It Works</CardTitle>
+        {/* Disclaimer Card */}
+        <Card className="mt-6 border-amber-200 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-amber-900">Important Note</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-gray-600">
+          <CardContent className="text-sm text-amber-800">
             <p>
-              • The system randomly selects questions from your database based on the
-              criteria you specify
+              Generated tests are created by randomly selecting and shuffling questions from past
+              Science Olympiad competitions stored in our database. The questions reflect the style
+              and content of the selected year and competition level.
             </p>
-            <p>• Questions are shuffled to create a unique test each time</p>
-            <p>
-              • Generated tests are saved to the database and can be taken multiple times
-            </p>
-            <p>
-              • If not enough questions match your criteria, the test will include fewer
-              questions
+            <p className="mt-2">
+              For the best practice experience, we recommend selecting a specific year, level, and
+              event that matches your upcoming competition.
             </p>
           </CardContent>
         </Card>

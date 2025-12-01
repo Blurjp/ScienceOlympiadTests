@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllTests, getTestsByYear, getTestsByTopic, getTestsByYearAndTopic, getAvailableYears, getAvailableTopics } from '@/lib/database';
+import { getAllTests, getTestsByYear, getTestsByTopic, getTestsByYearAndTopic, getAvailableYears, getAvailableTopics, getAvailableRegions } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +18,12 @@ export async function GET(request: NextRequest) {
     if (action === 'topics') {
       const topics = await getAvailableTopics();
       return NextResponse.json({ topics });
+    }
+
+    // Get available regions
+    if (action === 'regions') {
+      const regions = await getAvailableRegions();
+      return NextResponse.json({ regions });
     }
 
     // Get tests with filters
