@@ -7,10 +7,16 @@ async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{ text: string; 
   // Dynamic import for serverless compatibility
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
-  // Load the PDF document
+  // Disable worker for serverless environment
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+
+  // Load the PDF document with serverless-compatible options
   const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
     useSystemFonts: true,
+    disableFontFace: true,
+    isEvalSupported: false,
+    useWorkerFetch: false,
   });
 
   const pdf = await loadingTask.promise;
@@ -65,10 +71,13 @@ export async function POST(request: NextRequest) {
     let data;
     try {
       data = await extractTextFromPdf(buffer);
-    } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
+    } catch (pdfError: any) {
+      console.error('PDF parsing error:', pdfError?.message || pdfError);
       return NextResponse.json(
-        { error: 'Failed to parse PDF. The file may be corrupted or password-protected.' },
+        {
+          error: 'Failed to parse PDF. The file may be corrupted or password-protected.',
+          details: pdfError?.message || 'Unknown parsing error'
+        },
         { status: 500 }
       );
     }
