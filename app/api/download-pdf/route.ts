@@ -1,11 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pdf from 'pdf-parse';
 import { parseQuestionsFromText, cleanPdfText } from '@/lib/question-parser';
 import { saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test } from '@/lib/types';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
+
+async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{ text: string; numPages: number }> {
+  // Dynamic import for serverless compatibility
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+  // Load the PDF document
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+    useSystemFonts: true,
+  });
+
+  const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
+  let fullText = '';
+
+  // Extract text from each page
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(' ');
+    fullText += pageText + '\n\n';
+  }
+
+  return { text: fullText, numPages };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     let data;
     try {
-      data = await pdf(Buffer.from(buffer));
+      data = await extractTextFromPdf(buffer);
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
       return NextResponse.json(
@@ -125,7 +151,7 @@ export async function POST(request: NextRequest) {
       success: true,
       test,
       rawText: cleanedText,
-      pages: data.numpages,
+      pages: data.numPages,
       questionsFound: questions.length,
     });
   } catch (error) {
