@@ -1,40 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { extractText } from 'unpdf';
 import { parseQuestionsFromText, cleanPdfText } from '@/lib/question-parser';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{ text: string; numPages: number }> {
-  // Dynamic import for serverless compatibility
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-
-  // Disable worker for serverless environment
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-
-  // Load the PDF document with serverless-compatible options
-  const loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(buffer),
-    useSystemFonts: true,
-    disableFontFace: true,
-    isEvalSupported: false,
-    useWorkerFetch: false,
-  });
-
-  const pdf = await loadingTask.promise;
-  const numPages = pdf.numPages;
-  let fullText = '';
-
-  // Extract text from each page
-  for (let i = 1; i <= numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ');
-    fullText += pageText + '\n\n';
-  }
-
-  return { text: fullText, numPages };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,10 +35,13 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const buffer = await file.arrayBuffer();
 
-    // Parse PDF
-    let data;
+    // Parse PDF using unpdf
+    let text: string;
+    let numPages: number;
     try {
-      data = await extractTextFromPdf(buffer);
+      const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+      text = result.text as string;
+      numPages = result.totalPages;
     } catch (pdfError: any) {
       console.error('PDF parsing error:', pdfError?.message || pdfError);
       return NextResponse.json(
@@ -83,14 +54,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean and parse text
-    const cleanedText = cleanPdfText(data.text);
+    const cleanedText = cleanPdfText(text);
     const questions = parseQuestionsFromText(cleanedText);
 
     return NextResponse.json({
       success: true,
       questions,
       rawText: cleanedText,
-      pages: data.numPages,
+      pages: numPages,
       metadata: {
         fileName: file.name,
         fileSize: file.size,

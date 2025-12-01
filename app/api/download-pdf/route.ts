@@ -1,43 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { extractText } from 'unpdf';
 import { parseQuestionsFromText, cleanPdfText } from '@/lib/question-parser';
 import { saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test } from '@/lib/types';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
-
-async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{ text: string; numPages: number }> {
-  // Dynamic import for serverless compatibility
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-
-  // Disable worker for serverless environment
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-
-  // Load the PDF document with serverless-compatible options
-  const loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(buffer),
-    useSystemFonts: true,
-    disableFontFace: true,
-    isEvalSupported: false,
-    useWorkerFetch: false,
-  });
-
-  const pdf = await loadingTask.promise;
-  const numPages = pdf.numPages;
-  let fullText = '';
-
-  // Extract text from each page
-  for (let i = 1; i <= numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ');
-    fullText += pageText + '\n\n';
-  }
-
-  return { text: fullText, numPages };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -105,9 +73,12 @@ export async function POST(request: NextRequest) {
     // Download and parse PDF
     const buffer = await response.arrayBuffer();
 
-    let data;
+    let text: string;
+    let numPages: number;
     try {
-      data = await extractTextFromPdf(buffer);
+      const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+      text = result.text as string;
+      numPages = result.totalPages;
     } catch (pdfError: any) {
       console.error('PDF parsing error:', pdfError?.message || pdfError);
       return NextResponse.json(
@@ -120,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean and parse text
-    const cleanedText = cleanPdfText(data.text);
+    const cleanedText = cleanPdfText(text);
     const questions = parseQuestionsFromText(cleanedText);
 
     if (questions.length === 0) {
@@ -160,7 +131,7 @@ export async function POST(request: NextRequest) {
       success: true,
       test,
       rawText: cleanedText,
-      pages: data.numPages,
+      pages: numPages,
       questionsFound: questions.length,
     });
   } catch (error) {
