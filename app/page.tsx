@@ -237,19 +237,6 @@ export default function HomePage() {
                 Import from URL
               </Button>
             </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="gap-2 border-white text-white hover:bg-white hover:text-blue-600"
-              onClick={() => {
-                loadTests(selectedYear || undefined);
-                loadYears();
-                loadTopics();
-              }}
-            >
-              <RefreshCw className="h-5 w-5" />
-              Refresh
-            </Button>
           </div>
         </div>
       </div>
