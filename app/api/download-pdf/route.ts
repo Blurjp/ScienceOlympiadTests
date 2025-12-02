@@ -3,7 +3,7 @@ import { extractText } from 'unpdf';
 import { parseQuestionsFromText, cleanPdfText } from '@/lib/question-parser';
 import { saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
-import { Test } from '@/lib/types';
+import { Test, Region } from '@/lib/types';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
       totalTime: metadata?.totalTime || 3600,
       totalPoints,
       topic: metadata?.topic || 'General',
+      region: metadata?.region as Region | undefined,
       questions,
     };
 
