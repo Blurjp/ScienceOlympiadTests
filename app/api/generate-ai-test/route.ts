@@ -208,17 +208,39 @@ Generate exactly ${questionCount} questions. Return ONLY the JSON array, no othe
   } catch (error: any) {
     console.error('AI generation error:', error);
 
-    if (error?.code === 'insufficient_quota') {
+    // Handle specific OpenAI API errors
+    if (error?.status === 401 || error?.code === 'invalid_api_key') {
+      return NextResponse.json(
+        { error: 'Invalid OpenAI API key. Please check your API key configuration.' },
+        { status: 401 }
+      );
+    }
+
+    if (error?.status === 429) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait a moment and try again.' },
+        { status: 429 }
+      );
+    }
+
+    if (error?.code === 'insufficient_quota' || error?.status === 402) {
       return NextResponse.json(
         { error: 'OpenAI API quota exceeded. Please check your billing.' },
         { status: 402 }
       );
     }
 
+    if (error?.code === 'model_not_found') {
+      return NextResponse.json(
+        { error: 'The AI model is not available. Please try again later.' },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to generate test',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: error?.message || (error instanceof Error ? error.message : 'Unknown error'),
       },
       { status: 500 }
     );

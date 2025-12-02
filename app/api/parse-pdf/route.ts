@@ -184,6 +184,13 @@ Extract ALL questions you can find. Return ONLY the JSON array.`;
     console.error('Server error:', error);
 
     // Handle OpenAI specific errors
+    if (error?.status === 401 || error?.code === 'invalid_api_key') {
+      return NextResponse.json(
+        { error: 'Invalid OpenAI API key. Please check your API key configuration.' },
+        { status: 401 }
+      );
+    }
+
     if (error?.status === 429) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a moment.' },
@@ -191,10 +198,17 @@ Extract ALL questions you can find. Return ONLY the JSON array.`;
       );
     }
 
+    if (error?.code === 'insufficient_quota' || error?.status === 402) {
+      return NextResponse.json(
+        { error: 'OpenAI API quota exceeded. Please check your billing.' },
+        { status: 402 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: 'An unexpected error occurred while processing the PDF.',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error?.message || (error instanceof Error ? error.message : 'Unknown error')
       },
       { status: 500 }
     );
