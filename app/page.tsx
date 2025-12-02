@@ -154,17 +154,22 @@ export default function HomePage() {
   };
 
   const handleGenerateTest = async () => {
+    if (!genConfig.topic) {
+      alert('Please select an Event/Topic to generate a test.');
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/generate-test', {
+      const response = await fetch('/api/generate-ai-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: genConfig.topic || undefined,
-          year: genConfig.year ? parseInt(genConfig.year) : undefined,
+          topic: genConfig.topic,
+          year: genConfig.year ? parseInt(genConfig.year) : new Date().getFullYear(),
           region: genConfig.region || undefined,
           questionCount: genConfig.questionCount,
-          timePerQuestion: 120,
+          difficulty: 'Medium',
         }),
       });
 
@@ -177,7 +182,7 @@ export default function HomePage() {
         await loadTopics();
         handleStartTest(result.test);
       } else {
-        alert(result.error || 'Failed to generate test. Make sure there are questions in the database matching your criteria.');
+        alert(result.error || 'Failed to generate test. Please try again.');
       }
     } catch (error) {
       console.error('Failed to generate test:', error);
@@ -250,16 +255,16 @@ export default function HomePage() {
               <CardTitle>AI Test Generator</CardTitle>
             </div>
             <CardDescription>
-              Generate practice tests based on past Science Olympiad competitions
+              Generate original practice tests using AI for any Science Olympiad event
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <div className="flex gap-2">
-                <Info className="h-4 w-4 flex-shrink-0 text-blue-600 mt-0.5" />
-                <p className="text-sm text-blue-800">
-                  Tests are generated using questions from past competitions in our database.
-                  Select criteria to get questions matching that specific competition style.
+                <Info className="h-4 w-4 flex-shrink-0 text-amber-600 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  Questions are AI-generated based on Science Olympiad content for the selected year and level.
+                  While generally accurate, please verify answers for competitive practice.
                 </p>
               </div>
             </div>
@@ -267,15 +272,15 @@ export default function HomePage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {/* Event/Topic */}
               <div>
-                <Label htmlFor="gen-topic" className="text-sm">Event/Topic</Label>
+                <Label htmlFor="gen-topic" className="text-sm">Event/Topic <span className="text-red-500">*</span></Label>
                 <select
                   id="gen-topic"
                   value={genConfig.topic}
                   onChange={(e) => setGenConfig({ ...genConfig, topic: e.target.value })}
-                  className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className={`mt-1 flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${!genConfig.topic ? 'border-gray-300' : 'border-purple-400'}`}
                 >
-                  <option value="">All Events</option>
-                  {(availableTopics.length > 0 ? availableTopics : DEFAULT_TOPICS).map((topic) => (
+                  <option value="">Select Event...</option>
+                  {DEFAULT_TOPICS.map((topic) => (
                     <option key={topic} value={topic}>{topic}</option>
                   ))}
                 </select>
