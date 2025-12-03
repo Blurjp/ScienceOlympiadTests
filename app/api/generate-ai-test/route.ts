@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
-import { Test, Question, Region } from '@/lib/types';
+import { Test, Question } from '@/lib/types';
 
 // Lazy-load OpenAI client to avoid build errors
 function getOpenAI() {
@@ -13,8 +13,6 @@ function getOpenAI() {
 
 interface GenerateRequest {
   topic: string;
-  year?: number;
-  region?: string;
   questionCount?: number;
   difficulty?: 'Easy' | 'Medium' | 'Hard';
 }
@@ -40,16 +38,6 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Write It Do It': 'technical writing and following written instructions',
 };
 
-function getRegionDifficulty(region?: string): string {
-  switch (region) {
-    case 'Invitational': return 'introductory to moderate';
-    case 'Regionals': return 'moderate';
-    case 'States': return 'moderate to challenging';
-    case 'Nationals': return 'challenging and advanced';
-    default: return 'moderate';
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -62,8 +50,6 @@ export async function POST(request: NextRequest) {
     const body: GenerateRequest = await request.json();
     const {
       topic,
-      year = new Date().getFullYear(),
-      region,
       questionCount = 20,
       difficulty = 'Medium',
     } = body;
@@ -76,15 +62,13 @@ export async function POST(request: NextRequest) {
     }
 
     const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
-    const regionDifficulty = getRegionDifficulty(region);
 
     const prompt = `You are an expert Science Olympiad test writer. Generate ${questionCount} questions for a ${topic} test.
 
 CONTEXT:
 - Science Olympiad Division C (high school level)
-- Year: ${year}
-- Competition Level: ${region || 'General'} (${regionDifficulty} difficulty)
 - Topic Focus: ${topicDescription}
+- Difficulty: ${difficulty}
 
 REQUIREMENTS:
 1. Mix of question types: 70% multiple choice, 30% short answer
@@ -92,7 +76,6 @@ REQUIREMENTS:
 3. Multiple choice questions must have exactly 4 options (A, B, C, D)
 4. Include a variety of difficulty levels within the test
 5. Questions should match the style of actual Science Olympiad competitions
-6. For ${year}, focus on content that would be relevant to that year's rules
 
 OUTPUT FORMAT - Return ONLY valid JSON array with this exact structure:
 [
@@ -182,14 +165,13 @@ Generate exactly ${questionCount} questions. Return ONLY the JSON array, no othe
     // Create test
     const test: Test = {
       id: generateId(),
-      year,
-      title: `AI Generated: ${topic} ${year}${region ? ` ${region}` : ''} Practice Test`,
-      description: `AI-generated practice test with ${questions.length} questions based on ${year}${region ? ` ${region}` : ''} ${topic} Science Olympiad content. Questions are AI-generated and should be verified for accuracy.`,
+      year: new Date().getFullYear(),
+      title: `AI Generated: ${topic} Practice Test`,
+      description: `AI-generated practice test with ${questions.length} questions for ${topic}. Questions are AI-generated and should be verified for accuracy.`,
       difficulty,
       totalTime,
       totalPoints,
       topic,
-      region: region as Region | undefined,
       questions,
     };
 

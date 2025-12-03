@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Test, UserAnswer, ViewType, Region } from '@/lib/types';
+import { Test, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
 import { Button } from '@/components/ui/button';
@@ -51,7 +51,6 @@ const DEFAULT_TOPICS = [
   'Wind Power',
   'Write It Do It',
 ];
-const REGIONS: Region[] = ['Invitational', 'Regionals', 'States', 'Nationals'];
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -70,8 +69,6 @@ export default function HomePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [genConfig, setGenConfig] = useState({
     topic: '',
-    year: '',
-    region: '',
     questionCount: 20,
   });
 
@@ -166,8 +163,6 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: genConfig.topic,
-          year: genConfig.year ? parseInt(genConfig.year) : new Date().getFullYear(),
-          region: genConfig.region || undefined,
           questionCount: genConfig.questionCount,
           difficulty: 'Medium',
         }),
@@ -263,13 +258,13 @@ export default function HomePage() {
               <div className="flex gap-2">
                 <Info className="h-4 w-4 flex-shrink-0 text-amber-600 mt-0.5" />
                 <p className="text-sm text-amber-800">
-                  Questions are AI-generated based on Science Olympiad content for the selected year and level.
+                  Questions are AI-generated based on Science Olympiad content.
                   While generally accurate, please verify answers for competitive practice.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-3">
               {/* Event/Topic */}
               <div>
                 <Label htmlFor="gen-topic" className="text-sm">Event/Topic <span className="text-red-500">*</span></Label>
@@ -282,38 +277,6 @@ export default function HomePage() {
                   <option value="">Select Event...</option>
                   {DEFAULT_TOPICS.map((topic) => (
                     <option key={topic} value={topic}>{topic}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Year */}
-              <div>
-                <Label htmlFor="gen-year" className="text-sm">Year</Label>
-                <select
-                  id="gen-year"
-                  value={genConfig.year}
-                  onChange={(e) => setGenConfig({ ...genConfig, year: e.target.value })}
-                  className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">All Years</option>
-                  {(availableYears.length > 0 ? availableYears : DEFAULT_YEARS).map((year) => (
-                    <option key={year} value={year.toString()}>{year}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Region */}
-              <div>
-                <Label htmlFor="gen-region" className="text-sm">Competition Level</Label>
-                <select
-                  id="gen-region"
-                  value={genConfig.region}
-                  onChange={(e) => setGenConfig({ ...genConfig, region: e.target.value })}
-                  className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">All Levels</option>
-                  {REGIONS.map((region) => (
-                    <option key={region} value={region}>{region}</option>
                   ))}
                 </select>
               </div>
@@ -354,12 +317,9 @@ export default function HomePage() {
               </div>
             </div>
 
-            {(genConfig.topic || genConfig.year || genConfig.region) && (
+            {genConfig.topic && (
               <p className="mt-3 text-sm text-purple-700">
-                Will generate test based on {genConfig.year && `${genConfig.year} `}
-                {genConfig.region && `${genConfig.region} `}
-                {genConfig.topic && `${genConfig.topic} `}
-                Science Olympiad questions
+                Will generate {genConfig.questionCount} questions for {genConfig.topic}
               </p>
             )}
           </CardContent>
