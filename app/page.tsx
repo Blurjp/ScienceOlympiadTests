@@ -147,9 +147,13 @@ export default function HomePage() {
   };
 
   const handleBackToHome = () => {
+    // Reset state first
     setSelectedTest(null);
     setUserAnswers([]);
+    setTimeSpent(0);
     setCurrentView('browse');
+    // Scroll to top
+    window.scrollTo(0, 0);
     // Reload tests to ensure fresh data
     loadTests(selectedYear ?? undefined, selectedTopic ?? undefined);
   };
