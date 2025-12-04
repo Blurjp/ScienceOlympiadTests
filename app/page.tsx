@@ -17,7 +17,6 @@ import {
   Clock,
   FileQuestion,
   Upload,
-  Calendar,
   Target,
   Sparkles,
   Trophy,
@@ -33,7 +32,6 @@ import Link from 'next/link';
 import { HorizontalAd } from '@/components/adsense';
 
 // Static options for when database is empty
-const DEFAULT_YEARS = [2024, 2023, 2022, 2021, 2020, 2019];
 const DEFAULT_TOPICS = [
   'Anatomy and Physiology',
   'Astronomy',
@@ -61,10 +59,8 @@ export default function HomePage() {
   const router = useRouter();
   const [currentView, setCurrentView] = useState<ViewType>('browse');
   const [tests, setTests] = useState<Test[]>([]);
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [timeSpent, setTimeSpent] = useState(0);
@@ -80,20 +76,18 @@ export default function HomePage() {
   // Load tests from database on mount
   useEffect(() => {
     loadTests();
-    loadYears();
     loadTopics();
   }, []);
 
-  // Reload when year or topic changes
+  // Reload when topic changes
   useEffect(() => {
-    loadTests(selectedYear ?? undefined, selectedTopic ?? undefined);
-  }, [selectedYear, selectedTopic]);
+    loadTests(selectedTopic ?? undefined);
+  }, [selectedTopic]);
 
-  const loadTests = async (year?: number, topic?: string) => {
+  const loadTests = async (topic?: string) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (year) params.append('year', year.toString());
       if (topic) params.append('topic', topic);
       const url = params.toString() ? `/api/tests?${params}` : '/api/tests';
       const response = await fetch(url);
@@ -103,18 +97,6 @@ export default function HomePage() {
       console.error('Error loading tests:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadYears = async () => {
-    try {
-      const response = await fetch('/api/tests?action=years');
-      const data = await response.json();
-      const years = data.years || [];
-      setAvailableYears(years.length > 0 ? years : DEFAULT_YEARS);
-    } catch (error) {
-      console.error('Error loading years:', error);
-      setAvailableYears(DEFAULT_YEARS);
     }
   };
 
@@ -178,7 +160,6 @@ export default function HomePage() {
       if (response.ok && result.success) {
         // Reload tests and start the generated test
         await loadTests();
-        await loadYears();
         await loadTopics();
         handleStartTest(result.test);
       } else {
@@ -390,45 +371,15 @@ export default function HomePage() {
         <div className="mb-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">Browse Tests</h2>
-            {(selectedYear || selectedTopic) && (
+            {selectedTopic && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setSelectedYear(null);
-                  setSelectedTopic(null);
-                }}
+                onClick={() => setSelectedTopic(null)}
               >
-                Clear Filters
+                Clear Filter
               </Button>
             )}
-          </div>
-
-          {/* Year Filter */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Filter by Year
-            </h3>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              <Button
-                variant={selectedYear === null ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedYear(null)}
-              >
-                All Years
-              </Button>
-              {(availableYears.length > 0 ? availableYears : DEFAULT_YEARS).map((year) => (
-                <Button
-                  key={year}
-                  variant={selectedYear === year ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedYear(year)}
-                >
-                  {year}
-                </Button>
-              ))}
-            </div>
           </div>
 
           {/* Topic Filter */}
@@ -484,11 +435,7 @@ export default function HomePage() {
             <CardContent className="py-12 text-center">
               <FileQuestion className="mx-auto h-12 w-12 text-gray-400" />
               <p className="mt-4 text-lg font-medium text-gray-900">
-                No tests available
-                {selectedYear || selectedTopic ? ' for ' : ''}
-                {selectedYear ? `${selectedYear}` : ''}
-                {selectedYear && selectedTopic ? ' / ' : ''}
-                {selectedTopic ? `${selectedTopic}` : ''}
+                No tests available{selectedTopic ? ` for ${selectedTopic}` : ''}
               </p>
               <p className="mt-2 text-gray-600">
                 Get started by importing tests or uploading PDFs
