@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Science Olympiad Tests",
   description: "Practice Science Olympiad tests with PDF parsing and progress tracking",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -15,6 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      </head>
       <body className="font-sans antialiased">
         <SessionProvider>
           <Header />
