@@ -28,6 +28,7 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Fermi Questions': 'estimation problems and order-of-magnitude calculations',
   'Forensics': 'crime scene analysis, evidence collection, and forensic science techniques',
   'Fossils': 'paleontology, fossil identification, geological time, and evolution',
+  'Machines': 'simple machines, mechanical advantage, levers, pulleys, inclined planes, and physics of mechanical systems',
   'Microbe Mission': 'microbiology, bacteria, viruses, and microorganisms',
   'Optics': 'light, lenses, mirrors, reflection, refraction, and optical instruments',
   'Ornithology': 'bird identification, anatomy, behavior, and ecology',

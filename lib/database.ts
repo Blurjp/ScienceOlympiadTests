@@ -478,6 +478,7 @@ export interface TestResultData {
   correctAnswers: number;
   totalQuestions: number;
   timeSpent: number;
+  completedAt?: string;
 }
 
 export async function saveTestResult(result: TestResultData) {
@@ -546,5 +547,6 @@ export async function getUserTestResults(userId: string): Promise<TestResultData
     correctAnswers: r.correct_answers,
     totalQuestions: r.total_questions,
     timeSpent: r.time_spent,
+    completedAt: r.completed_at,
   }));
 }
