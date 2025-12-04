@@ -12,7 +12,7 @@ export default function Footer() {
               <span className="text-white font-bold text-xs">SO</span>
             </div>
             <span className="text-sm text-gray-600">
-              &copy; {currentYear} SciOly Prep. All rights reserved.
+              &copy; {currentYear} Pathvana LLC. All rights reserved.
             </span>
           </div>
 

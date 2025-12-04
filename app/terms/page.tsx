@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function TermsPage() {
   const lastUpdated = 'December 4, 2025';
-  const contactEmail = 'support@sciolyprep.com';
+  const contactEmail = 'support@aitrove.ai';
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -27,7 +27,7 @@ export default function TermsPage() {
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
-              By accessing or using Science Olympiad Tests (&quot;SciOly Prep&quot;, &quot;Service&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;),
+              By accessing or using Science Olympiad Tests, operated by Pathvana LLC (&quot;SciOly Prep&quot;, &quot;Service&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;),
               you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our Service.
             </p>
             <p>
@@ -196,7 +196,7 @@ export default function TermsPage() {
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
-              You agree to indemnify, defend, and hold harmless Science Olympiad Tests and its operators,
+              You agree to indemnify, defend, and hold harmless Pathvana LLC, Science Olympiad Tests and its operators,
               directors, employees, and agents from any claims, damages, losses, liabilities, and expenses
               (including attorney fees) arising from:
             </p>

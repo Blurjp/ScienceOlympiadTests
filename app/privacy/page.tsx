@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   const lastUpdated = 'December 4, 2025';
-  const contactEmail = 'privacy@sciolyprep.com';
+  const contactEmail = 'support@aitrove.ai';
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
-              Welcome to Science Olympiad Tests (&quot;SciOly Prep&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;).
+              Welcome to Science Olympiad Tests, operated by Pathvana LLC (&quot;SciOly Prep&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;).
               We are committed to protecting your privacy and personal information. This Privacy Policy explains
               how we collect, use, disclose, and safeguard your information when you use our website and services.
             </p>
