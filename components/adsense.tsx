@@ -33,12 +33,7 @@ export function AdSense({
     }
   }, []);
 
-  const adClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_ID;
-
-  if (!adClient) {
-    // Don't render ads if AdSense ID is not configured
-    return null;
-  }
+  const adClient = 'ca-pub-5272449326201280';
 
   return (
     <div className={`ad-container ${className}`}>
