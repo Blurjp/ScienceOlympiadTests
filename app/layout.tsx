@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
 import Header from "@/components/header";
+import Footer from "@/components/footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,11 +22,18 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        {/* Google AdSense */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5272449326201280"
+          crossOrigin="anonymous"
+        />
       </head>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased min-h-screen flex flex-col">
         <SessionProvider>
           <Header />
-          <main>{children}</main>
+          <main className="flex-grow">{children}</main>
+          <Footer />
         </SessionProvider>
       </body>
     </html>

@@ -30,6 +30,7 @@ import {
   History,
 } from 'lucide-react';
 import Link from 'next/link';
+import { HorizontalAd } from '@/components/adsense';
 
 // Static options for when database is empty
 const DEFAULT_YEARS = [2024, 2023, 2022, 2021, 2020, 2019];
@@ -337,6 +338,11 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
+        {/* Ad after AI Generator */}
+        {process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1 && (
+          <HorizontalAd adSlot={process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1} className="mb-8" />
+        )}
+
         {/* Stats Cards */}
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <Card>
@@ -555,6 +561,11 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
+        )}
+
+        {/* Ad before footer */}
+        {process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_2 && (
+          <HorizontalAd adSlot={process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_2} className="mt-8" />
         )}
       </div>
     </div>
