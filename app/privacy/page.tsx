@@ -48,6 +48,7 @@ export default function PrivacyPage() {
               <li>Name and email address (from Google OAuth authentication)</li>
               <li>Profile picture (if provided through Google account)</li>
               <li>Account preferences and settings</li>
+              <li>Age verification or parental consent status (for users under 13)</li>
             </ul>
 
             <h4 className="font-semibold mt-4">2.2 Usage Information</h4>
@@ -65,6 +66,18 @@ export default function PrivacyPage() {
               If you upload PDF tests or import tests from URLs, we process this content to extract
               questions and answers. Uploaded content is stored securely and associated with your account.
             </p>
+            <p className="mt-2 font-semibold text-blue-800 bg-blue-50 p-3 rounded-lg">
+              Important: We do NOT use user-uploaded content to generate public tests, train AI models,
+              or create any monetized content. Your uploaded materials remain private to your account
+              and are used solely to provide you with personalized practice tests.
+            </p>
+
+            <h4 className="font-semibold mt-4">2.4 Data Minimization</h4>
+            <p>
+              We only collect and store information that is necessary to provide our services. We regularly
+              review our data collection practices to ensure we are not retaining unnecessary information.
+              Internal logs and metadata are kept to the minimum required for service operation and security.
+            </p>
           </CardContent>
         </Card>
 
@@ -77,11 +90,12 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-1">
               <li>Provide, maintain, and improve our services</li>
               <li>Track your test results and progress over time</li>
-              <li>Generate AI-powered practice tests based on Science Olympiad topics</li>
+              <li>Generate AI-powered practice tests based on Science Olympiad topics (using only our own content, not user uploads)</li>
               <li>Personalize your experience and content recommendations</li>
               <li>Communicate with you about service updates or changes</li>
               <li>Ensure the security and integrity of our platform</li>
               <li>Comply with legal obligations</li>
+              <li>Respond to copyright or legal complaints</li>
             </ul>
           </CardContent>
         </Card>
@@ -96,6 +110,7 @@ export default function PrivacyPage() {
               <li><strong>Service Providers:</strong> We use third-party services (such as OpenAI for AI test generation, Google for authentication, and database hosting providers) that may process your data to provide our services.</li>
               <li><strong>Legal Requirements:</strong> We may disclose information if required by law, court order, or governmental authority.</li>
               <li><strong>Protection of Rights:</strong> We may disclose information to protect our rights, privacy, safety, or property.</li>
+              <li><strong>Copyright Claims:</strong> We may share limited information with copyright holders in response to valid DMCA or similar takedown requests.</li>
             </ul>
           </CardContent>
         </Card>
@@ -117,19 +132,41 @@ export default function PrivacyPage() {
               <li>Secure authentication through Google OAuth</li>
               <li>Regular security audits and updates</li>
               <li>Limited access to personal data by authorized personnel only</li>
+              <li>Minimal data retention practices to reduce breach risk</li>
             </ul>
           </CardContent>
         </Card>
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>6. Data Retention</CardTitle>
+            <CardTitle>6. Data Retention and Deletion</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
+            <h4 className="font-semibold mt-2">6.1 Active Accounts</h4>
             <p>
               We retain your personal information for as long as your account is active or as needed to provide
-              you services. You may request deletion of your account and associated data at any time by
-              contacting us. We may retain certain information as required by law or for legitimate business purposes.
+              you services.
+            </p>
+
+            <h4 className="font-semibold mt-4">6.2 Account Deletion</h4>
+            <p>You may request deletion of your account at any time by contacting us. Upon deletion request:</p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li><strong>Immediate:</strong> Your account access is terminated and profile data is removed from active systems</li>
+              <li><strong>Within 30 days:</strong> All personal data, test results, and uploaded content are permanently deleted from our primary databases</li>
+              <li><strong>Within 90 days:</strong> Data is removed from backup systems</li>
+              <li><strong>Exceptions:</strong> We may retain anonymized, aggregated data for analytics, and certain records as required by law</li>
+            </ul>
+
+            <h4 className="font-semibold mt-4">6.3 Inactive Accounts</h4>
+            <p>
+              Accounts that have been inactive for more than 24 months may be flagged for deletion. We will
+              attempt to notify you via email before any deletion occurs.
+            </p>
+
+            <h4 className="font-semibold mt-4">6.4 Logs and Metadata</h4>
+            <p>
+              Server logs containing IP addresses and access records are automatically deleted after 90 days.
+              We only retain the minimum metadata necessary for security and service operation.
             </p>
           </CardContent>
         </Card>
@@ -148,21 +185,49 @@ export default function PrivacyPage() {
               <li><strong>Objection:</strong> Object to certain types of data processing</li>
             </ul>
             <p className="mt-4">
-              To exercise these rights, please contact us at the email address below.
+              To exercise these rights, please contact us at the email address below. We will respond to
+              requests within 30 days.
             </p>
           </CardContent>
         </Card>
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>8. Children&apos;s Privacy</CardTitle>
+            <CardTitle>8. Children&apos;s Privacy and COPPA Compliance</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
               Our service is designed for educational purposes and may be used by students of various ages.
-              We do not knowingly collect personal information from children under 13 without parental consent.
-              If you are a parent or guardian and believe your child has provided us with personal information
-              without your consent, please contact us immediately.
+              We are committed to complying with the Children&apos;s Online Privacy Protection Act (COPPA).
+            </p>
+
+            <h4 className="font-semibold mt-4">8.1 Users Under 13</h4>
+            <p>
+              We do not knowingly collect personal information from children under 13 without verifiable
+              parental consent. If you are under 13, you must have your parent or guardian create an account
+              on your behalf or provide consent before using our service.
+            </p>
+
+            <h4 className="font-semibold mt-4">8.2 Parental Consent Process</h4>
+            <p>For users under 13, we require:</p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li>A parent or guardian must register the account</li>
+              <li>Verification of parental consent via email confirmation</li>
+              <li>Parents may review, modify, or delete their child&apos;s information at any time</li>
+              <li>Parents may revoke consent and request deletion of their child&apos;s data</li>
+            </ul>
+
+            <h4 className="font-semibold mt-4">8.3 Information Collected from Children</h4>
+            <p>
+              For accounts with verified parental consent, we collect only the minimum information necessary
+              to provide educational services: name (or username), test results, and progress data. We do not
+              collect phone numbers, addresses, or other sensitive information from children.
+            </p>
+
+            <h4 className="font-semibold mt-4">8.4 Parental Rights</h4>
+            <p>
+              Parents may contact us at any time to review their child&apos;s personal information, request
+              deletion, or withdraw consent. Contact us at {contactEmail}.
             </p>
           </CardContent>
         </Card>
@@ -180,6 +245,10 @@ export default function PrivacyPage() {
               <a href="https://www.google.com/settings/ads" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
                 Google Ads Settings
               </a>.
+            </p>
+            <p className="mt-2">
+              <strong>Note:</strong> For users under 13 with verified parental consent, we disable personalized
+              advertising and show only contextual, non-targeted ads.
             </p>
 
             <h4 className="font-semibold mt-4">9.2 Cookies We Use</h4>
@@ -223,13 +292,32 @@ export default function PrivacyPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>11. Changes to This Policy</CardTitle>
+            <CardTitle>11. Policy Updates and Re-Consent</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
+            <h4 className="font-semibold mt-2">11.1 Regular Review</h4>
             <p>
-              We may update this Privacy Policy from time to time. We will notify you of any changes by
-              posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date.
-              Your continued use of the service after any changes constitutes acceptance of the new policy.
+              We review and update this Privacy Policy at least annually, or more frequently when required
+              by changes in law, our practices, or service features.
+            </p>
+
+            <h4 className="font-semibold mt-4">11.2 Notification of Changes</h4>
+            <p>
+              We will notify you of any material changes by posting the new Privacy Policy on this page,
+              updating the &quot;Last updated&quot; date, and sending an email notification to registered users.
+            </p>
+
+            <h4 className="font-semibold mt-4">11.3 Re-Consent for Material Changes</h4>
+            <p>
+              For material changes that significantly affect how we collect, use, or share your personal
+              information, we will require you to review and re-accept the updated policy before continuing
+              to use the service. You will be prompted to agree to the new terms upon your next login.
+            </p>
+
+            <h4 className="font-semibold mt-4">11.4 Right to Decline</h4>
+            <p>
+              If you do not agree with updated terms, you may request deletion of your account and data.
+              Continued use of the service after being notified of changes constitutes acceptance.
             </p>
           </CardContent>
         </Card>
@@ -240,7 +328,8 @@ export default function PrivacyPage() {
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
-              If you have any questions about this Privacy Policy or our data practices, please contact us:
+              If you have any questions about this Privacy Policy, our data practices, or wish to exercise
+              your rights, please contact us:
             </p>
             <div className="mt-4 flex items-center gap-2 text-blue-600">
               <Mail className="h-5 w-5" />
@@ -248,6 +337,11 @@ export default function PrivacyPage() {
                 {contactEmail}
               </a>
             </div>
+            <p className="mt-4 text-sm text-gray-600">
+              Pathvana LLC<br />
+              Privacy Inquiries<br />
+              Response time: Within 30 days
+            </p>
           </CardContent>
         </Card>
       </div>
