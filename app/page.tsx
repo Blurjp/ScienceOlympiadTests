@@ -24,7 +24,6 @@ import {
   RefreshCw,
   Beaker,
   Loader2,
-  Info,
   MapPin,
   History,
 } from 'lucide-react';
@@ -248,16 +247,6 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <div className="flex gap-2">
-                <Info className="h-4 w-4 flex-shrink-0 text-amber-600 mt-0.5" />
-                <p className="text-sm text-amber-800">
-                  Questions are AI-generated based on Science Olympiad content.
-                  While generally accurate, please verify answers for competitive practice.
-                </p>
-              </div>
-            </div>
-
             <div className="grid gap-4 sm:grid-cols-3">
               {/* Event/Topic */}
               <div>
