@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveTestResult } from '@/lib/database';
+import { auth } from '@/auth';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { testId, userId, score, totalPoints, percentage, correctAnswers, totalQuestions, timeSpent } = body;
+    const { testId, score, totalPoints, percentage, correctAnswers, totalQuestions, timeSpent } = body;
 
     if (!testId || score === undefined || totalPoints === undefined) {
       return NextResponse.json(
@@ -13,6 +14,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get user ID from server session (more reliable than client-provided)
+    const session = await auth();
+    const userId = session?.user?.id;
 
     const result = await saveTestResult({
       id: `result-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -26,7 +31,7 @@ export async function POST(request: NextRequest) {
       timeSpent: timeSpent || 0,
     });
 
-    return NextResponse.json({ success: true, result });
+    return NextResponse.json({ success: true, result, userId: userId || null });
   } catch (error) {
     console.error('Error saving test result:', error);
     return NextResponse.json(
