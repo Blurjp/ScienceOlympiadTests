@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Test, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
@@ -56,6 +57,7 @@ const DEFAULT_TOPICS = [
 
 export default function HomePage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [currentView, setCurrentView] = useState<ViewType>('browse');
   const [tests, setTests] = useState<Test[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -147,15 +149,9 @@ export default function HomePage() {
   };
 
   const handleBackToHome = () => {
-    // Reset state first
-    setSelectedTest(null);
-    setUserAnswers([]);
-    setTimeSpent(0);
-    setCurrentView('browse');
-    // Scroll to top
-    window.scrollTo(0, 0);
-    // Reload tests to ensure fresh data
-    loadTests(selectedYear ?? undefined, selectedTopic ?? undefined);
+    // Force navigation to home - most reliable approach
+    router.push('/');
+    router.refresh();
   };
 
   const handleGenerateTest = async () => {
