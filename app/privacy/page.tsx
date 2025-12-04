@@ -169,12 +169,48 @@ export default function PrivacyPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>9. Third-Party Services</CardTitle>
+            <CardTitle>9. Advertising and Cookies</CardTitle>
+          </CardHeader>
+          <CardContent className="prose prose-gray max-w-none">
+            <h4 className="font-semibold mt-2">9.1 Google AdSense</h4>
+            <p>
+              We use Google AdSense to display advertisements on our website. Google AdSense uses cookies
+              to serve ads based on your prior visits to our website and other websites. You can opt out
+              of personalized advertising by visiting{' '}
+              <a href="https://www.google.com/settings/ads" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                Google Ads Settings
+              </a>.
+            </p>
+
+            <h4 className="font-semibold mt-4">9.2 Cookies We Use</h4>
+            <p>Our website uses the following types of cookies:</p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li><strong>Essential Cookies:</strong> Required for authentication and basic site functionality</li>
+              <li><strong>Analytics Cookies:</strong> Help us understand how visitors use our site</li>
+              <li><strong>Advertising Cookies:</strong> Used by Google AdSense to display relevant ads</li>
+            </ul>
+
+            <h4 className="font-semibold mt-4">9.3 Managing Cookies</h4>
+            <p>
+              You can control and manage cookies through your browser settings. Please note that disabling
+              cookies may affect the functionality of our website. For more information about how Google
+              uses data from partner sites, visit{' '}
+              <a href="https://policies.google.com/technologies/partner-sites" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                Google&apos;s Privacy & Terms
+              </a>.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>10. Third-Party Services</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>Our service integrates with or uses the following third-party services:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Google OAuth:</strong> For user authentication</li>
+              <li><strong>Google AdSense:</strong> For displaying advertisements</li>
               <li><strong>OpenAI:</strong> For AI-generated test content</li>
               <li><strong>Netlify:</strong> For hosting and infrastructure</li>
               <li><strong>Turso:</strong> For database services</li>
@@ -187,7 +223,7 @@ export default function PrivacyPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>10. Changes to This Policy</CardTitle>
+            <CardTitle>11. Changes to This Policy</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -200,7 +236,7 @@ export default function PrivacyPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>11. Contact Us</CardTitle>
+            <CardTitle>12. Contact Us</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
