@@ -26,6 +26,7 @@ import {
   Loader2,
   Info,
   MapPin,
+  History,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -42,6 +43,7 @@ const DEFAULT_TOPICS = [
   'Fermi Questions',
   'Forensics',
   'Fossils',
+  'Machines',
   'Microbe Mission',
   'Optics',
   'Ornithology',
@@ -145,9 +147,11 @@ export default function HomePage() {
   };
 
   const handleBackToHome = () => {
-    setCurrentView('browse');
     setSelectedTest(null);
     setUserAnswers([]);
+    setCurrentView('browse');
+    // Reload tests to ensure fresh data
+    loadTests(selectedYear ?? undefined, selectedTopic ?? undefined);
   };
 
   const handleGenerateTest = async () => {
@@ -237,6 +241,14 @@ export default function HomePage() {
                 Import from URL
               </Button>
             </Link>
+            {session?.user && (
+              <Link href="/history">
+                <Button size="lg" variant="secondary" className="gap-2">
+                  <History className="h-5 w-5" />
+                  Test History
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
