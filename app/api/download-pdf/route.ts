@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pdf from 'pdf-parse';
+import { extractText } from 'unpdf';
 import { parseQuestionsFromText, cleanPdfText } from '@/lib/question-parser';
 import { saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
-import { Test } from '@/lib/types';
+import { Test, Region } from '@/lib/types';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
@@ -73,19 +73,25 @@ export async function POST(request: NextRequest) {
     // Download and parse PDF
     const buffer = await response.arrayBuffer();
 
-    let data;
+    let text: string;
+    let numPages: number;
     try {
-      data = await pdf(Buffer.from(buffer));
-    } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
+      const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+      text = result.text as string;
+      numPages = result.totalPages;
+    } catch (pdfError: any) {
+      console.error('PDF parsing error:', pdfError?.message || pdfError);
       return NextResponse.json(
-        { error: 'Failed to parse PDF. The file may be corrupted or password-protected.' },
+        {
+          error: 'Failed to parse PDF. The file may be corrupted or password-protected.',
+          details: pdfError?.message || 'Unknown parsing error'
+        },
         { status: 500 }
       );
     }
 
     // Clean and parse text
-    const cleanedText = cleanPdfText(data.text);
+    const cleanedText = cleanPdfText(text);
     const questions = parseQuestionsFromText(cleanedText);
 
     if (questions.length === 0) {
@@ -107,6 +113,7 @@ export async function POST(request: NextRequest) {
       totalTime: metadata?.totalTime || 3600,
       totalPoints,
       topic: metadata?.topic || 'General',
+      region: metadata?.region as Region | undefined,
       questions,
     };
 
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
       success: true,
       test,
       rawText: cleanedText,
-      pages: data.numpages,
+      pages: numPages,
       questionsFound: questions.length,
     });
   } catch (error) {

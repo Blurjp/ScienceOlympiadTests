@@ -8,6 +8,8 @@ import { ResultsScreen } from '@/components/scioly/results-screen';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { getDifficultyColor } from '@/lib/utils';
 import {
   BookOpen,
@@ -21,8 +23,34 @@ import {
   Download,
   RefreshCw,
   Beaker,
+  Loader2,
+  Info,
+  MapPin,
 } from 'lucide-react';
 import Link from 'next/link';
+
+// Static options for when database is empty
+const DEFAULT_YEARS = [2024, 2023, 2022, 2021, 2020, 2019];
+const DEFAULT_TOPICS = [
+  'Anatomy and Physiology',
+  'Astronomy',
+  'Chemistry Lab',
+  'Disease Detectives',
+  'Dynamic Planet',
+  'Ecology',
+  'Experimental Design',
+  'Fermi Questions',
+  'Forensics',
+  'Fossils',
+  'Microbe Mission',
+  'Optics',
+  'Ornithology',
+  'Reach for the Stars',
+  'Rocks and Minerals',
+  'Tower',
+  'Wind Power',
+  'Write It Do It',
+];
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -36,6 +64,13 @@ export default function HomePage() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [timeSpent, setTimeSpent] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genConfig, setGenConfig] = useState({
+    topic: '',
+    questionCount: 20,
+  });
 
   // Load tests from database on mount
   useEffect(() => {
@@ -71,9 +106,10 @@ export default function HomePage() {
       const response = await fetch('/api/tests?action=years');
       const data = await response.json();
       const years = data.years || [];
-      setAvailableYears(years);
+      setAvailableYears(years.length > 0 ? years : DEFAULT_YEARS);
     } catch (error) {
       console.error('Error loading years:', error);
+      setAvailableYears(DEFAULT_YEARS);
     }
   };
 
@@ -82,9 +118,10 @@ export default function HomePage() {
       const response = await fetch('/api/tests?action=topics');
       const data = await response.json();
       const topics = data.topics || [];
-      setAvailableTopics(topics);
+      setAvailableTopics(topics.length > 0 ? topics : DEFAULT_TOPICS);
     } catch (error) {
       console.error('Error loading topics:', error);
+      setAvailableTopics(DEFAULT_TOPICS);
     }
   };
 
@@ -111,6 +148,43 @@ export default function HomePage() {
     setCurrentView('browse');
     setSelectedTest(null);
     setUserAnswers([]);
+  };
+
+  const handleGenerateTest = async () => {
+    if (!genConfig.topic) {
+      alert('Please select an Event/Topic to generate a test.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/generate-ai-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: genConfig.topic,
+          questionCount: genConfig.questionCount,
+          difficulty: 'Medium',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Reload tests and start the generated test
+        await loadTests();
+        await loadYears();
+        await loadTopics();
+        handleStartTest(result.test);
+      } else {
+        alert(result.error || 'Failed to generate test. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to generate test:', error);
+      alert('Failed to generate test. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // Render based on current view
@@ -163,26 +237,94 @@ export default function HomePage() {
                 Import from URL
               </Button>
             </Link>
-            <Link href="/generate">
-              <Button size="lg" variant="secondary" className="gap-2">
-                <Sparkles className="h-5 w-5" />
-                Generate Test
-              </Button>
-            </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="gap-2 border-white text-white hover:bg-white hover:text-blue-600"
-              onClick={() => loadTests(selectedYear || undefined)}
-            >
-              <RefreshCw className="h-5 w-5" />
-              Refresh
-            </Button>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-8">
+        {/* AI Test Generator Section */}
+        <Card className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-6 w-6 text-purple-600" />
+              <CardTitle>AI Test Generator</CardTitle>
+            </div>
+            <CardDescription>
+              Generate original practice tests using AI for any Science Olympiad event
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex gap-2">
+                <Info className="h-4 w-4 flex-shrink-0 text-amber-600 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  Questions are AI-generated based on Science Olympiad content.
+                  While generally accurate, please verify answers for competitive practice.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {/* Event/Topic */}
+              <div>
+                <Label htmlFor="gen-topic" className="text-sm">Event/Topic <span className="text-red-500">*</span></Label>
+                <select
+                  id="gen-topic"
+                  value={genConfig.topic}
+                  onChange={(e) => setGenConfig({ ...genConfig, topic: e.target.value })}
+                  className={`mt-1 flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${!genConfig.topic ? 'border-gray-300' : 'border-purple-400'}`}
+                >
+                  <option value="">Select Event...</option>
+                  {DEFAULT_TOPICS.map((topic) => (
+                    <option key={topic} value={topic}>{topic}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Question Count */}
+              <div>
+                <Label htmlFor="gen-count" className="text-sm">Questions</Label>
+                <Input
+                  id="gen-count"
+                  type="number"
+                  min="5"
+                  max="50"
+                  value={genConfig.questionCount}
+                  onChange={(e) => setGenConfig({ ...genConfig, questionCount: parseInt(e.target.value) || 20 })}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Generate Button */}
+              <div className="flex items-end">
+                <Button
+                  onClick={handleGenerateTest}
+                  disabled={isGenerating}
+                  className="w-full gap-2 bg-purple-600 hover:bg-purple-700"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {genConfig.topic && (
+              <p className="mt-3 text-sm text-purple-700">
+                Will generate {genConfig.questionCount} questions for {genConfig.topic}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Stats Cards */}
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <Card>
@@ -217,8 +359,10 @@ export default function HomePage() {
                 <Target className="h-6 w-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{availableYears.length}</p>
-                <p className="text-sm text-gray-600">Years Covered</p>
+                <p className="text-2xl font-bold">
+                  {new Set(tests.map(t => t.topic)).size || availableTopics.length}
+                </p>
+                <p className="text-sm text-gray-600">Events Covered</p>
               </div>
             </CardContent>
           </Card>
@@ -243,66 +387,70 @@ export default function HomePage() {
           </div>
 
           {/* Year Filter */}
-          {availableYears.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Filter by Year
-              </h3>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Filter by Year
+            </h3>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <Button
+                variant={selectedYear === null ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedYear(null)}
+              >
+                All Years
+              </Button>
+              {(availableYears.length > 0 ? availableYears : DEFAULT_YEARS).map((year) => (
                 <Button
-                  variant={selectedYear === null ? 'default' : 'outline'}
+                  key={year}
+                  variant={selectedYear === year ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedYear(null)}
+                  onClick={() => setSelectedYear(year)}
                 >
-                  All Years
+                  {year}
                 </Button>
-                {availableYears.map((year) => (
-                  <Button
-                    key={year}
-                    variant={selectedYear === year ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedYear(year)}
-                  >
-                    {year}
-                  </Button>
-                ))}
-              </div>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* Topic Filter */}
-          {availableTopics.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Beaker className="h-4 w-4" />
-                Filter by Topic
-              </h3>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Beaker className="h-4 w-4" />
+              Filter by Topic
+            </h3>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <Button
+                variant={selectedTopic === null ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedTopic(null)}
+              >
+                All Topics
+              </Button>
+              {(availableTopics.length > 0 ? availableTopics : DEFAULT_TOPICS).slice(0, 10).map((topic) => (
                 <Button
-                  variant={selectedTopic === null ? 'default' : 'outline'}
+                  key={topic}
+                  variant={selectedTopic === topic ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedTopic(null)}
+                  onClick={() => setSelectedTopic(topic)}
                 >
-                  All Topics
+                  {topic}
                 </Button>
-                {availableTopics.map((topic) => (
-                  <Button
-                    key={topic}
-                    variant={selectedTopic === topic ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedTopic(topic)}
-                  >
-                    {topic}
-                  </Button>
-                ))}
-              </div>
+              ))}
+              {(availableTopics.length > 10 || DEFAULT_TOPICS.length > 10) && (
+                <select
+                  className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm"
+                  value={selectedTopic || ''}
+                  onChange={(e) => setSelectedTopic(e.target.value || null)}
+                >
+                  <option value="">More...</option>
+                  {(availableTopics.length > 0 ? availableTopics : DEFAULT_TOPICS).slice(10).map((topic) => (
+                    <option key={topic} value={topic}>{topic}</option>
+                  ))}
+                </select>
+              )}
             </div>
-          )}
-
-          {availableYears.length === 0 && availableTopics.length === 0 && (
-            <p className="text-gray-600">No tests in database yet. Import some tests to get started!</p>
-          )}
+          </div>
         </div>
 
         {/* Test Grid */}
@@ -373,9 +521,16 @@ export default function HomePage() {
                       <Target className="h-4 w-4" />
                       <span>{test.totalPoints} points</span>
                     </div>
-                    <Badge variant="outline" className="mt-2">
-                      {test.topic}
-                    </Badge>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Badge variant="outline">{test.topic}</Badge>
+                      {test.region && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {test.region}
+                        </Badge>
+                      )}
+                      <Badge variant="outline">{test.year}</Badge>
+                    </div>
                   </div>
 
                   <Button

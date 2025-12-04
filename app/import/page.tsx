@@ -16,12 +16,15 @@ interface ImportItem {
   title?: string;
   year?: number;
   topic?: string;
+  region?: 'Invitational' | 'Regionals' | 'States' | 'Nationals';
   difficulty?: 'Easy' | 'Medium' | 'Hard';
   totalTime?: number;
   status: 'pending' | 'processing' | 'success' | 'error';
   error?: string;
   testId?: string;
 }
+
+const REGIONS = ['Invitational', 'Regionals', 'States', 'Nationals'] as const;
 
 export default function ImportPage() {
   const [importItems, setImportItems] = useState<ImportItem[]>([]);
@@ -34,6 +37,7 @@ export default function ImportPage() {
     title: '',
     year: new Date().getFullYear(),
     topic: '',
+    region: '' as '' | 'Invitational' | 'Regionals' | 'States' | 'Nationals',
     difficulty: 'Medium' as 'Easy' | 'Medium' | 'Hard',
     totalTime: 3600,
   });
@@ -47,6 +51,7 @@ export default function ImportPage() {
         url: singleUrl.trim(),
         ...metadata,
         title: metadata.title || undefined,
+        region: metadata.region || undefined,
         status: 'pending',
       },
     ]);
@@ -102,6 +107,7 @@ export default function ImportPage() {
               title: item.title,
               year: item.year,
               topic: item.topic,
+              region: item.region,
               difficulty: item.difficulty,
               totalTime: item.totalTime,
             },
@@ -213,7 +219,7 @@ export default function ImportPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="topic">Topic</Label>
+                      <Label htmlFor="topic">Event/Topic</Label>
                       <Input
                         id="topic"
                         value={metadata.topic}
@@ -221,6 +227,28 @@ export default function ImportPage() {
                         placeholder="Biology"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="region">Competition Level</Label>
+                    <select
+                      id="region"
+                      value={metadata.region}
+                      onChange={(e) =>
+                        setMetadata({
+                          ...metadata,
+                          region: e.target.value as '' | 'Invitational' | 'Regionals' | 'States' | 'Nationals',
+                        })
+                      }
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Select Level</option>
+                      {REGIONS.map((region) => (
+                        <option key={region} value={region}>
+                          {region}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -373,14 +401,21 @@ export default function ImportPage() {
                             {item.error && (
                               <p className="mt-2 text-xs text-red-600">{item.error}</p>
                             )}
-                            {item.topic && (
-                              <div className="mt-2 flex gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {item.topic}
-                                </Badge>
+                            {(item.topic || item.year || item.region) && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.topic && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.topic}
+                                  </Badge>
+                                )}
                                 {item.year && (
                                   <Badge variant="outline" className="text-xs">
                                     {item.year}
+                                  </Badge>
+                                )}
+                                {item.region && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.region}
                                   </Badge>
                                 )}
                               </div>

@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Question, Test } from '@/lib/types';
+import { Question, Test, Region } from '@/lib/types';
+
+const REGIONS: Region[] = ['Invitational', 'Regionals', 'States', 'Nationals'];
 import { PDFUploader } from '@/components/scioly/pdf-uploader';
 import { QuestionDisplay } from '@/components/scioly/question-display';
 import { Button } from '@/components/ui/button';
@@ -23,6 +25,7 @@ export default function PDFParserPage() {
     description: '',
     year: new Date().getFullYear(),
     topic: '',
+    region: '' as '' | Region,
     difficulty: 'Medium' as 'Easy' | 'Medium' | 'Hard',
     totalTime: 3600, // 1 hour default
   });
@@ -55,7 +58,13 @@ export default function PDFParserPage() {
 
     const test: Test = {
       id: generateId(),
-      ...testMetadata,
+      title: testMetadata.title,
+      description: testMetadata.description,
+      year: testMetadata.year,
+      topic: testMetadata.topic,
+      region: testMetadata.region || undefined,
+      difficulty: testMetadata.difficulty,
+      totalTime: testMetadata.totalTime,
       questions: parsedQuestions,
       totalPoints,
     };
@@ -167,7 +176,7 @@ export default function PDFParserPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="topic">Topic</Label>
+                  <Label htmlFor="topic">Event/Topic</Label>
                   <Input
                     id="topic"
                     value={testMetadata.topic}
@@ -176,6 +185,28 @@ export default function PDFParserPage() {
                     }
                     placeholder="e.g., Biology, Chemistry"
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="region">Competition Level</Label>
+                  <select
+                    id="region"
+                    value={testMetadata.region}
+                    onChange={(e) =>
+                      setTestMetadata({
+                        ...testMetadata,
+                        region: e.target.value as '' | Region,
+                      })
+                    }
+                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">Select Level</option>
+                    {REGIONS.map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

@@ -4,8 +4,6 @@ import React, { useState, useCallback } from 'react';
 import { Question } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
 
 interface PDFUploaderProps {
@@ -118,11 +116,11 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
             {selectedFile ? selectedFile.name : 'Drag and drop your PDF here'}
           </p>
           <p className="mt-1 text-sm text-gray-500">or click to browse</p>
-          <Input
+          <input
             type="file"
             accept=".pdf"
             onChange={handleFileChange}
-            className="absolute inset-0 cursor-pointer opacity-0"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </div>
 
