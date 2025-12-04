@@ -7,3 +7,11 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Increase function timeout (max 26s on Pro, 10s on free)
+[functions]
+  external_node_modules = ["openai"]
+
+[functions."api/*"]
+  # Background functions for long-running tasks
+  timeout = 26

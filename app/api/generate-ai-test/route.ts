@@ -4,6 +4,9 @@ import { saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 
+// Increase function timeout for serverless
+export const maxDuration = 60; // 60 seconds max
+
 // Lazy-load OpenAI client to avoid build errors
 function getOpenAI() {
   return new OpenAI({
@@ -78,26 +81,28 @@ REQUIREMENTS:
 4. Include a variety of difficulty levels within the test
 5. Questions should match the style of actual Science Olympiad competitions
 
-OUTPUT FORMAT - Return ONLY valid JSON array with this exact structure:
-[
-  {
-    "type": "multiple-choice",
-    "question": "The question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswer": "Option A",
-    "points": 1,
-    "category": "${topic}"
-  },
-  {
-    "type": "short-answer",
-    "question": "The question text here?",
-    "correctAnswer": "The correct answer",
-    "points": 2,
-    "category": "${topic}"
-  }
-]
+OUTPUT FORMAT - Return a JSON object with a "questions" array:
+{
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "question": "The question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswer": "Option A",
+      "points": 1,
+      "category": "${topic}"
+    },
+    {
+      "type": "short-answer",
+      "question": "The question text here?",
+      "correctAnswer": "The correct answer",
+      "points": 2,
+      "category": "${topic}"
+    }
+  ]
+}
 
-Generate exactly ${questionCount} questions. Return ONLY the JSON array, no other text.`;
+Generate exactly ${questionCount} questions.`;
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
@@ -113,7 +118,8 @@ Generate exactly ${questionCount} questions. Return ONLY the JSON array, no othe
         },
       ],
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 3000,
+      response_format: { type: 'json_object' },
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -127,22 +133,17 @@ Generate exactly ${questionCount} questions. Return ONLY the JSON array, no othe
     // Parse the JSON response
     let questions: Question[];
     try {
-      // Clean up potential markdown code blocks
-      let jsonContent = content.trim();
-      if (jsonContent.startsWith('```json')) {
-        jsonContent = jsonContent.slice(7);
-      } else if (jsonContent.startsWith('```')) {
-        jsonContent = jsonContent.slice(3);
-      }
-      if (jsonContent.endsWith('```')) {
-        jsonContent = jsonContent.slice(0, -3);
-      }
-      jsonContent = jsonContent.trim();
+      const parsed = JSON.parse(content);
 
-      const parsed = JSON.parse(jsonContent);
+      // Handle both array and object with questions key
+      const questionArray = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+
+      if (!Array.isArray(questionArray) || questionArray.length === 0) {
+        throw new Error('No questions in response');
+      }
 
       // Add IDs to questions
-      questions = parsed.map((q: any) => ({
+      questions = questionArray.map((q: any) => ({
         id: generateId(),
         type: q.type || 'short-answer',
         question: q.question,
