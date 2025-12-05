@@ -70,6 +70,7 @@ export default function HomePage() {
   const [genConfig, setGenConfig] = useState({
     topic: '',
     questionCount: 20,
+    difficulty: 'Medium' as 'Easy' | 'Medium' | 'Hard',
   });
 
   // Load tests from database on mount
@@ -138,7 +139,7 @@ export default function HomePage() {
 
   const handleGenerateTest = async () => {
     if (!genConfig.topic) {
-      alert('Please select an Event/Topic to generate a test.');
+      alert('Please select a Topic to generate a test.');
       return;
     }
 
@@ -150,7 +151,7 @@ export default function HomePage() {
         body: JSON.stringify({
           topic: genConfig.topic,
           questionCount: genConfig.questionCount,
-          difficulty: 'Medium',
+          difficulty: genConfig.difficulty,
         }),
       });
 
@@ -247,20 +248,35 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {/* Event/Topic */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Topic */}
               <div>
-                <Label htmlFor="gen-topic" className="text-sm">Event/Topic <span className="text-red-500">*</span></Label>
+                <Label htmlFor="gen-topic" className="text-sm">Topic <span className="text-red-500">*</span></Label>
                 <select
                   id="gen-topic"
                   value={genConfig.topic}
                   onChange={(e) => setGenConfig({ ...genConfig, topic: e.target.value })}
                   className={`mt-1 flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${!genConfig.topic ? 'border-gray-300' : 'border-purple-400'}`}
                 >
-                  <option value="">Select Event...</option>
+                  <option value="">Select Topic...</option>
                   {DEFAULT_TOPICS.map((topic) => (
                     <option key={topic} value={topic}>{topic}</option>
                   ))}
+                </select>
+              </div>
+
+              {/* Difficulty */}
+              <div>
+                <Label htmlFor="gen-difficulty" className="text-sm">Difficulty</Label>
+                <select
+                  id="gen-difficulty"
+                  value={genConfig.difficulty}
+                  onChange={(e) => setGenConfig({ ...genConfig, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' })}
+                  className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
                 </select>
               </div>
 
@@ -302,7 +318,7 @@ export default function HomePage() {
 
             {genConfig.topic && (
               <p className="mt-3 text-sm text-purple-700">
-                Will generate {genConfig.questionCount} questions for {genConfig.topic}
+                Will generate {genConfig.questionCount} {genConfig.difficulty.toLowerCase()} questions for {genConfig.topic}
               </p>
             )}
           </CardContent>
