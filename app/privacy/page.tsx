@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 export default function PrivacyPage() {
-  const lastUpdated = 'December 4, 2025';
+  const lastUpdated = 'December 5, 2025';
   const contactEmail = 'support@aitrove.ai';
 
   return (
@@ -290,31 +290,79 @@ export default function PrivacyPage() {
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardHeader>
-            <CardTitle>11. Policy Updates and Re-Consent</CardTitle>
+            <CardTitle>11. PDF-Inspired Test Generation</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
-            <h4 className="font-semibold mt-2">11.1 Regular Review</h4>
+            <h4 className="font-semibold mt-2">11.1 What We Access</h4>
+            <p>
+              Our &quot;Generate Test Inspired by Past Exams&quot; feature allows users to create original practice tests
+              based on exam structures. When you use this feature:
+            </p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li>We provide links to third-party websites where exams are publicly hosted</li>
+              <li>We do NOT host, store, or cache any PDF files</li>
+              <li>We do NOT access, read, or process actual exam questions</li>
+              <li>We only analyze meta-information: topic distribution percentages, question type ratios, and difficulty indicators</li>
+            </ul>
+
+            <h4 className="font-semibold mt-4">11.2 What We Do NOT Collect</h4>
+            <p className="font-semibold text-blue-800 bg-blue-100 p-3 rounded-lg">
+              We do NOT collect, store, or process any copyrighted exam content. Our system is designed to
+              extract only non-copyrightable structural information (such as &quot;30% multiple choice on Topic A&quot;)
+              and generate entirely original questions based on that structure.
+            </p>
+
+            <h4 className="font-semibold mt-4">11.3 Third-Party Links</h4>
+            <p>
+              Links to exam sources navigate directly to third-party websites. When you click these links,
+              you are subject to the privacy policies of those external sites. We have no control over and
+              assume no responsibility for the content or practices of third-party websites.
+            </p>
+
+            <h4 className="font-semibold mt-4">11.4 Generation Logs</h4>
+            <p>
+              When you generate a test inspired by a past exam, we log only:
+            </p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li>The selected exam source ID (not the actual exam content)</li>
+              <li>Timestamp of generation</li>
+              <li>Topic and difficulty level selected</li>
+              <li>Token usage for cost tracking</li>
+            </ul>
+            <p className="mt-2">
+              These logs do not contain any copyrighted material and are retained according to our standard
+              data retention policy.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>12. Policy Updates and Re-Consent</CardTitle>
+          </CardHeader>
+          <CardContent className="prose prose-gray max-w-none">
+            <h4 className="font-semibold mt-2">12.1 Regular Review</h4>
             <p>
               We review and update this Privacy Policy at least annually, or more frequently when required
               by changes in law, our practices, or service features.
             </p>
 
-            <h4 className="font-semibold mt-4">11.2 Notification of Changes</h4>
+            <h4 className="font-semibold mt-4">12.2 Notification of Changes</h4>
             <p>
               We will notify you of any material changes by posting the new Privacy Policy on this page,
               updating the &quot;Last updated&quot; date, and sending an email notification to registered users.
             </p>
 
-            <h4 className="font-semibold mt-4">11.3 Re-Consent for Material Changes</h4>
+            <h4 className="font-semibold mt-4">12.3 Re-Consent for Material Changes</h4>
             <p>
               For material changes that significantly affect how we collect, use, or share your personal
               information, we will require you to review and re-accept the updated policy before continuing
               to use the service. You will be prompted to agree to the new terms upon your next login.
             </p>
 
-            <h4 className="font-semibold mt-4">11.4 Right to Decline</h4>
+            <h4 className="font-semibold mt-4">12.4 Right to Decline</h4>
             <p>
               If you do not agree with updated terms, you may request deletion of your account and data.
               Continued use of the service after being notified of changes constitutes acceptance.
@@ -324,7 +372,7 @@ export default function PrivacyPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>12. Contact Us</CardTitle>
+            <CardTitle>13. Contact Us</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>

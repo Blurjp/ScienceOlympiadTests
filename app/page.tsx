@@ -26,6 +26,8 @@ import {
   Loader2,
   MapPin,
   History,
+  FileText,
+  AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { HorizontalAd } from '@/components/adsense';
@@ -73,10 +75,26 @@ export default function HomePage() {
     difficulty: 'Regional' as 'Invitational' | 'Regional' | 'State' | 'National',
   });
 
+  // PDF-inspired generation state
+  interface PDFSourceInfo {
+    id: string;
+    name: string;
+    topic: string;
+    year: number;
+    level: string;
+    source: string;
+    description: string;
+  }
+  const [pdfSources, setPdfSources] = useState<PDFSourceInfo[]>([]);
+  const [selectedPdfSource, setSelectedPdfSource] = useState<string>('');
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [pdfQuestionCount, setPdfQuestionCount] = useState(20);
+
   // Load tests from database on mount
   useEffect(() => {
     loadTests();
     loadTopics();
+    loadPdfSources();
   }, []);
 
   // Reload when topic changes
@@ -109,6 +127,16 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error loading topics:', error);
       setAvailableTopics(DEFAULT_TOPICS);
+    }
+  };
+
+  const loadPdfSources = async () => {
+    try {
+      const response = await fetch('/api/generate-from-pdf');
+      const data = await response.json();
+      setPdfSources(data.sources || []);
+    } catch (error) {
+      console.error('Error loading PDF sources:', error);
     }
   };
 
@@ -187,6 +215,49 @@ export default function HomePage() {
       setIsGenerating(false);
     }
   };
+
+  const handleGenerateFromPdf = async () => {
+    // Require login
+    if (!session) {
+      router.push('/api/auth/signin');
+      return;
+    }
+
+    if (!selectedPdfSource) {
+      alert('Please select an exam structure to inspire your test.');
+      return;
+    }
+
+    setIsPdfGenerating(true);
+    try {
+      const response = await fetch('/api/generate-from-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceId: selectedPdfSource,
+          questionCount: pdfQuestionCount,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        await loadTests();
+        await loadTopics();
+        handleStartTest(result.test);
+      } else {
+        alert(result.error || 'Failed to generate test. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to generate from PDF:', error);
+      alert('Failed to generate test. Please try again.');
+    } finally {
+      setIsPdfGenerating(false);
+    }
+  };
+
+  // Get selected source info for display
+  const selectedSourceInfo = pdfSources.find(s => s.id === selectedPdfSource);
 
   // Render based on current view
   if (currentView === 'test' && selectedTest) {
@@ -345,6 +416,106 @@ export default function HomePage() {
             )}
           </CardContent>
         </Card>
+
+        {/* PDF-Inspired Test Generator */}
+        {pdfSources.length > 0 && (
+          <Card className="mb-8 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <FileText className="h-6 w-6 text-blue-600" />
+                <CardTitle>Generate Test Inspired by Past Exams</CardTitle>
+              </div>
+              <CardDescription>
+                Create original practice tests inspired by real exam structures. We analyze the format,
+                topic distribution, and difficulty—then generate completely NEW questions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Important Notice */}
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800">
+                  <strong>How it works:</strong> We do NOT copy, reproduce, or show any actual exam questions.
+                  Instead, we analyze the exam&apos;s structure (topics covered, question types, difficulty level)
+                  and generate entirely original questions that follow a similar format.
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Exam Source Selection */}
+                <div className="lg:col-span-2">
+                  <Label htmlFor="pdf-source" className="text-sm">Select Exam Structure <span className="text-red-500">*</span></Label>
+                  <select
+                    id="pdf-source"
+                    value={selectedPdfSource}
+                    onChange={(e) => setSelectedPdfSource(e.target.value)}
+                    className={`mt-1 flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${!selectedPdfSource ? 'border-gray-300' : 'border-blue-400'}`}
+                  >
+                    <option value="">Choose an exam structure...</option>
+                    {pdfSources.map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.name} ({source.level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Question Count */}
+                <div>
+                  <Label htmlFor="pdf-count" className="text-sm">Questions</Label>
+                  <Input
+                    id="pdf-count"
+                    type="number"
+                    min="5"
+                    max="50"
+                    value={pdfQuestionCount}
+                    onChange={(e) => setPdfQuestionCount(parseInt(e.target.value) || 20)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Selected Source Info */}
+              {selectedSourceInfo && (
+                <div className="mt-4 p-3 bg-blue-100 rounded-md">
+                  <p className="text-sm text-blue-900">
+                    <strong>Topic:</strong> {selectedSourceInfo.topic} |
+                    <strong> Level:</strong> {selectedSourceInfo.level} |
+                    <strong> Year:</strong> {selectedSourceInfo.year}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">{selectedSourceInfo.description}</p>
+                </div>
+              )}
+
+              {/* Generate Button */}
+              <div className="mt-4">
+                <Button
+                  onClick={handleGenerateFromPdf}
+                  disabled={isPdfGenerating || !selectedPdfSource}
+                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  {isPdfGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analyzing structure & generating...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4" />
+                      Generate Original Test
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Disclaimer */}
+              <p className="mt-4 text-xs text-gray-500">
+                This feature generates 100% original questions. No copyrighted content is copied, stored, or redistributed.
+                Links to exam sources are provided for reference only and navigate to third-party sites.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Ad after AI Generator */}
         {process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1 && (

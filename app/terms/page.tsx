@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 export default function TermsPage() {
-  const lastUpdated = 'December 4, 2025';
+  const lastUpdated = 'December 5, 2025';
   const contactEmail = 'support@aitrove.ai';
   const dmcaEmail = 'dmca@aitrove.ai';
 
@@ -49,6 +49,7 @@ export default function TermsPage() {
             <ul className="list-disc pl-6 space-y-1">
               <li>Practice tests for Science Olympiad competition preparation</li>
               <li>AI-generated test questions across various Science Olympiad events</li>
+              <li>Original test generation inspired by real exam structures (without copying content)</li>
               <li>PDF parsing tools to extract questions from uploaded documents</li>
               <li>Test result tracking and progress monitoring</li>
               <li>User account management and authentication</li>
@@ -197,18 +198,71 @@ export default function TermsPage() {
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardHeader>
-            <CardTitle>7. DMCA and Copyright Dispute Resolution</CardTitle>
+            <CardTitle>7. PDF-Inspired Test Generation and Third-Party Links</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
-            <h4 className="font-semibold mt-2">7.1 DMCA Compliance</h4>
+            <h4 className="font-semibold mt-2">7.1 How It Works</h4>
+            <p>
+              Our &quot;Generate Test Inspired by Past Exams&quot; feature allows users to create original practice
+              tests that follow the structure of real Science Olympiad exams. This feature:
+            </p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li>Analyzes ONLY meta-information from exams (topic distribution, question types, difficulty level, format)</li>
+              <li>Generates entirely NEW and ORIGINAL questions using AI</li>
+              <li>Does NOT copy, reproduce, paraphrase, or store any actual exam questions</li>
+              <li>Does NOT create derivative works of copyrighted content</li>
+            </ul>
+
+            <h4 className="font-semibold mt-4">7.2 Third-Party Links Disclaimer</h4>
+            <p className="font-semibold text-blue-800 bg-blue-100 p-3 rounded-lg">
+              Important: We do NOT host, store, or redistribute any copyrighted PDF exams. Any links to
+              exam sources navigate to third-party websites where materials are publicly posted by their
+              respective owners or communities. We have no control over and assume no responsibility for
+              the content, availability, or practices of these third-party sites.
+            </p>
+
+            <h4 className="font-semibold mt-4">7.3 Original Content Guarantee</h4>
+            <p>
+              All questions generated through our PDF-inspired feature are 100% original. Our system is
+              designed to:
+            </p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li>Extract only non-copyrightable structural elements (topic percentages, question type ratios)</li>
+              <li>Never process, store, or analyze actual question text</li>
+              <li>Validate generated content for originality before delivery</li>
+              <li>Reject any output that may too closely resemble source material</li>
+            </ul>
+
+            <h4 className="font-semibold mt-4">7.4 No Affiliation</h4>
+            <p>
+              Links to third-party exam sources do not imply endorsement, affiliation, or sponsorship.
+              We are not affiliated with Scioly.org, Science Olympiad Inc., or any school, tournament, or
+              organization that creates or hosts exams.
+            </p>
+
+            <h4 className="font-semibold mt-4">7.5 Link Removal Requests</h4>
+            <p>
+              If you are the copyright holder of linked material and wish to have the link removed from
+              our curated list, please contact us at <a href={`mailto:${dmcaEmail}`} className="text-purple-600 hover:underline">{dmcaEmail}</a>.
+              We will remove links upon valid request within 5 business days.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>8. DMCA and Copyright Dispute Resolution</CardTitle>
+          </CardHeader>
+          <CardContent className="prose prose-gray max-w-none">
+            <h4 className="font-semibold mt-2">8.1 DMCA Compliance</h4>
             <p>
               We respect intellectual property rights and comply with the Digital Millennium Copyright Act (DMCA).
               If you believe content on our Service infringes your copyright, you may submit a takedown notice.
             </p>
 
-            <h4 className="font-semibold mt-4">7.2 Submitting a Takedown Notice</h4>
+            <h4 className="font-semibold mt-4">8.2 Submitting a Takedown Notice</h4>
             <p>To file a DMCA takedown notice, send a written communication to our DMCA agent including:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li>A physical or electronic signature of the copyright owner or authorized agent</li>
@@ -222,14 +276,14 @@ export default function TermsPage() {
               Send DMCA notices to: <a href={`mailto:${dmcaEmail}`} className="text-purple-600 hover:underline">{dmcaEmail}</a>
             </p>
 
-            <h4 className="font-semibold mt-4">7.3 Counter-Notification</h4>
+            <h4 className="font-semibold mt-4">8.3 Counter-Notification</h4>
             <p>
               If your content was removed and you believe it was done in error, you may submit a counter-notification
               including your contact information, identification of the removed content, a statement under penalty
               of perjury that removal was a mistake, and consent to jurisdiction.
             </p>
 
-            <h4 className="font-semibold mt-4">7.4 Repeat Infringers</h4>
+            <h4 className="font-semibold mt-4">8.4 Repeat Infringers</h4>
             <p>
               We will terminate accounts of users who repeatedly infringe copyrights. Multiple valid DMCA
               complaints will result in permanent account termination.
@@ -239,7 +293,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>8. Disclaimer of Warranties</CardTitle>
+            <CardTitle>9. Disclaimer of Warranties</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p className="font-semibold">
@@ -263,7 +317,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>9. Limitation of Liability</CardTitle>
+            <CardTitle>10. Limitation of Liability</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -285,7 +339,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>10. Indemnification</CardTitle>
+            <CardTitle>11. Indemnification</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -305,29 +359,29 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>11. Dispute Resolution</CardTitle>
+            <CardTitle>12. Dispute Resolution</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
-            <h4 className="font-semibold mt-2">11.1 Informal Resolution</h4>
+            <h4 className="font-semibold mt-2">12.1 Informal Resolution</h4>
             <p>
               Before filing any legal claim, you agree to first contact us and attempt to resolve the dispute
               informally. We will work in good faith to address your concerns within 30 days.
             </p>
 
-            <h4 className="font-semibold mt-4">11.2 Binding Arbitration</h4>
+            <h4 className="font-semibold mt-4">12.2 Binding Arbitration</h4>
             <p>
               If informal resolution fails, any disputes shall be resolved through binding arbitration
               administered by a mutually agreed-upon arbitrator. The arbitration shall be conducted in
               English and the decision shall be final and binding.
             </p>
 
-            <h4 className="font-semibold mt-4">11.3 Class Action Waiver</h4>
+            <h4 className="font-semibold mt-4">12.3 Class Action Waiver</h4>
             <p>
               You agree that any dispute resolution will be conducted only on an individual basis and not
               in a class, consolidated, or representative action.
             </p>
 
-            <h4 className="font-semibold mt-4">11.4 Exceptions</h4>
+            <h4 className="font-semibold mt-4">12.4 Exceptions</h4>
             <p>
               Either party may seek injunctive relief in court for intellectual property infringement or
               unauthorized access to the Service.
@@ -337,7 +391,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>12. Third-Party Services</CardTitle>
+            <CardTitle>13. Third-Party Services</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -350,29 +404,29 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>13. Terms Updates and Re-Consent</CardTitle>
+            <CardTitle>14. Terms Updates and Re-Consent</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
-            <h4 className="font-semibold mt-2">13.1 Regular Review</h4>
+            <h4 className="font-semibold mt-2">14.1 Regular Review</h4>
             <p>
               We review and update these Terms at least annually, or more frequently when required by
               changes in law, our practices, or service features.
             </p>
 
-            <h4 className="font-semibold mt-4">13.2 Notification of Changes</h4>
+            <h4 className="font-semibold mt-4">14.2 Notification of Changes</h4>
             <p>
               We will notify you of any material changes by posting the updated Terms on this page,
               updating the &quot;Last updated&quot; date, and sending an email notification to registered users.
             </p>
 
-            <h4 className="font-semibold mt-4">13.3 Re-Consent for Material Changes</h4>
+            <h4 className="font-semibold mt-4">14.3 Re-Consent for Material Changes</h4>
             <p>
               For material changes that significantly affect your rights or obligations, we will require
               you to review and re-accept the updated Terms before continuing to use the service.
               You will be prompted to agree to the new terms upon your next login.
             </p>
 
-            <h4 className="font-semibold mt-4">13.4 Right to Decline</h4>
+            <h4 className="font-semibold mt-4">14.4 Right to Decline</h4>
             <p>
               If you do not agree with updated terms, you may request deletion of your account and data.
               Continued use of the service after being notified of changes constitutes acceptance.
@@ -382,7 +436,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>14. Governing Law</CardTitle>
+            <CardTitle>15. Governing Law</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -395,7 +449,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>15. Severability</CardTitle>
+            <CardTitle>16. Severability</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -408,7 +462,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>16. Entire Agreement</CardTitle>
+            <CardTitle>17. Entire Agreement</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
@@ -420,7 +474,7 @@ export default function TermsPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>17. Contact Us</CardTitle>
+            <CardTitle>18. Contact Us</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-gray max-w-none">
             <p>
