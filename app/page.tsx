@@ -328,15 +328,52 @@ export default function HomePage() {
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-8">
-        {/* AI Test Generator Section */}
+        {/* Ways to Get Tests - Overview Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Practice Tests</h2>
+          <p className="text-gray-600 mb-4">Choose how you want to get your practice tests:</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+            <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white font-bold text-sm">1</div>
+              <div>
+                <p className="font-medium text-purple-900">AI Generator</p>
+                <p className="text-xs text-purple-700">Generate from any topic</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">2</div>
+              <div>
+                <p className="font-medium text-blue-900">Exam-Inspired</p>
+                <p className="text-xs text-blue-700">Based on real exam formats</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-600 text-white font-bold text-sm">3</div>
+              <div>
+                <p className="font-medium text-green-900">Upload PDF</p>
+                <p className="text-xs text-green-700">Parse your own tests</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-600 text-white font-bold text-sm">4</div>
+              <div>
+                <p className="font-medium text-orange-900">Import URL</p>
+                <p className="text-xs text-orange-700">From external sources</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Option 1: AI Test Generator Section */}
         <Card className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
-          <CardHeader>
-            <div className="flex items-center gap-3">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-600 text-white font-bold text-sm">1</div>
               <Sparkles className="h-6 w-6 text-purple-600" />
               <CardTitle>AI Test Generator</CardTitle>
             </div>
-            <CardDescription>
-              Generate original practice tests using AI for any Science Olympiad event
+            <CardDescription className="ml-9">
+              Generate 100% original practice questions using AI. Choose any Science Olympiad topic and difficulty level.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -417,17 +454,17 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* PDF-Inspired Test Generator */}
+        {/* Option 2: PDF-Inspired Test Generator */}
         {pdfSources.length > 0 && (
           <Card className="mb-8 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <CardHeader>
-              <div className="flex items-center gap-3">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-sm">2</div>
                 <FileText className="h-6 w-6 text-blue-600" />
-                <CardTitle>Generate Test Inspired by Past Exams</CardTitle>
+                <CardTitle>Exam-Inspired Generator</CardTitle>
               </div>
-              <CardDescription>
-                Create original practice tests inspired by real exam structures. We analyze the format,
-                topic distribution, and difficulty—then generate completely NEW questions.
+              <CardDescription className="ml-9">
+                Generate original questions based on real Science Olympiad exam structures. We analyze format, topic distribution, and difficulty - then create 100% NEW questions.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -517,7 +554,66 @@ export default function HomePage() {
           </Card>
         )}
 
-        {/* Ad after AI Generator */}
+        {/* Options 3 & 4: Upload PDF and Import URL */}
+        <div className="grid gap-6 sm:grid-cols-2 mb-8">
+          {/* Option 3: Upload PDF */}
+          <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-green-600 text-white font-bold text-sm">3</div>
+                <Upload className="h-6 w-6 text-green-600" />
+                <CardTitle className="text-lg">Upload Your PDF</CardTitle>
+              </div>
+              <CardDescription className="ml-9">
+                Have your own test PDFs? Upload them and we&apos;ll parse the questions automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="text-sm text-green-800 space-y-1 mb-4 ml-9">
+                <li>• Extracts questions from PDF files</li>
+                <li>• Supports multiple choice & short answer</li>
+                <li>• Review and edit before saving</li>
+              </ul>
+              <Button
+                onClick={() => handleProtectedNavigation('/pdf-parser')}
+                className="w-full gap-2 bg-green-600 hover:bg-green-700"
+              >
+                <Upload className="h-4 w-4" />
+                Upload PDF Test
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Option 4: Import from URL */}
+          <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-orange-600 text-white font-bold text-sm">4</div>
+                <Download className="h-6 w-6 text-orange-600" />
+                <CardTitle className="text-lg">Import from URL</CardTitle>
+              </div>
+              <CardDescription className="ml-9">
+                Import tests directly from external URLs - great for batch importing multiple tests.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="text-sm text-orange-800 space-y-1 mb-4 ml-9">
+                <li>• Import from any public URL</li>
+                <li>• Bulk import multiple tests at once</li>
+                <li>• Set metadata for organization</li>
+              </ul>
+              <Button
+                onClick={() => handleProtectedNavigation('/import')}
+                className="w-full gap-2 bg-orange-600 hover:bg-orange-700"
+              >
+                <Download className="h-4 w-4" />
+                Import from URL
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Ad after generators */}
         {process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1 && (
           <HorizontalAd adSlot={process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1} className="mb-8" />
         )}
