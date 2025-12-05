@@ -22,8 +22,16 @@ function getOpenAI() {
 interface GenerateRequest {
   topic: string;
   questionCount?: number;
-  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  difficulty?: 'Invitational' | 'Regional' | 'State' | 'National';
 }
+
+// Competition level difficulty descriptions
+const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
+  'Invitational': 'Invitational-style: simpler recall questions, wide variance in difficulty, good for beginners and early-season practice',
+  'Regional': 'Regional-style: foundational but structured questions, testing core concepts with some application',
+  'State': 'State-level: multi-step reasoning required, deeper understanding of concepts, more challenging applications',
+  'National': 'National-level: extremely deep conceptual understanding, niche topics, complex multi-step problems, competition-ready difficulty',
+};
 
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Anatomy and Physiology': 'human body systems, organs, tissues, and physiological processes',
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
     const {
       topic,
       questionCount = 20,
-      difficulty = 'Medium',
+      difficulty = 'Regional',
     } = body;
 
     if (!topic) {
@@ -75,20 +83,21 @@ export async function POST(request: NextRequest) {
     }
 
     const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
+    const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
 
     const prompt = `You are an expert Science Olympiad test writer. Generate ${questionCount} questions for a ${topic} test.
 
 CONTEXT:
 - Science Olympiad Division C (high school level)
 - Topic Focus: ${topicDescription}
-- Difficulty: ${difficulty}
+- Competition Level: ${difficultyDescription}
 
 REQUIREMENTS:
 1. Mix of question types: 70% multiple choice, 30% short answer
 2. Questions should be factually accurate and scientifically correct
 3. Multiple choice questions must have exactly 4 options (A, B, C, D)
-4. Include a variety of difficulty levels within the test
-5. Questions should match the style of actual Science Olympiad competitions
+4. Match the difficulty to the competition level specified above
+5. Questions should match the style of actual Science Olympiad competitions at the ${difficulty} level
 
 OUTPUT FORMAT - Return a JSON object with a "questions" array:
 {

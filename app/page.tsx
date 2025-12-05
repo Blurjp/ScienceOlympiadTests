@@ -70,7 +70,7 @@ export default function HomePage() {
   const [genConfig, setGenConfig] = useState({
     topic: '',
     questionCount: 20,
-    difficulty: 'Medium' as 'Easy' | 'Medium' | 'Hard',
+    difficulty: 'Regional' as 'Invitational' | 'Regional' | 'State' | 'National',
   });
 
   // Load tests from database on mount
@@ -292,12 +292,13 @@ export default function HomePage() {
                 <select
                   id="gen-difficulty"
                   value={genConfig.difficulty}
-                  onChange={(e) => setGenConfig({ ...genConfig, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' })}
+                  onChange={(e) => setGenConfig({ ...genConfig, difficulty: e.target.value as 'Invitational' | 'Regional' | 'State' | 'National' })}
                   className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                 >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
+                  <option value="Invitational">Invitational</option>
+                  <option value="Regional">Regional</option>
+                  <option value="State">State</option>
+                  <option value="National">National</option>
                 </select>
               </div>
 
