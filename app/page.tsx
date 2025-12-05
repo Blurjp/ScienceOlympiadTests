@@ -297,24 +297,6 @@ export default function HomePage() {
             Practice tests, track your progress, and ace your Science Olympiad competitions
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button
-              size="lg"
-              variant="secondary"
-              className="gap-2"
-              onClick={() => handleProtectedNavigation('/pdf-parser')}
-            >
-              <Upload className="h-5 w-5" />
-              Upload PDF Test
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="gap-2"
-              onClick={() => handleProtectedNavigation('/import')}
-            >
-              <Download className="h-5 w-5" />
-              Import from URL
-            </Button>
             {session?.user && (
               <Link href="/history">
                 <Button size="lg" variant="secondary" className="gap-2">
