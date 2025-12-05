@@ -137,7 +137,22 @@ export default function HomePage() {
     router.refresh();
   };
 
+  // Check auth and redirect to signin or destination
+  const handleProtectedNavigation = (destination: string) => {
+    if (!session) {
+      router.push('/api/auth/signin');
+      return;
+    }
+    router.push(destination);
+  };
+
   const handleGenerateTest = async () => {
+    // Require login to generate tests
+    if (!session) {
+      router.push('/api/auth/signin');
+      return;
+    }
+
     if (!genConfig.topic) {
       alert('Please select a Topic to generate a test.');
       return;
@@ -211,18 +226,24 @@ export default function HomePage() {
             Practice tests, track your progress, and ace your Science Olympiad competitions
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/pdf-parser">
-              <Button size="lg" variant="secondary" className="gap-2">
-                <Upload className="h-5 w-5" />
-                Upload PDF Test
-              </Button>
-            </Link>
-            <Link href="/import">
-              <Button size="lg" variant="secondary" className="gap-2">
-                <Download className="h-5 w-5" />
-                Import from URL
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="gap-2"
+              onClick={() => handleProtectedNavigation('/pdf-parser')}
+            >
+              <Upload className="h-5 w-5" />
+              Upload PDF Test
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="gap-2"
+              onClick={() => handleProtectedNavigation('/import')}
+            >
+              <Download className="h-5 w-5" />
+              Import from URL
+            </Button>
             {session?.user && (
               <Link href="/history">
                 <Button size="lg" variant="secondary" className="gap-2">
@@ -446,18 +467,21 @@ export default function HomePage() {
                 Get started by importing tests or uploading PDFs
               </p>
               <div className="mt-6 flex gap-3 justify-center flex-wrap">
-                <Link href="/import">
-                  <Button className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Import from URL
-                  </Button>
-                </Link>
-                <Link href="/pdf-parser">
-                  <Button variant="outline" className="gap-2">
-                    <Upload className="h-4 w-4" />
-                    Upload PDF
-                  </Button>
-                </Link>
+                <Button
+                  className="gap-2"
+                  onClick={() => handleProtectedNavigation('/import')}
+                >
+                  <Download className="h-4 w-4" />
+                  Import from URL
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => handleProtectedNavigation('/pdf-parser')}
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload PDF
+                </Button>
               </div>
             </CardContent>
           </Card>
