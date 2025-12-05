@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest } from '@/lib/database';
+import { saveTest, logApiUsage } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
+import { auth } from '@/auth';
+
+// GPT-4o-mini pricing (as of 2024)
+const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
+const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
 
 // Increase function timeout for serverless
 export const maxDuration = 60; // 60 seconds max
@@ -43,6 +48,10 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest) {
+  // Get user session for tracking
+  const session = await auth();
+  const userId = session?.user?.id;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -122,8 +131,34 @@ Generate exactly ${questionCount} questions.`;
       response_format: { type: 'json_object' },
     });
 
+    // Extract token usage from completion
+    const usage = completion.usage;
+    const promptTokens = usage?.prompt_tokens || 0;
+    const completionTokens = usage?.completion_tokens || 0;
+    const totalTokens = usage?.total_tokens || 0;
+
+    // Calculate cost
+    const costUsd = (promptTokens / 1000 * PRICE_PER_1K_PROMPT_TOKENS) +
+                    (completionTokens / 1000 * PRICE_PER_1K_COMPLETION_TOKENS);
+
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+      // Log failed API call
+      await logApiUsage({
+        userId,
+        endpoint: 'generate-ai-test',
+        model: 'gpt-4o-mini',
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        costUsd,
+        topic,
+        difficulty,
+        questionCount,
+        success: false,
+        errorMessage: 'Empty response from API',
+      });
+
       return NextResponse.json(
         { error: 'Failed to generate questions - empty response' },
         { status: 500 }
@@ -179,6 +214,21 @@ Generate exactly ${questionCount} questions.`;
 
     // Save to database
     await saveTest(test);
+
+    // Log successful API usage
+    await logApiUsage({
+      userId,
+      endpoint: 'generate-ai-test',
+      model: 'gpt-4o-mini',
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      costUsd,
+      topic,
+      difficulty,
+      questionCount: questions.length,
+      success: true,
+    });
 
     return NextResponse.json({
       success: true,

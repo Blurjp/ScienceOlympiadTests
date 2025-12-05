@@ -550,3 +550,250 @@ export async function getUserTestResults(userId: string): Promise<TestResultData
     completedAt: r.completed_at,
   }));
 }
+
+// Analytics tables initialization
+async function initializeAnalyticsTables() {
+  const database = getClient();
+
+  // API usage tracking table (for LLM token usage)
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS api_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      endpoint TEXT NOT NULL,
+      model TEXT,
+      prompt_tokens INTEGER DEFAULT 0,
+      completion_tokens INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      cost_usd REAL DEFAULT 0,
+      topic TEXT,
+      difficulty TEXT,
+      question_count INTEGER,
+      success BOOLEAN DEFAULT 1,
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Create indexes for analytics queries
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage(created_at)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_api_usage_user_id ON api_usage(user_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_api_usage_endpoint ON api_usage(endpoint)`);
+}
+
+// Call analytics init after main init
+const originalInitializeDatabase = initializeDatabase;
+async function initializeDatabaseWithAnalytics() {
+  await originalInitializeDatabase();
+  await initializeAnalyticsTables();
+}
+
+// API Usage tracking
+export interface ApiUsageData {
+  userId?: string;
+  endpoint: string;
+  model?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+  topic?: string;
+  difficulty?: string;
+  questionCount?: number;
+  success?: boolean;
+  errorMessage?: string;
+}
+
+export async function logApiUsage(usage: ApiUsageData) {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  await database.execute({
+    sql: `INSERT INTO api_usage
+      (user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, topic, difficulty, question_count, success, error_message)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      usage.userId || null,
+      usage.endpoint,
+      usage.model || null,
+      usage.promptTokens || 0,
+      usage.completionTokens || 0,
+      usage.totalTokens || 0,
+      usage.costUsd || 0,
+      usage.topic || null,
+      usage.difficulty || null,
+      usage.questionCount || null,
+      usage.success !== false ? 1 : 0,
+      usage.errorMessage || null
+    ]
+  });
+}
+
+// Admin analytics functions
+export async function getAdminStats(): Promise<{
+  totalUsers: number;
+  usersToday: number;
+  usersThisWeek: number;
+  usersThisMonth: number;
+  totalTests: number;
+  testsGenerated: number;
+  testsCompleted: number;
+  totalTokensUsed: number;
+  totalCost: number;
+  apiCallsToday: number;
+}> {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  // User counts
+  const totalUsers = await database.execute('SELECT COUNT(*) as count FROM users');
+  const usersToday = await database.execute(
+    "SELECT COUNT(*) as count FROM users WHERE created_at >= datetime('now', '-1 day')"
+  );
+  const usersThisWeek = await database.execute(
+    "SELECT COUNT(*) as count FROM users WHERE created_at >= datetime('now', '-7 days')"
+  );
+  const usersThisMonth = await database.execute(
+    "SELECT COUNT(*) as count FROM users WHERE created_at >= datetime('now', '-30 days')"
+  );
+
+  // Test counts
+  const totalTests = await database.execute('SELECT COUNT(*) as count FROM tests');
+  const testsCompleted = await database.execute('SELECT COUNT(*) as count FROM test_results');
+
+  // API usage stats
+  const tokenStats = await database.execute(
+    'SELECT SUM(total_tokens) as tokens, SUM(cost_usd) as cost FROM api_usage'
+  );
+  const testsGenerated = await database.execute(
+    "SELECT COUNT(*) as count FROM api_usage WHERE endpoint = 'generate-ai-test' AND success = 1"
+  );
+  const apiCallsToday = await database.execute(
+    "SELECT COUNT(*) as count FROM api_usage WHERE created_at >= datetime('now', '-1 day')"
+  );
+
+  return {
+    totalUsers: (totalUsers.rows[0] as any)?.count || 0,
+    usersToday: (usersToday.rows[0] as any)?.count || 0,
+    usersThisWeek: (usersThisWeek.rows[0] as any)?.count || 0,
+    usersThisMonth: (usersThisMonth.rows[0] as any)?.count || 0,
+    totalTests: (totalTests.rows[0] as any)?.count || 0,
+    testsGenerated: (testsGenerated.rows[0] as any)?.count || 0,
+    testsCompleted: (testsCompleted.rows[0] as any)?.count || 0,
+    totalTokensUsed: (tokenStats.rows[0] as any)?.tokens || 0,
+    totalCost: (tokenStats.rows[0] as any)?.cost || 0,
+    apiCallsToday: (apiCallsToday.rows[0] as any)?.count || 0,
+  };
+}
+
+export async function getApiUsageByDay(days: number = 30): Promise<{
+  date: string;
+  calls: number;
+  tokens: number;
+  cost: number;
+}[]> {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  const result = await database.execute({
+    sql: `
+      SELECT
+        DATE(created_at) as date,
+        COUNT(*) as calls,
+        SUM(total_tokens) as tokens,
+        SUM(cost_usd) as cost
+      FROM api_usage
+      WHERE created_at >= datetime('now', '-' || ? || ' days')
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `,
+    args: [days]
+  });
+
+  return result.rows.map((r: any) => ({
+    date: r.date,
+    calls: r.calls || 0,
+    tokens: r.tokens || 0,
+    cost: r.cost || 0,
+  }));
+}
+
+export async function getTopicUsageStats(): Promise<{
+  topic: string;
+  count: number;
+  tokens: number;
+}[]> {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  const result = await database.execute(`
+    SELECT
+      topic,
+      COUNT(*) as count,
+      SUM(total_tokens) as tokens
+    FROM api_usage
+    WHERE topic IS NOT NULL AND success = 1
+    GROUP BY topic
+    ORDER BY count DESC
+  `);
+
+  return result.rows.map((r: any) => ({
+    topic: r.topic,
+    count: r.count || 0,
+    tokens: r.tokens || 0,
+  }));
+}
+
+export async function getRecentUsers(limit: number = 20): Promise<{
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: string;
+}[]> {
+  const database = await getDatabase();
+
+  const result = await database.execute({
+    sql: 'SELECT id, email, name, created_at FROM users ORDER BY created_at DESC LIMIT ?',
+    args: [limit]
+  });
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function getRecentApiCalls(limit: number = 50): Promise<{
+  id: number;
+  endpoint: string;
+  model: string | null;
+  totalTokens: number;
+  costUsd: number;
+  topic: string | null;
+  difficulty: string | null;
+  success: boolean;
+  createdAt: string;
+}[]> {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  const result = await database.execute({
+    sql: 'SELECT * FROM api_usage ORDER BY created_at DESC LIMIT ?',
+    args: [limit]
+  });
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    endpoint: r.endpoint,
+    model: r.model,
+    totalTokens: r.total_tokens || 0,
+    costUsd: r.cost_usd || 0,
+    topic: r.topic,
+    difficulty: r.difficulty,
+    success: r.success === 1,
+    createdAt: r.created_at,
+  }));
+}
