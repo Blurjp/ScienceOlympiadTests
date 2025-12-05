@@ -135,5 +135,5 @@ export function getSourceById(id: string): PDFSource | undefined {
 
 // Get all unique topics
 export function getAvailableTopics(): string[] {
-  return [...new Set(CURATED_PDF_SOURCES.map(s => s.topic))];
+  return Array.from(new Set(CURATED_PDF_SOURCES.map(s => s.topic)));
 }

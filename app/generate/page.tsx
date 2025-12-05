@@ -21,7 +21,7 @@ export default function GenerateTestPage() {
     topic: '',
     year: '' as string,
     region: '',
-    difficulty: '' as '' | 'Easy' | 'Medium' | 'Hard',
+    difficulty: '' as '' | 'Invitational' | 'Regional' | 'State' | 'National',
     questionCount: 20,
     timePerQuestion: 120,
     includeTypes: [] as string[],
@@ -208,15 +208,16 @@ export default function GenerateTestPage() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    difficulty: e.target.value as '' | 'Easy' | 'Medium' | 'Hard',
+                    difficulty: e.target.value as '' | 'Invitational' | 'Regional' | 'State' | 'National',
                   })
                 }
                 className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               >
                 <option value="">All Difficulties</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
+                <option value="Invitational">Invitational</option>
+                <option value="Regional">Regional</option>
+                <option value="State">State</option>
+                <option value="National">National</option>
               </select>
             </div>
 

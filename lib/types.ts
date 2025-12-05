@@ -8,6 +8,8 @@ export interface Question {
   category: string;
 }
 
+export type Difficulty = 'Invitational' | 'Regional' | 'State' | 'National';
+
 export type Region = 'Invitational' | 'Regionals' | 'States' | 'Nationals';
 
 export interface Test {
@@ -16,7 +18,7 @@ export interface Test {
   title: string;
   description: string;
   questions: Question[];
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: Difficulty;
   totalTime: number; // in seconds
   totalPoints: number;
   topic: string;

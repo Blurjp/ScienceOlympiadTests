@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchQuestions, saveTest } from '@/lib/database';
 import { generateId } from '@/lib/utils';
-import { Test, Question, Region } from '@/lib/types';
+import { Test, Question, Region, Difficulty } from '@/lib/types';
 
 interface GenerateTestRequest {
   topic?: string;
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       year: year || new Date().getFullYear(),
       title: titleParts.join(' '),
       description: descParts.join(' '),
-      difficulty: (difficulty as 'Easy' | 'Medium' | 'Hard') || 'Medium',
+      difficulty: (difficulty as Difficulty) || 'Regional',
       totalTime,
       totalPoints,
       topic: topic || 'Mixed',

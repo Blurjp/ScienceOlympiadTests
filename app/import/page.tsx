@@ -17,7 +17,7 @@ interface ImportItem {
   year?: number;
   topic?: string;
   region?: 'Invitational' | 'Regionals' | 'States' | 'Nationals';
-  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  difficulty?: 'Invitational' | 'Regional' | 'State' | 'National';
   totalTime?: number;
   status: 'pending' | 'processing' | 'success' | 'error';
   error?: string;
@@ -38,7 +38,7 @@ export default function ImportPage() {
     year: new Date().getFullYear(),
     topic: '',
     region: '' as '' | 'Invitational' | 'Regionals' | 'States' | 'Nationals',
-    difficulty: 'Medium' as 'Easy' | 'Medium' | 'Hard',
+    difficulty: 'Regional' as 'Invitational' | 'Regional' | 'State' | 'National',
     totalTime: 3600,
   });
 
@@ -259,14 +259,15 @@ export default function ImportPage() {
                       onChange={(e) =>
                         setMetadata({
                           ...metadata,
-                          difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard',
+                          difficulty: e.target.value as 'Invitational' | 'Regional' | 'State' | 'National',
                         })
                       }
                       className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                     >
-                      <option value="Easy">Easy</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Hard">Hard</option>
+                      <option value="Invitational">Invitational</option>
+                      <option value="Regional">Regional</option>
+                      <option value="State">State</option>
+                      <option value="National">National</option>
                     </select>
                   </div>
 

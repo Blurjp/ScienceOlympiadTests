@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Question, Test, Region } from '@/lib/types';
+import { Question, Test, Region, Difficulty } from '@/lib/types';
 
 const REGIONS: Region[] = ['Invitational', 'Regionals', 'States', 'Nationals'];
 import { PDFUploader } from '@/components/scioly/pdf-uploader';
@@ -26,7 +26,7 @@ export default function PDFParserPage() {
     year: new Date().getFullYear(),
     topic: '',
     region: '' as '' | Region,
-    difficulty: 'Medium' as 'Easy' | 'Medium' | 'Hard',
+    difficulty: 'Regional' as Difficulty,
     totalTime: 3600, // 1 hour default
   });
   const [showRawText, setShowRawText] = useState(false);
@@ -217,14 +217,15 @@ export default function PDFParserPage() {
                     onChange={(e) =>
                       setTestMetadata({
                         ...testMetadata,
-                        difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard',
+                        difficulty: e.target.value as Difficulty,
                       })
                     }
                     className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                   >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
+                    <option value="Invitational">Invitational</option>
+                    <option value="Regional">Regional</option>
+                    <option value="State">State</option>
+                    <option value="National">National</option>
                   </select>
                 </div>
 

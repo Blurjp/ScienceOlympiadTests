@@ -49,7 +49,7 @@ async function initializeDatabase() {
       year INTEGER NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
-      difficulty TEXT CHECK(difficulty IN ('Easy', 'Medium', 'Hard')),
+      difficulty TEXT CHECK(difficulty IN ('Invitational', 'Regional', 'State', 'National', 'Easy', 'Medium', 'Hard')),
       total_time INTEGER NOT NULL,
       total_points INTEGER NOT NULL,
       topic TEXT NOT NULL,

@@ -43,6 +43,16 @@ export function calculateScore(userAnswers: any[], questions: any[]): {
 
 export function getDifficultyColor(difficulty: string): string {
   switch (difficulty) {
+    // Competition levels
+    case 'Invitational':
+      return 'bg-green-100 text-green-800 border-green-200';
+    case 'Regional':
+      return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'State':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'National':
+      return 'bg-red-100 text-red-800 border-red-200';
+    // Legacy levels (backwards compatibility)
     case 'Easy':
       return 'bg-green-100 text-green-800 border-green-200';
     case 'Medium':

@@ -33,8 +33,9 @@ function jaccardSimilarity(tokens1: string[], tokens2: string[]): number {
   const set1 = new Set(tokens1);
   const set2 = new Set(tokens2);
 
-  const intersection = new Set([...set1].filter(x => set2.has(x)));
-  const union = new Set([...set1, ...set2]);
+  const intersection = new Set(Array.from(set1).filter(x => set2.has(x)));
+  const unionArr = Array.from(set1).concat(Array.from(set2));
+  const union = new Set(unionArr);
 
   if (union.size === 0) return 0;
   return intersection.size / union.size;
@@ -161,5 +162,5 @@ export function extractSafeMetaKeywords(text: string): string[] {
   });
 
   // Return unique terms, limited to prevent over-matching
-  return [...new Set(scientificTerms)].slice(0, 50);
+  return Array.from(new Set(scientificTerms)).slice(0, 50);
 }
