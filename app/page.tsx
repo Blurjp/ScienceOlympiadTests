@@ -83,6 +83,7 @@ export default function HomePage() {
     year: number;
     level: string;
     source: string;
+    sourceUrl: string;
     description: string;
   }
   const [pdfSources, setPdfSources] = useState<PDFSourceInfo[]>([]);
@@ -501,6 +502,17 @@ export default function HomePage() {
                     <strong> Year:</strong> {selectedSourceInfo.year}
                   </p>
                   <p className="text-xs text-blue-700 mt-1">{selectedSourceInfo.description}</p>
+                  <p className="text-xs text-blue-600 mt-2">
+                    <strong>Source:</strong> {selectedSourceInfo.source} —{' '}
+                    <a
+                      href={selectedSourceInfo.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-blue-800"
+                    >
+                      View Original Exam ↗
+                    </a>
+                  </p>
                 </div>
               )}
 
@@ -525,11 +537,15 @@ export default function HomePage() {
                 </Button>
               </div>
 
-              {/* Disclaimer */}
-              <p className="mt-4 text-xs text-gray-500">
-                This feature generates 100% original questions. No copyrighted content is copied, stored, or redistributed.
-                Links to exam sources are provided for reference only and navigate to third-party sites.
-              </p>
+              {/* Transparency & Disclaimer */}
+              <div className="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <p className="text-xs text-gray-600 font-medium mb-1">What we store vs. don&apos;t store:</p>
+                <ul className="text-xs text-gray-500 space-y-0.5">
+                  <li>✓ We store: Only AI-generated original questions (cached to reduce costs)</li>
+                  <li>✗ We do NOT store: Any PDF files or original exam content</li>
+                  <li>→ Links above point to third-party sites where exams are publicly shared</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
         )}

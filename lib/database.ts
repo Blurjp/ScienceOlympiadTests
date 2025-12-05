@@ -551,6 +551,179 @@ export async function getUserTestResults(userId: string): Promise<TestResultData
   }));
 }
 
+// Generation cache table - caches generated test templates to avoid repeated LLM calls
+async function initializeGenerationCacheTable() {
+  const database = getClient();
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS generation_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cache_key TEXT UNIQUE NOT NULL,
+      source_id TEXT NOT NULL,
+      source_url TEXT,
+      question_count INTEGER NOT NULL,
+      generated_questions TEXT NOT NULL,
+      meta_info TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      use_count INTEGER DEFAULT 1
+    )
+  `);
+
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_generation_cache_key ON generation_cache(cache_key)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_generation_cache_source ON generation_cache(source_id)`);
+}
+
+// Generation cache operations
+export interface CachedGeneration {
+  id: number;
+  cacheKey: string;
+  sourceId: string;
+  sourceUrl?: string;
+  questionCount: number;
+  generatedQuestions: string; // JSON string of questions
+  metaInfo?: string; // JSON string of meta info
+  createdAt: string;
+  lastUsedAt: string;
+  useCount: number;
+}
+
+// Generate a cache key based on source and parameters
+export function generateCacheKey(sourceId: string, questionCount: number): string {
+  // Using a simple key format: sourceId + questionCount + bucket
+  // Bucket allows multiple cached versions for same config
+  const bucket = Math.floor(Math.random() * 5); // 5 different cached versions
+  return `${sourceId}_${questionCount}_v${bucket}`;
+}
+
+// Get a cached generation if available
+export async function getCachedGeneration(sourceId: string, questionCount: number): Promise<CachedGeneration | null> {
+  const database = await getDatabase();
+  await initializeGenerationCacheTable();
+
+  // Try to find a cached version with matching source and question count
+  // Get the least recently used one to rotate through cached versions
+  const result = await database.execute({
+    sql: `SELECT * FROM generation_cache
+          WHERE source_id = ? AND question_count = ?
+          ORDER BY last_used_at ASC
+          LIMIT 1`,
+    args: [sourceId, questionCount]
+  });
+
+  if (result.rows.length === 0) return null;
+
+  const row = result.rows[0] as any;
+
+  // Update last_used_at and use_count
+  await database.execute({
+    sql: `UPDATE generation_cache
+          SET last_used_at = CURRENT_TIMESTAMP, use_count = use_count + 1
+          WHERE id = ?`,
+    args: [row.id]
+  });
+
+  return {
+    id: row.id,
+    cacheKey: row.cache_key,
+    sourceId: row.source_id,
+    sourceUrl: row.source_url,
+    questionCount: row.question_count,
+    generatedQuestions: row.generated_questions,
+    metaInfo: row.meta_info,
+    createdAt: row.created_at,
+    lastUsedAt: row.last_used_at,
+    useCount: row.use_count,
+  };
+}
+
+// Save a generation to cache
+export async function saveCachedGeneration(
+  sourceId: string,
+  sourceUrl: string | undefined,
+  questionCount: number,
+  generatedQuestions: any[],
+  metaInfo?: any
+): Promise<void> {
+  const database = await getDatabase();
+  await initializeGenerationCacheTable();
+
+  const cacheKey = generateCacheKey(sourceId, questionCount);
+
+  try {
+    await database.execute({
+      sql: `INSERT INTO generation_cache
+            (cache_key, source_id, source_url, question_count, generated_questions, meta_info)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [
+        cacheKey,
+        sourceId,
+        sourceUrl || null,
+        questionCount,
+        JSON.stringify(generatedQuestions),
+        metaInfo ? JSON.stringify(metaInfo) : null
+      ]
+    });
+  } catch (e: any) {
+    // Ignore unique constraint violations (key already exists)
+    if (!e.message?.includes('UNIQUE constraint')) {
+      throw e;
+    }
+  }
+}
+
+// Get cache stats for admin
+export async function getGenerationCacheStats(): Promise<{
+  totalCached: number;
+  totalUses: number;
+  bySource: { sourceId: string; count: number; uses: number }[];
+}> {
+  const database = await getDatabase();
+  await initializeGenerationCacheTable();
+
+  const totalResult = await database.execute(
+    'SELECT COUNT(*) as count, SUM(use_count) as uses FROM generation_cache'
+  );
+
+  const bySourceResult = await database.execute(`
+    SELECT source_id, COUNT(*) as count, SUM(use_count) as uses
+    FROM generation_cache
+    GROUP BY source_id
+    ORDER BY uses DESC
+  `);
+
+  const total = totalResult.rows[0] as any;
+  return {
+    totalCached: total?.count || 0,
+    totalUses: total?.uses || 0,
+    bySource: bySourceResult.rows.map((r: any) => ({
+      sourceId: r.source_id,
+      count: r.count || 0,
+      uses: r.uses || 0,
+    })),
+  };
+}
+
+// Clear old cache entries (keep only recent ones per source)
+export async function cleanupGenerationCache(maxPerSource: number = 10): Promise<number> {
+  const database = await getDatabase();
+  await initializeGenerationCacheTable();
+
+  // Delete entries beyond maxPerSource for each source, keeping most recently used
+  const result = await database.execute({
+    sql: `DELETE FROM generation_cache
+          WHERE id NOT IN (
+            SELECT id FROM (
+              SELECT id, ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY last_used_at DESC) as rn
+              FROM generation_cache
+            ) WHERE rn <= ?
+          )`,
+    args: [maxPerSource]
+  });
+
+  return result.rowsAffected;
+}
+
 // Analytics tables initialization
 async function initializeAnalyticsTables() {
   const database = getClient();
