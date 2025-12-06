@@ -209,12 +209,6 @@ export default function ImportPage() {
                   <span>The test is saved and ready to practice</span>
                 </li>
               </ul>
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <p className="text-xs text-gray-500">
-                  <strong>Caching:</strong> Parsed results are cached so the same URL won&apos;t need re-parsing.
-                  We don&apos;t store the original PDF, only the extracted questions.
-                </p>
-              </div>
             </div>
 
             {/* URL display */}
