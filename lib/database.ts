@@ -724,6 +724,100 @@ export async function cleanupGenerationCache(maxPerSource: number = 10): Promise
   return result.rowsAffected;
 }
 
+// PDF Parse Cache - caches LLM-parsed questions from PDF URLs
+async function initializePdfParseCacheTable() {
+  const database = getClient();
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS pdf_parse_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      url_hash TEXT UNIQUE NOT NULL,
+      source_url TEXT NOT NULL,
+      parsed_questions TEXT NOT NULL,
+      metadata TEXT,
+      page_count INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      use_count INTEGER DEFAULT 1
+    )
+  `);
+
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_pdf_parse_cache_hash ON pdf_parse_cache(url_hash)`);
+}
+
+// Simple hash function for URL
+function hashUrl(url: string): string {
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    const char = url.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Get cached PDF parse result
+export async function getCachedPdfParse(url: string): Promise<{
+  questions: any[];
+  metadata: any;
+  pageCount: number;
+} | null> {
+  const database = await getDatabase();
+  await initializePdfParseCacheTable();
+
+  const urlHash = hashUrl(url);
+  const result = await database.execute({
+    sql: `SELECT * FROM pdf_parse_cache WHERE url_hash = ?`,
+    args: [urlHash]
+  });
+
+  if (result.rows.length === 0) return null;
+
+  const row = result.rows[0] as any;
+
+  // Update usage stats
+  await database.execute({
+    sql: `UPDATE pdf_parse_cache SET last_used_at = CURRENT_TIMESTAMP, use_count = use_count + 1 WHERE id = ?`,
+    args: [row.id]
+  });
+
+  return {
+    questions: JSON.parse(row.parsed_questions),
+    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    pageCount: row.page_count || 0,
+  };
+}
+
+// Save parsed PDF to cache
+export async function savePdfParseCache(
+  url: string,
+  questions: any[],
+  metadata?: any,
+  pageCount?: number
+): Promise<void> {
+  const database = await getDatabase();
+  await initializePdfParseCacheTable();
+
+  const urlHash = hashUrl(url);
+
+  try {
+    await database.execute({
+      sql: `INSERT OR REPLACE INTO pdf_parse_cache
+            (url_hash, source_url, parsed_questions, metadata, page_count)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [
+        urlHash,
+        url,
+        JSON.stringify(questions),
+        metadata ? JSON.stringify(metadata) : null,
+        pageCount || 0
+      ]
+    });
+  } catch (e: any) {
+    console.error('Failed to save PDF parse cache:', e);
+  }
+}
+
 // Analytics tables initialization
 async function initializeAnalyticsTables() {
   const database = getClient();

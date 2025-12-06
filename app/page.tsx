@@ -587,14 +587,14 @@ export default function HomePage() {
                 <CardTitle className="text-lg">Import from URL</CardTitle>
               </div>
               <CardDescription>
-                Import tests directly from external URLs - great for batch importing multiple tests.
+                Paste a PDF link and AI will extract all the questions for you.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="text-sm text-orange-800 space-y-1 mb-4">
-                <li>• Import from any public URL</li>
-                <li>• Bulk import multiple tests at once</li>
-                <li>• Set metadata for organization</li>
+                <li>• Just paste a PDF URL - that&apos;s it!</li>
+                <li>• AI parses questions automatically</li>
+                <li>• Results cached for instant re-use</li>
               </ul>
               <Button
                 onClick={() => handleProtectedNavigation('/import')}
