@@ -51,6 +51,8 @@ function extractNgrams(tokens: string[], n: number): string[] {
 }
 
 // Check for suspicious phrase overlaps
+// Note: We only flag multi-word phrases, not single topic keywords
+// Single words like "epidemiology" or "transmission" are expected in topic-relevant questions
 function findSuspiciousPhrases(
   generatedText: string,
   sourceKeywords: string[]
@@ -58,9 +60,11 @@ function findSuspiciousPhrases(
   const flagged: string[] = [];
   const lowerGenerated = generatedText.toLowerCase();
 
-  // Check for exact keyword matches that suggest copying
+  // Check for exact multi-word phrase matches that suggest copying
+  // Single words are allowed since they're just topic terms
   for (const keyword of sourceKeywords) {
-    if (keyword.length > 10 && lowerGenerated.includes(keyword.toLowerCase())) {
+    // Only flag multi-word phrases (contains a space) that are long enough
+    if (keyword.includes(' ') && keyword.length > 15 && lowerGenerated.includes(keyword.toLowerCase())) {
       flagged.push(keyword);
     }
   }
