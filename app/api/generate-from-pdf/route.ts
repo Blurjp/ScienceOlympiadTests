@@ -5,7 +5,7 @@ import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
 import { getSourceById, PDFSource } from '@/lib/pdf-sources';
-import { checkSimilarity, validateOriginalContent, extractSafeMetaKeywords } from '@/lib/similarity-check';
+import { validateOriginalContent } from '@/lib/similarity-check';
 
 // GPT-4o-mini pricing
 const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
@@ -333,37 +333,6 @@ Generate exactly ${questionCount} original questions.`;
       return NextResponse.json(
         { error: 'Failed to parse generated questions' },
         { status: 500 }
-      );
-    }
-
-    // SIMILARITY CHECK - Validate originality
-    const questionTexts = questions.map(q => q.question);
-    const metaKeywords = extractSafeMetaKeywords(Object.keys(metaInfo.topicDistribution).join(' '));
-    const similarityResult = checkSimilarity(questionTexts, metaKeywords);
-
-    if (!similarityResult.isSafe) {
-      // Log the failed attempt
-      await logApiUsage({
-        userId,
-        endpoint: 'generate-from-pdf',
-        model: 'gpt-4o-mini',
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        costUsd,
-        topic: pdfSource.topic,
-        difficulty: metaInfo.difficultyLevel,
-        questionCount,
-        success: false,
-        errorMessage: `Similarity check failed: ${similarityResult.recommendation}`,
-      });
-
-      return NextResponse.json(
-        {
-          error: 'Generated content did not pass originality check. Please try again.',
-          details: similarityResult.recommendation,
-        },
-        { status: 422 }
       );
     }
 
