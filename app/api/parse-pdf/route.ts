@@ -6,6 +6,9 @@ import { generateId } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+// Extend serverless function timeout
+export const maxDuration = 60; // 60 seconds
+
 function getOpenAI() {
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -120,41 +123,19 @@ export async function POST(request: NextRequest) {
     // Use LLM to extract questions
     const openai = getOpenAI();
 
-    // Truncate text if too long (keep first ~15000 chars to stay within token limits)
-    const truncatedText = text.length > 15000 ? text.substring(0, 15000) + '...[truncated]' : text;
+    // Truncate text to reduce tokens and speed up processing
+    const truncatedText = text.length > 10000 ? text.substring(0, 10000) + '\n...[truncated]' : text;
 
-    const prompt = `Extract all questions from this Science Olympiad test document. For each question, identify:
-1. The question text
-2. Whether it's multiple choice or short answer
-3. For multiple choice: the options (A, B, C, D)
-4. The correct answer if visible, otherwise leave empty
-5. Point value if mentioned, otherwise default to 1
-
-Document text:
-${truncatedText}
-
-Return valid JSON with this exact structure:
+    const prompt = `Extract questions from this Science Olympiad test. Return JSON:
 {
   "questions": [
-    {
-      "type": "multiple-choice",
-      "question": "The question text here?",
-      "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
-      "correctAnswer": "Option A text or empty string if unknown",
-      "points": 1,
-      "category": "General"
-    },
-    {
-      "type": "short-answer",
-      "question": "The question text here?",
-      "correctAnswer": "answer or empty string if unknown",
-      "points": 2,
-      "category": "General"
-    }
+    {"type": "multiple-choice", "question": "...", "options": ["A)", "B)", "C)", "D)"], "correctAnswer": "A)", "points": 1, "category": "General"},
+    {"type": "short-answer", "question": "...", "correctAnswer": "", "points": 1, "category": "General"}
   ]
 }
 
-Extract ALL questions you can find.`;
+Document:
+${truncatedText}`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -169,7 +150,7 @@ Extract ALL questions you can find.`;
         },
       ],
       temperature: 0.3,
-      max_tokens: 4000,
+      max_tokens: 3000,
       response_format: { type: 'json_object' },
     });
 
