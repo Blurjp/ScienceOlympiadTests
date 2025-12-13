@@ -60,19 +60,34 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest) {
-  // Get user session for tracking
-  const session = await auth();
-  const userId = session?.user?.id;
+  // Get user session for tracking (don't let auth failure crash the request)
+  let userId: string | undefined;
+  try {
+    const session = await auth();
+    userId = session?.user?.id;
+  } catch (authError) {
+    console.error('Auth error (non-fatal):', authError);
+  }
 
   try {
     if (!process.env.OPENAI_API_KEY) {
+      console.error('Missing OPENAI_API_KEY environment variable');
       return NextResponse.json(
         { error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to environment variables.' },
         { status: 500 }
       );
     }
 
-    const body: GenerateRequest = await request.json();
+    let body: GenerateRequest;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Request body parse error:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
     const {
       topic,
       questionCount: requestedCount = 10,
@@ -153,21 +168,26 @@ Return valid JSON in this exact format:
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
-      // Log failed API call
-      await logApiUsage({
-        userId,
-        endpoint: 'generate-ai-test',
-        model: 'gpt-4o-mini',
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        costUsd,
-        topic,
-        difficulty,
-        questionCount,
-        success: false,
-        errorMessage: 'Empty response from API',
-      });
+      console.error('Empty response from OpenAI API');
+      // Log failed API call (don't let this crash)
+      try {
+        await logApiUsage({
+          userId,
+          endpoint: 'generate-ai-test',
+          model: 'gpt-4o-mini',
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          costUsd,
+          topic,
+          difficulty,
+          questionCount,
+          success: false,
+          errorMessage: 'Empty response from API',
+        });
+      } catch (logError) {
+        console.error('Failed to log API usage:', logError);
+      }
 
       return NextResponse.json(
         { error: 'Failed to generate questions - empty response' },
@@ -197,10 +217,14 @@ Return valid JSON in this exact format:
         points: q.points || 1,
         category: q.category || topic,
       }));
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Content:', content);
+    } catch (parseError: any) {
+      console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
       return NextResponse.json(
-        { error: 'Failed to parse generated questions. Please try again.' },
+        {
+          error: 'Failed to parse generated questions. Please try again.',
+          details: parseError?.message || 'JSON parse failed',
+          contentPreview: content?.substring(0, 200)
+        },
         { status: 500 }
       );
     }
@@ -222,23 +246,32 @@ Return valid JSON in this exact format:
       questions,
     };
 
-    // Save to database
-    await saveTest(test);
+    // Save to database (don't let DB failure crash the response)
+    try {
+      await saveTest(test);
+    } catch (dbError) {
+      console.error('Database save error (non-fatal):', dbError);
+      // Continue anyway - user still gets the test
+    }
 
-    // Log successful API usage
-    await logApiUsage({
-      userId,
-      endpoint: 'generate-ai-test',
-      model: 'gpt-4o-mini',
-      promptTokens,
-      completionTokens,
-      totalTokens,
-      costUsd,
-      topic,
-      difficulty,
-      questionCount: questions.length,
-      success: true,
-    });
+    // Log successful API usage (don't let logging failure crash the response)
+    try {
+      await logApiUsage({
+        userId,
+        endpoint: 'generate-ai-test',
+        model: 'gpt-4o-mini',
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        costUsd,
+        topic,
+        difficulty,
+        questionCount: questions.length,
+        success: true,
+      });
+    } catch (logError) {
+      console.error('API usage logging error (non-fatal):', logError);
+    }
 
     return NextResponse.json({
       success: true,
