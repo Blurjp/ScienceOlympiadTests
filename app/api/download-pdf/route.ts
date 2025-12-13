@@ -135,11 +135,26 @@ export async function POST(request: NextRequest) {
     const buffer = await response.arrayBuffer();
     const uint8Array = new Uint8Array(buffer);
 
-    // Check if it looks like a PDF
-    const pdfHeader = new TextDecoder().decode(uint8Array.slice(0, 5));
-    if (!pdfHeader.startsWith('%PDF')) {
+    // Check if it looks like a PDF (should start with %PDF)
+    const headerBytes = new TextDecoder().decode(uint8Array.slice(0, 100));
+
+    // Check if we got HTML instead of PDF (common with login pages, error pages)
+    if (headerBytes.toLowerCase().includes('<html') || headerBytes.toLowerCase().includes('<!doctype')) {
       return NextResponse.json(
-        { error: 'The downloaded file is not a valid PDF' },
+        {
+          error: 'The URL returned a webpage instead of a PDF file. This usually means the link requires login or the file is not directly accessible.',
+          details: 'The server returned HTML content instead of a PDF. Try using a direct download link.'
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!headerBytes.startsWith('%PDF')) {
+      return NextResponse.json(
+        {
+          error: 'The downloaded file is not a valid PDF',
+          details: `File starts with: ${headerBytes.substring(0, 20)}...`
+        },
         { status: 400 }
       );
     }
