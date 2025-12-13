@@ -133,18 +133,41 @@ export async function POST(request: NextRequest) {
 
     // Download and extract text from PDF
     const buffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(buffer);
+
+    // Check if it looks like a PDF
+    const pdfHeader = new TextDecoder().decode(uint8Array.slice(0, 5));
+    if (!pdfHeader.startsWith('%PDF')) {
+      return NextResponse.json(
+        { error: 'The downloaded file is not a valid PDF' },
+        { status: 400 }
+      );
+    }
 
     let text: string;
     let numPages: number;
     try {
-      const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+      const result = await extractText(uint8Array, { mergePages: true });
       text = result.text as string;
       numPages = result.totalPages;
     } catch (pdfError: any) {
       console.error('PDF parsing error:', pdfError?.message || pdfError);
+
+      // Provide more specific error messages
+      const errorMsg = pdfError?.message?.toLowerCase() || '';
+      let userMessage = 'Failed to parse PDF.';
+
+      if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+        userMessage = 'This PDF is password-protected. Please use an unprotected PDF.';
+      } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid')) {
+        userMessage = 'This PDF appears to be corrupted or in an unsupported format.';
+      } else {
+        userMessage = 'Failed to parse PDF. The file may be corrupted, password-protected, or in an unsupported format.';
+      }
+
       return NextResponse.json(
         {
-          error: 'Failed to parse PDF. The file may be corrupted or password-protected.',
+          error: userMessage,
           details: pdfError?.message || 'Unknown parsing error'
         },
         { status: 500 }

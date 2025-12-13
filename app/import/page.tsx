@@ -25,6 +25,7 @@ export default function ImportPage() {
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
+    details?: string;
     questionsFound?: number;
     testId?: string;
     fromCache?: boolean;
@@ -57,6 +58,7 @@ export default function ImportPage() {
         setResult({
           success: false,
           message: data.error || 'Failed to import test',
+          details: data.details,
         });
       }
     } catch (error) {
@@ -172,6 +174,11 @@ export default function ImportPage() {
                     <p className={`text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
                       {result.message}
                     </p>
+                    {result.details && !result.success && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Details: {result.details}
+                      </p>
+                    )}
                     {result.fromCache && (
                       <p className="text-xs text-green-600 mt-1">
                         ✓ Loaded from cache (previously parsed)
