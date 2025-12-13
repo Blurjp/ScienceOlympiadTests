@@ -92,18 +92,36 @@ export async function POST(request: NextRequest) {
     const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
     const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
 
-    // Optimized prompt - concise to reduce tokens and response time
-    const prompt = `Generate ${questionCount} ${topic} questions for Science Olympiad Division C at ${difficulty} level.
+    // Optimized prompt - balanced for speed and clarity
+    const prompt = `Generate ${questionCount} Science Olympiad Division C questions for ${topic} at ${difficulty} level.
 
-Topic: ${topicDescription}
-Level: ${difficultyDescription}
+Topic focus: ${topicDescription}
+Difficulty: ${difficultyDescription}
 
 Requirements:
-- 70% multiple choice (4 options each), 30% short answer
-- Factually accurate, match ${difficulty} competition style
+- ~70% multiple choice (4 options A-D), ~30% short answer
+- Factually accurate, competition-appropriate
 
-Return JSON:
-{"questions":[{"type":"multiple-choice","question":"...","options":["A","B","C","D"],"correctAnswer":"A","points":1,"category":"${topic}"},{"type":"short-answer","question":"...","correctAnswer":"...","points":2,"category":"${topic}"}]}`;
+Return valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "question": "Question text here?",
+      "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
+      "correctAnswer": "A) First option",
+      "points": 1,
+      "category": "${topic}"
+    },
+    {
+      "type": "short-answer",
+      "question": "Question text here?",
+      "correctAnswer": "Brief answer",
+      "points": 2,
+      "category": "${topic}"
+    }
+  ]
+}`;
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
@@ -119,7 +137,7 @@ Return JSON:
         },
       ],
       temperature: 0.7,
-      max_tokens: 2000, // Reduced for faster response
+      max_tokens: 3000, // Enough for 10 questions with proper JSON
       response_format: { type: 'json_object' },
     });
 
