@@ -161,9 +161,11 @@ export default function HomePage() {
   };
 
   const handleBackToHome = () => {
-    // Force navigation to home - most reliable approach
-    router.push('/');
-    router.refresh();
+    // Reset state to go back to browse view
+    setCurrentView('browse');
+    setSelectedTest(null);
+    setUserAnswers([]);
+    setTimeSpent(0);
   };
 
   // Check auth and redirect to signin or destination
