@@ -28,6 +28,9 @@ import {
   History,
   FileText,
   AlertCircle,
+  Eye,
+  RotateCcw,
+  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { HorizontalAd } from '@/components/adsense';
@@ -55,6 +58,21 @@ const DEFAULT_TOPICS = [
   'Write It Do It',
 ];
 
+// Test result with test info for history display
+interface TestResultWithTest {
+  id: string;
+  testId: string;
+  testTitle: string;
+  testTopic: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  timeSpent: number;
+  completedAt: string;
+}
+
 export default function HomePage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -66,6 +84,8 @@ export default function HomePage() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [timeSpent, setTimeSpent] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [testHistory, setTestHistory] = useState<TestResultWithTest[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -97,6 +117,13 @@ export default function HomePage() {
     loadTopics();
     loadPdfSources();
   }, []);
+
+  // Load history when user is logged in
+  useEffect(() => {
+    if (session?.user) {
+      loadHistory();
+    }
+  }, [session]);
 
   // Reload when topic changes
   useEffect(() => {
@@ -139,6 +166,57 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error loading PDF sources:', error);
     }
+  };
+
+  const loadHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch('/api/history');
+      const data = await response.json();
+      setTestHistory(data.results || []);
+    } catch (error) {
+      console.error('Error loading history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Helper functions for history display
+  const formatHistoryTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatHistoryDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getGradeColor = (pct: number): string => {
+    if (pct >= 90) return 'bg-green-100 text-green-800';
+    if (pct >= 80) return 'bg-blue-100 text-blue-800';
+    if (pct >= 70) return 'bg-yellow-100 text-yellow-800';
+    if (pct >= 60) return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  const getGrade = (pct: number): string => {
+    if (pct >= 90) return 'A';
+    if (pct >= 80) return 'B';
+    if (pct >= 70) return 'C';
+    if (pct >= 60) return 'D';
+    return 'F';
+  };
+
+  // Get the latest result for a specific test
+  const getLatestResultForTest = (testId: string): TestResultWithTest | undefined => {
+    return testHistory.find(r => r.testId === testId);
   };
 
   const handleStartTest = (test: Test) => {
@@ -657,10 +735,13 @@ export default function HomePage() {
           </Card>
         </div>
 
-        {/* Filters Section */}
+        {/* Browse Tests History Section */}
         <div className="mb-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">Browse Tests</h2>
+            <div className="flex items-center gap-2">
+              <History className="h-6 w-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Browse Tests History</h2>
+            </div>
             {selectedTopic && (
               <Button
                 variant="ghost"
@@ -671,6 +752,7 @@ export default function HomePage() {
               </Button>
             )}
           </div>
+          <p className="text-gray-600">View your test results or retake any test</p>
 
           {/* Topic Filter */}
           <div>
@@ -712,8 +794,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Test Grid */}
-        {isLoading ? (
+        {/* Test Grid with History */}
+        {isLoading || isLoadingHistory ? (
           <Card>
             <CardContent className="py-12 text-center">
               <RefreshCw className="mx-auto h-12 w-12 animate-spin text-gray-400" />
@@ -728,7 +810,7 @@ export default function HomePage() {
                 No tests available{selectedTopic ? ` for ${selectedTopic}` : ''}
               </p>
               <p className="mt-2 text-gray-600">
-                Get started by importing tests or uploading PDFs
+                Get started by generating tests or importing from URLs
               </p>
               <div className="mt-6 flex gap-3 justify-center flex-wrap">
                 <Button
@@ -751,55 +833,97 @@ export default function HomePage() {
           </Card>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {tests.map((test) => (
-              <Card
-                key={test.id}
-                className="transition-all hover:shadow-lg"
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{test.title}</CardTitle>
-                    <Badge className={getDifficultyColor(test.difficulty)}>
-                      {test.difficulty}
-                    </Badge>
-                  </div>
-                  <CardDescription>{test.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <FileQuestion className="h-4 w-4" />
-                      <span>{test.questions.length} questions</span>
+            {tests.map((test) => {
+              const lastResult = getLatestResultForTest(test.id);
+              return (
+                <Card
+                  key={test.id}
+                  className="transition-all hover:shadow-lg"
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-lg">{test.title}</CardTitle>
+                      <Badge className={getDifficultyColor(test.difficulty)}>
+                        {test.difficulty}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="h-4 w-4" />
-                      <span>{Math.round(test.totalTime / 60)} minutes</span>
+                    <CardDescription>{test.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <FileQuestion className="h-4 w-4" />
+                        <span>{test.questions.length} questions</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="h-4 w-4" />
+                        <span>{Math.round(test.totalTime / 60)} minutes</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Target className="h-4 w-4" />
+                        <span>{test.totalPoints} points</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Badge variant="outline">{test.topic}</Badge>
+                        {test.region && (
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {test.region}
+                          </Badge>
+                        )}
+                        <Badge variant="outline">{test.year}</Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Target className="h-4 w-4" />
-                      <span>{test.totalPoints} points</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <Badge variant="outline">{test.topic}</Badge>
-                      {test.region && (
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {test.region}
-                        </Badge>
-                      )}
-                      <Badge variant="outline">{test.year}</Badge>
-                    </div>
-                  </div>
 
-                  <Button
-                    onClick={() => handleStartTest(test)}
-                    className="mt-6 w-full"
-                  >
-                    Start Test
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    {/* Last Result Display */}
+                    {lastResult && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">Last Result</span>
+                          <Badge className={getGradeColor(lastResult.percentage)}>
+                            {getGrade(lastResult.percentage)} ({lastResult.percentage}%)
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Trophy className="h-3 w-3" />
+                            {lastResult.score}/{lastResult.totalPoints} pts
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatHistoryTime(lastResult.timeSpent)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatHistoryDate(lastResult.completedAt)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        onClick={() => handleStartTest(test)}
+                        className="flex-1 gap-2"
+                        variant={lastResult ? 'outline' : 'default'}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        {lastResult ? 'Retake' : 'Start Test'}
+                      </Button>
+                      {lastResult && (
+                        <Link href="/history" className="flex-1">
+                          <Button variant="secondary" className="w-full gap-2">
+                            <Eye className="h-4 w-4" />
+                            View History
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
