@@ -12,6 +12,7 @@ export const maxDuration = 60; // 60 seconds
 function getOpenAI() {
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
+    timeout: 20000, // 20 second timeout
   });
 }
 
@@ -123,18 +124,11 @@ export async function POST(request: NextRequest) {
     // Use LLM to extract questions
     const openai = getOpenAI();
 
-    // Truncate text to reduce tokens and speed up processing
-    const truncatedText = text.length > 10000 ? text.substring(0, 10000) + '\n...[truncated]' : text;
+    // Truncate text aggressively to speed up processing
+    const truncatedText = text.length > 6000 ? text.substring(0, 6000) + '\n[truncated]' : text;
 
-    const prompt = `Extract questions from this Science Olympiad test. Return JSON:
-{
-  "questions": [
-    {"type": "multiple-choice", "question": "...", "options": ["A)", "B)", "C)", "D)"], "correctAnswer": "A)", "points": 1, "category": "General"},
-    {"type": "short-answer", "question": "...", "correctAnswer": "", "points": 1, "category": "General"}
-  ]
-}
+    const prompt = `Extract questions from this test as JSON: {"questions":[{"type":"multiple-choice","question":"...","options":["A","B","C","D"],"correctAnswer":"A","points":1,"category":"General"}]}
 
-Document:
 ${truncatedText}`;
 
     const completion = await openai.chat.completions.create({
@@ -149,8 +143,8 @@ ${truncatedText}`;
           content: prompt,
         },
       ],
-      temperature: 0.3,
-      max_tokens: 3000,
+      temperature: 0.2,
+      max_tokens: 2500,
       response_format: { type: 'json_object' },
     });
 
