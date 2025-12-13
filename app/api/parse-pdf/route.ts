@@ -42,22 +42,70 @@ export async function POST(request: NextRequest) {
 
     // Convert file to buffer
     const buffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(buffer);
+
+    // Check if it's actually a PDF (should start with %PDF)
+    const headerBytes = new TextDecoder().decode(uint8Array.slice(0, 100));
+
+    // Check if we got HTML instead of PDF
+    if (headerBytes.toLowerCase().includes('<html') || headerBytes.toLowerCase().includes('<!doctype')) {
+      return NextResponse.json(
+        {
+          error: 'The uploaded file appears to be an HTML file, not a PDF.',
+          details: 'Please upload a valid PDF file.'
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!headerBytes.startsWith('%PDF')) {
+      return NextResponse.json(
+        {
+          error: 'The uploaded file is not a valid PDF.',
+          details: `File header: ${headerBytes.substring(0, 20)}...`
+        },
+        { status: 400 }
+      );
+    }
 
     // Parse PDF using unpdf
     let text: string;
     let numPages: number;
     try {
-      const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+      const result = await extractText(uint8Array, { mergePages: true });
       text = result.text as string;
       numPages = result.totalPages;
     } catch (pdfError: any) {
       console.error('PDF parsing error:', pdfError?.message || pdfError);
+
+      const errorMsg = pdfError?.message?.toLowerCase() || '';
+      let userMessage = 'Failed to parse PDF.';
+
+      if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+        userMessage = 'This PDF is password-protected. Please use an unprotected PDF.';
+      } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid')) {
+        userMessage = 'This PDF appears to be corrupted or in an unsupported format.';
+      } else {
+        userMessage = 'Failed to parse PDF. The file may be corrupted, password-protected, or contain only scanned images.';
+      }
+
       return NextResponse.json(
         {
-          error: 'Failed to parse PDF. The file may be corrupted or password-protected.',
+          error: userMessage,
           details: pdfError?.message || 'Unknown parsing error'
         },
         { status: 500 }
+      );
+    }
+
+    // Check if we got any text
+    if (!text || text.trim().length < 50) {
+      return NextResponse.json(
+        {
+          error: 'Could not extract text from PDF. The file may contain only scanned images without OCR.',
+          details: 'Try a PDF with selectable text, not a scanned document.'
+        },
+        { status: 400 }
       );
     }
 
@@ -85,41 +133,44 @@ export async function POST(request: NextRequest) {
 Document text:
 ${truncatedText}
 
-Return ONLY a valid JSON array with this exact structure (no markdown, no explanation):
-[
-  {
-    "type": "multiple-choice",
-    "question": "The question text here?",
-    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
-    "correctAnswer": "Option A text or empty string if unknown",
-    "points": 1,
-    "category": "General"
-  },
-  {
-    "type": "short-answer",
-    "question": "The question text here?",
-    "correctAnswer": "answer or empty string if unknown",
-    "points": 2,
-    "category": "General"
-  }
-]
+Return valid JSON with this exact structure:
+{
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "question": "The question text here?",
+      "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+      "correctAnswer": "Option A text or empty string if unknown",
+      "points": 1,
+      "category": "General"
+    },
+    {
+      "type": "short-answer",
+      "question": "The question text here?",
+      "correctAnswer": "answer or empty string if unknown",
+      "points": 2,
+      "category": "General"
+    }
+  ]
+}
 
-Extract ALL questions you can find. Return ONLY the JSON array.`;
+Extract ALL questions you can find.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: 'You are a document parser that extracts questions from Science Olympiad tests. Output only valid JSON arrays. Never include markdown code blocks or explanations.',
+          content: 'You are a document parser that extracts questions from Science Olympiad tests. Output valid JSON only.',
         },
         {
           role: 'user',
           content: prompt,
         },
       ],
-      temperature: 0.3, // Lower temperature for more consistent parsing
+      temperature: 0.3,
       max_tokens: 4000,
+      response_format: { type: 'json_object' },
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -133,22 +184,24 @@ Extract ALL questions you can find. Return ONLY the JSON array.`;
     // Parse the JSON response
     let questions: Question[];
     try {
-      // Clean up potential markdown code blocks
-      let jsonContent = content.trim();
-      if (jsonContent.startsWith('```json')) {
-        jsonContent = jsonContent.slice(7);
-      } else if (jsonContent.startsWith('```')) {
-        jsonContent = jsonContent.slice(3);
-      }
-      if (jsonContent.endsWith('```')) {
-        jsonContent = jsonContent.slice(0, -3);
-      }
-      jsonContent = jsonContent.trim();
+      const parsed = JSON.parse(content);
 
-      const parsed = JSON.parse(jsonContent);
+      // Handle both array and object with questions key
+      const questionArray = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+
+      if (!Array.isArray(questionArray) || questionArray.length === 0) {
+        return NextResponse.json(
+          {
+            error: 'No questions could be extracted from the PDF.',
+            details: 'The AI could not identify any questions in the document.',
+            rawText: text,
+          },
+          { status: 400 }
+        );
+      }
 
       // Add IDs to questions
-      questions = parsed.map((q: any) => ({
+      questions = questionArray.map((q: any) => ({
         id: generateId(),
         type: q.type || 'short-answer',
         question: q.question,
@@ -157,11 +210,12 @@ Extract ALL questions you can find. Return ONLY the JSON array.`;
         points: q.points || 1,
         category: q.category || 'General',
       }));
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Content:', content);
+    } catch (parseError: any) {
+      console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
       return NextResponse.json(
         {
           error: 'Failed to parse AI response. Please try again.',
+          details: parseError?.message || 'JSON parse failed',
           rawText: text,
         },
         { status: 500 }
