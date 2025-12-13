@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { User, LogOut, Home, PlusCircle, Upload } from "lucide-react"
+import { User, LogOut, Home, Upload } from "lucide-react"
 
 export default async function Header() {
   const session = await auth()
@@ -27,22 +27,13 @@ export default async function Header() {
                 Home
               </Link>
               {session && (
-                <>
-                  <Link
-                    href="/generate"
-                    className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
-                  >
-                    <PlusCircle className="w-4 h-4 mr-1" />
-                    Generate
-                  </Link>
-                  <Link
-                    href="/import"
-                    className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
-                  >
-                    <Upload className="w-4 h-4 mr-1" />
-                    Import
-                  </Link>
-                </>
+                <Link
+                  href="/import"
+                  className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
+                >
+                  <Upload className="w-4 h-4 mr-1" />
+                  Import
+                </Link>
               )}
             </nav>
           </div>
