@@ -25,6 +25,10 @@ interface GenerateRequest {
   difficulty?: 'Invitational' | 'Regional' | 'State' | 'National';
 }
 
+// Netlify has 26s timeout (Pro) or 10s (Free)
+// OpenAI needs ~2-3 seconds per question, so limit to 10 questions max for reliability
+const MAX_QUESTIONS_FOR_TIMEOUT = 10;
+
 // Competition level difficulty descriptions
 const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
   'Invitational': 'Invitational-style: simpler recall questions, wide variance in difficulty, good for beginners and early-season practice',
@@ -71,9 +75,12 @@ export async function POST(request: NextRequest) {
     const body: GenerateRequest = await request.json();
     const {
       topic,
-      questionCount = 20,
+      questionCount: requestedCount = 10,
       difficulty = 'Regional',
     } = body;
+
+    // Limit question count to avoid timeout (Netlify has 26s limit)
+    const questionCount = Math.min(requestedCount, MAX_QUESTIONS_FOR_TIMEOUT);
 
     if (!topic) {
       return NextResponse.json(
@@ -85,42 +92,18 @@ export async function POST(request: NextRequest) {
     const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
     const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
 
-    const prompt = `You are an expert Science Olympiad test writer. Generate ${questionCount} questions for a ${topic} test.
+    // Optimized prompt - concise to reduce tokens and response time
+    const prompt = `Generate ${questionCount} ${topic} questions for Science Olympiad Division C at ${difficulty} level.
 
-CONTEXT:
-- Science Olympiad Division C (high school level)
-- Topic Focus: ${topicDescription}
-- Competition Level: ${difficultyDescription}
+Topic: ${topicDescription}
+Level: ${difficultyDescription}
 
-REQUIREMENTS:
-1. Mix of question types: 70% multiple choice, 30% short answer
-2. Questions should be factually accurate and scientifically correct
-3. Multiple choice questions must have exactly 4 options (A, B, C, D)
-4. Match the difficulty to the competition level specified above
-5. Questions should match the style of actual Science Olympiad competitions at the ${difficulty} level
+Requirements:
+- 70% multiple choice (4 options each), 30% short answer
+- Factually accurate, match ${difficulty} competition style
 
-OUTPUT FORMAT - Return a JSON object with a "questions" array:
-{
-  "questions": [
-    {
-      "type": "multiple-choice",
-      "question": "The question text here?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": "Option A",
-      "points": 1,
-      "category": "${topic}"
-    },
-    {
-      "type": "short-answer",
-      "question": "The question text here?",
-      "correctAnswer": "The correct answer",
-      "points": 2,
-      "category": "${topic}"
-    }
-  ]
-}
-
-Generate exactly ${questionCount} questions.`;
+Return JSON:
+{"questions":[{"type":"multiple-choice","question":"...","options":["A","B","C","D"],"correctAnswer":"A","points":1,"category":"${topic}"},{"type":"short-answer","question":"...","correctAnswer":"...","points":2,"category":"${topic}"}]}`;
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
@@ -128,7 +111,7 @@ Generate exactly ${questionCount} questions.`;
       messages: [
         {
           role: 'system',
-          content: 'You are a Science Olympiad test generator. Output only valid JSON arrays. Never include markdown code blocks or explanations.',
+          content: 'You are a Science Olympiad test generator. Output valid JSON only.',
         },
         {
           role: 'user',
@@ -136,7 +119,7 @@ Generate exactly ${questionCount} questions.`;
         },
       ],
       temperature: 0.7,
-      max_tokens: 3000,
+      max_tokens: 2000, // Reduced for faster response
       response_format: { type: 'json_object' },
     });
 

@@ -71,7 +71,7 @@ export default function HomePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [genConfig, setGenConfig] = useState({
     topic: '',
-    questionCount: 20,
+    questionCount: 10,
     difficulty: 'Regional' as 'Invitational' | 'Regional' | 'State' | 'National',
   });
 
@@ -394,14 +394,14 @@ export default function HomePage() {
 
               {/* Question Count */}
               <div>
-                <Label htmlFor="gen-count" className="text-sm">Questions</Label>
+                <Label htmlFor="gen-count" className="text-sm">Questions (max 10)</Label>
                 <Input
                   id="gen-count"
                   type="number"
                   min="5"
-                  max="50"
+                  max="10"
                   value={genConfig.questionCount}
-                  onChange={(e) => setGenConfig({ ...genConfig, questionCount: parseInt(e.target.value) || 20 })}
+                  onChange={(e) => setGenConfig({ ...genConfig, questionCount: Math.min(parseInt(e.target.value) || 10, 10) })}
                   className="mt-1"
                 />
               </div>
