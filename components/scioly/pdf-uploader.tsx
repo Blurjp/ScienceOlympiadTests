@@ -18,6 +18,7 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parseMode, setParseMode] = useState<ParseMode>('text');
+  const [suggestVision, setSuggestVision] = useState(false);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -57,7 +58,7 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (useVision = false) => {
     if (!selectedFile) {
       setError('Please select a file first');
       return;
@@ -65,12 +66,14 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
 
     setIsParsing(true);
     setError(null);
+    setSuggestVision(false);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
 
-    // Use different endpoint based on parse mode
-    const endpoint = parseMode === 'vision' ? '/api/parse-pdf-vision' : '/api/parse-pdf';
+    // Use different endpoint based on parse mode or override
+    const mode = useVision ? 'vision' : parseMode;
+    const endpoint = mode === 'vision' ? '/api/parse-pdf-vision' : '/api/parse-pdf';
 
     try {
       const response = await fetch(endpoint, {
@@ -80,12 +83,20 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
 
       const result = await response.json();
 
+      // Check if API suggests using vision mode (scanned PDF detected)
+      if (response.status === 422 && result.suggestVision) {
+        setSuggestVision(true);
+        setError('This appears to be a scanned PDF. Text extraction found very little content.');
+        setIsParsing(false);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to parse PDF');
       }
 
       if (result.success) {
-        onQuestionsExtracted(result.questions, result.rawText);
+        onQuestionsExtracted(result.questions, result.rawText || '');
       } else {
         throw new Error('PDF parsing failed');
       }
@@ -94,6 +105,11 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handleRetryWithVision = () => {
+    setParseMode('vision');
+    handleUpload(true);
   };
 
   return (
@@ -185,14 +201,27 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
         </div>
 
         {error && (
-          <div className="mt-4 flex items-start gap-2 rounded-md bg-red-50 p-3">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mt-4 rounded-md bg-red-50 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+            {suggestVision && (
+              <Button
+                onClick={handleRetryWithVision}
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Retry with Vision AI
+              </Button>
+            )}
           </div>
         )}
 
         <Button
-          onClick={handleUpload}
+          onClick={() => handleUpload()}
           disabled={!selectedFile || isParsing}
           className="mt-6 w-full"
         >

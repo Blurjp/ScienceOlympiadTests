@@ -102,14 +102,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if we got any text
-    if (!text || text.trim().length < 50) {
+    // Check if we got any text - detect scanned PDFs
+    const textLength = text?.trim().length || 0;
+    const charsPerPage = numPages > 0 ? textLength / numPages : 0;
+
+    // Heuristic: digital PDFs typically have 500+ chars per page
+    // Scanned PDFs have very little or garbled text
+    const isLikelyScanned = textLength < 50 || charsPerPage < 100;
+
+    if (isLikelyScanned) {
       return NextResponse.json(
         {
-          error: 'Could not extract text from PDF. The file may contain only scanned images without OCR.',
-          details: 'Try a PDF with selectable text, not a scanned document.'
+          error: 'This PDF appears to be scanned or image-based.',
+          details: 'Very little text could be extracted. Try using Vision AI mode for better results.',
+          suggestVision: true,
+          extractedChars: textLength,
+          pages: numPages,
         },
-        { status: 400 }
+        { status: 422 } // Unprocessable - suggest different method
       );
     }
 
