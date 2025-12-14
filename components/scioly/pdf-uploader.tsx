@@ -17,6 +17,7 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [parseMode, setParseMode] = useState<ParseMode>('text');
   const [suggestVision, setSuggestVision] = useState(false);
 
@@ -66,6 +67,7 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
 
     setIsParsing(true);
     setError(null);
+    setErrorDetails(null);
     setSuggestVision(false);
 
     const formData = new FormData();
@@ -75,33 +77,86 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     const mode = useVision ? 'vision' : parseMode;
     const endpoint = mode === 'vision' ? '/api/parse-pdf-vision' : '/api/parse-pdf';
 
+    console.log(`[PDF Upload] Starting upload to ${endpoint}`, {
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      fileType: selectedFile.type,
+      mode
+    });
+
     try {
+      const startTime = Date.now();
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
 
+      const responseTime = Date.now() - startTime;
+      console.log(`[PDF Upload] Response received`, {
+        status: response.status,
+        statusText: response.statusText,
+        responseTimeMs: responseTime
+      });
+
+      // Handle non-JSON responses (like 502 Bad Gateway)
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const textBody = await response.text();
+        console.error(`[PDF Upload] Non-JSON response:`, {
+          status: response.status,
+          contentType,
+          body: textBody.substring(0, 500)
+        });
+        setError(`Server error (${response.status}): ${response.statusText}`);
+        setErrorDetails(`The server returned a non-JSON response. This usually means the function crashed or timed out. Status: ${response.status}`);
+        setIsParsing(false);
+        return;
+      }
+
       const result = await response.json();
+      console.log(`[PDF Upload] Parsed response:`, {
+        success: result.success,
+        error: result.error,
+        step: result.step,
+        details: result.details
+      });
 
       // Check if API suggests using vision mode (scanned PDF detected)
       if (response.status === 422 && result.suggestVision) {
         setSuggestVision(true);
         setError('This appears to be a scanned PDF. Text extraction found very little content.');
+        setErrorDetails(`Extracted only ${result.extractedChars} characters from ${result.pages} pages.`);
         setIsParsing(false);
         return;
       }
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to parse PDF');
+        setError(result.error || 'Failed to parse PDF');
+        setErrorDetails(result.details ? `${result.details}${result.step ? ` (Step: ${result.step})` : ''}` : null);
+        setIsParsing(false);
+        return;
       }
 
       if (result.success) {
+        console.log(`[PDF Upload] Success!`, {
+          questionsCount: result.questions?.length,
+          pages: result.pages,
+          processingTime: result.metadata?.processingTimeMs
+        });
         onQuestionsExtracted(result.questions, result.rawText || '');
       } else {
-        throw new Error('PDF parsing failed');
+        setError('PDF parsing failed');
+        setErrorDetails('The server did not return a success response.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error(`[PDF Upload] Fetch error:`, err);
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setError('Network error - could not reach the server');
+        setErrorDetails('Check your internet connection and try again.');
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        setErrorDetails(err instanceof Error ? (err.stack?.split('\n')[0] || null) : null);
+      }
     } finally {
       setIsParsing(false);
     }
@@ -204,7 +259,12 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
           <div className="mt-4 rounded-md bg-red-50 p-3">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
-              <p className="text-sm text-red-800">{error}</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">{error}</p>
+                {errorDetails && (
+                  <p className="mt-1 text-xs text-red-600">{errorDetails}</p>
+                )}
+              </div>
             </div>
             {suggestVision && (
               <Button
