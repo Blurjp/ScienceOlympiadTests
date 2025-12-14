@@ -5,6 +5,7 @@ import { Question } from '@/lib/types';
 import { generateId } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const PDF_EXTRACT_TIMEOUT = 15000; // 15 seconds timeout for PDF extraction
 
 // Extend serverless function timeout
 export const maxDuration = 60; // 60 seconds
@@ -12,6 +13,16 @@ export const maxDuration = 60; // 60 seconds
 function log(step: string, data?: any) {
   const timestamp = new Date().toISOString();
   console.log(`[PDF-PARSE ${timestamp}] ${step}`, data ? JSON.stringify(data, null, 2) : '');
+}
+
+// Wrapper to add timeout to any promise
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMsg)), ms)
+    )
+  ]);
 }
 
 function getOpenAI() {
@@ -98,12 +109,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse PDF using unpdf
+    // Parse PDF using unpdf with timeout
     log('Step 5: Extracting text with unpdf');
     let text: string;
     let numPages: number;
     try {
-      const result = await extractText(uint8Array, { mergePages: true });
+      const result = await withTimeout(
+        extractText(uint8Array, { mergePages: true }),
+        PDF_EXTRACT_TIMEOUT,
+        `PDF text extraction timed out after ${PDF_EXTRACT_TIMEOUT / 1000} seconds`
+      );
       text = result.text as string;
       numPages = result.totalPages;
       log('Step 5 complete', {
@@ -119,22 +134,28 @@ export async function POST(request: NextRequest) {
 
       const errorMsg = pdfError?.message?.toLowerCase() || '';
       let userMessage = 'Failed to parse PDF.';
+      let suggestVision = false;
 
-      if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+      if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
+        userMessage = 'PDF text extraction timed out. This PDF may be too complex for text extraction.';
+        suggestVision = true;
+      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
         userMessage = 'This PDF is password-protected. Please use an unprotected PDF.';
       } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid')) {
         userMessage = 'This PDF appears to be corrupted or in an unsupported format.';
       } else {
-        userMessage = 'Failed to parse PDF. The file may be corrupted, password-protected, or contain only scanned images.';
+        userMessage = 'Failed to parse PDF. The file may be corrupted or in an unsupported format.';
+        suggestVision = true;
       }
 
       return NextResponse.json(
         {
           error: userMessage,
           details: pdfError?.message || 'Unknown parsing error',
-          step: 'pdf-extraction'
+          step: 'pdf-extraction',
+          suggestVision
         },
-        { status: 500 }
+        { status: suggestVision ? 422 : 500 }
       );
     }
 
