@@ -4,17 +4,20 @@ import React, { useState, useCallback } from 'react';
 import { Question } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle, Eye, FileSearch } from 'lucide-react';
 
 interface PDFUploaderProps {
   onQuestionsExtracted: (questions: Question[], rawText: string) => void;
 }
+
+type ParseMode = 'text' | 'vision';
 
 export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [parseMode, setParseMode] = useState<ParseMode>('text');
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -66,8 +69,11 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
+    // Use different endpoint based on parse mode
+    const endpoint = parseMode === 'vision' ? '/api/parse-pdf-vision' : '/api/parse-pdf';
+
     try {
-      const response = await fetch('/api/parse-pdf', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -136,6 +142,48 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
           </div>
         )}
 
+        {/* Parse Mode Toggle */}
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-medium text-gray-700">Parsing Method</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setParseMode('text')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                parseMode === 'text'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <FileSearch className="h-4 w-4" />
+              <div className="text-left">
+                <div className="font-medium">Text Extract</div>
+                <div className="text-xs opacity-75">Fast, digital PDFs</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setParseMode('vision')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                parseMode === 'vision'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Eye className="h-4 w-4" />
+              <div className="text-left">
+                <div className="font-medium">Vision AI</div>
+                <div className="text-xs opacity-75">Scanned/image PDFs</div>
+              </div>
+            </button>
+          </div>
+          {parseMode === 'vision' && (
+            <p className="mt-2 text-xs text-amber-600">
+              Vision mode uses GPT-4o to read images. More accurate but slower and uses more API credits.
+            </p>
+          )}
+        </div>
+
         {error && (
           <div className="mt-4 flex items-start gap-2 rounded-md bg-red-50 p-3">
             <AlertCircle className="h-5 w-5 text-red-600" />
@@ -151,12 +199,16 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
           {isParsing ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Parsing PDF...
+              {parseMode === 'vision' ? 'Scanning pages with Vision AI...' : 'Parsing PDF...'}
             </>
           ) : (
             <>
-              <Upload className="mr-2 h-4 w-4" />
-              Parse PDF
+              {parseMode === 'vision' ? (
+                <Eye className="mr-2 h-4 w-4" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              {parseMode === 'vision' ? 'Scan with Vision AI' : 'Parse PDF'}
             </>
           )}
         </Button>
