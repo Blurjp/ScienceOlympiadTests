@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage --coverageReporters=lcov --coverageReporters=text"
   },
   "dependencies": {
     "@auth/core": "^0.41.0",
@@ -28,6 +29,8 @@
     "unpdf": "^1.4.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
@@ -36,6 +39,7 @@
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.2.0",
     "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "ts-jest": "^29.4.6",
