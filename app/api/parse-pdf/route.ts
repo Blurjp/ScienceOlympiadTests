@@ -5,10 +5,10 @@ import { Question } from '@/lib/types';
 import { generateId } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const PDF_EXTRACT_TIMEOUT = 15000; // 15 seconds timeout for PDF extraction
+const PDF_EXTRACT_TIMEOUT = 120000; // 2 minutes timeout for PDF extraction
 
 // Extend serverless function timeout
-export const maxDuration = 60; // 60 seconds
+export const maxDuration = 600; // 10 minutes
 
 function log(step: string, data?: any) {
   const timestamp = new Date().toISOString();
@@ -28,7 +28,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
 function getOpenAI() {
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 20000, // 20 second timeout
+    timeout: 600000, // 10 minute timeout
   });
 }
 
@@ -198,8 +198,8 @@ export async function POST(request: NextRequest) {
     log('Step 8: Calling OpenAI API');
     const openai = getOpenAI();
 
-    // Truncate text aggressively to speed up processing
-    const truncatedText = text.length > 6000 ? text.substring(0, 6000) + '\n[truncated]' : text;
+    // Allow up to 50000 characters (GPT-4o-mini has 128k context)
+    const truncatedText = text.length > 50000 ? text.substring(0, 50000) + '\n[truncated]' : text;
     log('Step 8a: Text prepared', { originalLength: text.length, truncatedLength: truncatedText.length });
 
     const prompt = `Extract questions from this test as JSON: {"questions":[{"type":"multiple-choice","question":"...","options":["A","B","C","D"],"correctAnswer":"A","points":1,"category":"General"}]}
@@ -219,7 +219,7 @@ ${truncatedText}`;
         },
       ],
       temperature: 0.2,
-      max_tokens: 2500,
+      max_tokens: 16000,
       response_format: { type: 'json_object' },
     });
 

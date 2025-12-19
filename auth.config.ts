@@ -1,11 +1,17 @@
 import type { NextAuthConfig } from "next-auth"
 
+// Skip auth in local development
+const isDev = process.env.NODE_ENV === "development"
+
 export const authConfig = {
   pages: {
     signIn: "/login",
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
+      // Bypass auth in development mode
+      if (isDev) return true
+
       const isLoggedIn = !!auth?.user
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard")
       const isOnProfile = nextUrl.pathname.startsWith("/profile")

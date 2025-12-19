@@ -24,8 +24,9 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  // Require authentication
-  if (!session) {
+  // Require authentication (bypass in development)
+  const isDev = process.env.NODE_ENV === 'development';
+  if (!session && !isDev) {
     return NextResponse.json(
       { error: 'Please sign in to import tests from URLs' },
       { status: 401 }
