@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveTest } from '@/lib/database';
-import { Test } from '@/lib/types';
+import { Test, Difficulty } from '@/lib/types';
+
+// Map competition level values to database-compatible difficulty values
+// The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
+function mapDifficultyForDatabase(difficulty: string): string {
+  const competitionLevelMap: Record<string, string> = {
+    'Invitational': 'Easy',
+    'Regional': 'Medium',
+    'State': 'Medium',
+    'National': 'Hard',
+  };
+  return competitionLevelMap[difficulty] || difficulty;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,9 +34,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Map competition level to database-compatible difficulty
+    const testToSave = {
+      ...test,
+      difficulty: mapDifficultyForDatabase(test.difficulty),
+    } as Test;
+
     // Save test to database
     try {
-      await saveTest(test as Test);
+      await saveTest(testToSave);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(
