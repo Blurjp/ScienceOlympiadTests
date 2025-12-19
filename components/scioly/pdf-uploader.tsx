@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { Question } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Loader2, AlertCircle, Eye, FileSearch } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
 
 interface TestInfo {
   title: string | null;
@@ -17,16 +17,12 @@ interface PDFUploaderProps {
   onQuestionsExtracted: (questions: Question[], rawText: string, testInfo?: TestInfo) => void;
 }
 
-type ParseMode = 'text' | 'vision';
-
 export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const [parseMode, setParseMode] = useState<ParseMode>('text');
-  const [suggestVision, setSuggestVision] = useState(false);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -66,7 +62,7 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     }
   };
 
-  const handleUpload = async (useVision = false) => {
+  const handleUpload = async () => {
     if (!selectedFile) {
       setError('Please select a file first');
       return;
@@ -75,20 +71,16 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     setIsParsing(true);
     setError(null);
     setErrorDetails(null);
-    setSuggestVision(false);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
 
-    // Use different endpoint based on parse mode or override
-    const mode = useVision ? 'vision' : parseMode;
-    const endpoint = mode === 'vision' ? '/api/parse-pdf-vision' : '/api/parse-pdf';
+    const endpoint = '/api/parse-pdf';
 
     console.log(`[PDF Upload] Starting upload to ${endpoint}`, {
       fileName: selectedFile.name,
       fileSize: selectedFile.size,
-      fileType: selectedFile.type,
-      mode
+      fileType: selectedFile.type
     });
 
     try {
@@ -128,15 +120,6 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
         details: result.details
       });
 
-      // Check if API suggests using vision mode (scanned PDF detected)
-      if (response.status === 422 && result.suggestVision) {
-        setSuggestVision(true);
-        setError('This appears to be a scanned PDF. Text extraction found very little content.');
-        setErrorDetails(`Extracted only ${result.extractedChars} characters from ${result.pages} pages.`);
-        setIsParsing(false);
-        return;
-      }
-
       if (!response.ok) {
         setError(result.error || 'Failed to parse PDF');
         setErrorDetails(result.details ? `${result.details}${result.step ? ` (Step: ${result.step})` : ''}` : null);
@@ -168,11 +151,6 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
     } finally {
       setIsParsing(false);
     }
-  };
-
-  const handleRetryWithVision = () => {
-    setParseMode('vision');
-    handleUpload(true);
   };
 
   return (
@@ -221,47 +199,6 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
           </div>
         )}
 
-        {/* Parse Mode Toggle */}
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-medium text-gray-700">Parsing Method</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setParseMode('text')}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
-                parseMode === 'text'
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <FileSearch className="h-4 w-4" />
-              <div className="text-left">
-                <div className="font-medium">Text Extract</div>
-                <div className="text-xs opacity-75">Fast, digital PDFs</div>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setParseMode('vision')}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
-                parseMode === 'vision'
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <Eye className="h-4 w-4" />
-              <div className="text-left">
-                <div className="font-medium">Vision AI</div>
-                <div className="text-xs opacity-75">Scanned/image PDFs</div>
-              </div>
-            </button>
-          </div>
-          {parseMode === 'vision' && (
-            <p className="mt-2 text-xs text-amber-600">
-              Vision mode uses GPT-4o to read images. More accurate but slower and uses more API credits.
-            </p>
-          )}
-        </div>
 
         {error && (
           <div className="mt-4 rounded-md bg-red-50 p-3">
@@ -274,38 +211,23 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
                 )}
               </div>
             </div>
-            {suggestVision && (
-              <Button
-                onClick={handleRetryWithVision}
-                variant="outline"
-                size="sm"
-                className="mt-3 w-full border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100"
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                Retry with Vision AI
-              </Button>
-            )}
           </div>
         )}
 
         <Button
-          onClick={() => handleUpload()}
+          onClick={handleUpload}
           disabled={!selectedFile || isParsing}
           className="mt-6 w-full"
         >
           {isParsing ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {parseMode === 'vision' ? 'Scanning pages with Vision AI...' : 'Parsing PDF...'}
+              Parsing PDF...
             </>
           ) : (
             <>
-              {parseMode === 'vision' ? (
-                <Eye className="mr-2 h-4 w-4" />
-              ) : (
-                <Upload className="mr-2 h-4 w-4" />
-              )}
-              {parseMode === 'vision' ? 'Scan with Vision AI' : 'Parse PDF'}
+              <Upload className="mr-2 h-4 w-4" />
+              Parse PDF
             </>
           )}
         </Button>
