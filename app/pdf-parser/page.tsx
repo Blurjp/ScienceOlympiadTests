@@ -435,9 +435,9 @@ export default function PDFParserPage() {
                       </div>
                     ) : (
                       <div>
-                        <p className="mb-4 text-base">{question.question}</p>
+                        <p className="text-base">{question.question}</p>
                         {question.options && (
-                          <div className="mb-4 space-y-2">
+                          <div className="mt-3 space-y-1">
                             {question.options.map((opt, i) => (
                               <div key={i} className="text-sm text-gray-600">
                                 {String.fromCharCode(65 + i)}. {opt}
@@ -445,13 +445,6 @@ export default function PDFParserPage() {
                             ))}
                           </div>
                         )}
-                        <div className="flex gap-2 flex-wrap">
-                          <Badge variant="outline">{question.category}</Badge>
-                          <Badge variant="secondary">{question.points} pts</Badge>
-                          <Badge variant="outline" className="text-gray-500">
-                            {question.correctAnswer ? 'Answer saved' : 'No answer'}
-                          </Badge>
-                        </div>
                       </div>
                     )}
                   </CardContent>
