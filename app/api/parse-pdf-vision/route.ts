@@ -7,12 +7,12 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_PAGES = 10; // Limit pages to control costs
 
 // Extend serverless function timeout
-export const maxDuration = 600; // 10 minutes for vision processing
+export const maxDuration = 300; // 5 minutes (Vercel Pro max)
 
 function getOpenAI() {
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 600000, // 10 minute timeout for vision
+    timeout: 300000, // 5 minute timeout for vision
   });
 }
 

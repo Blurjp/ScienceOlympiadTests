@@ -8,7 +8,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const PDF_EXTRACT_TIMEOUT = 120000; // 2 minutes timeout for PDF extraction
 
 // Extend serverless function timeout
-export const maxDuration = 600; // 10 minutes
+export const maxDuration = 300; // 5 minutes (Vercel Pro max)
 
 function log(step: string, data?: any) {
   const timestamp = new Date().toISOString();
@@ -28,7 +28,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
 function getOpenAI() {
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 600000, // 10 minute timeout
+    timeout: 300000, // 5 minute timeout
   });
 }
 
