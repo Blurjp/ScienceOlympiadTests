@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Test, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
@@ -77,6 +77,7 @@ export default function HomePage() {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [currentView, setCurrentView] = useState<ViewType>('browse');
   const [tests, setTests] = useState<Test[]>([]);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
@@ -155,6 +156,40 @@ export default function HomePage() {
       window.removeEventListener('reset-home-view', handleResetHomeView);
     };
   }, []);
+
+  // Handle inspired test from PDF parser
+  useEffect(() => {
+    const isInspired = searchParams.get('inspired') === 'true';
+    if (isInspired) {
+      try {
+        const inspiredData = sessionStorage.getItem('inspiredTestData');
+        if (inspiredData) {
+          const data = JSON.parse(inspiredData);
+          // Pre-fill the AI generator with the topic
+          if (data.topic) {
+            setGenConfig(prev => ({
+              ...prev,
+              topic: data.topic,
+              questionCount: data.questionCount || 20,
+            }));
+          }
+          // Clear the session storage after reading
+          sessionStorage.removeItem('inspiredTestData');
+          // Clear the URL parameter
+          router.replace('/');
+          // Scroll to the AI generator section
+          setTimeout(() => {
+            const aiSection = document.getElementById('ai-generator');
+            if (aiSection) {
+              aiSection.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+        }
+      } catch (e) {
+        console.error('Failed to parse inspired test data:', e);
+      }
+    }
+  }, [searchParams, router]);
 
   const loadTests = async (topic?: string) => {
     setIsLoading(true);
@@ -454,7 +489,7 @@ export default function HomePage() {
         </div>
 
         {/* AI Test Generator Section */}
-        <Card className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+        <Card id="ai-generator" className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-purple-600" />

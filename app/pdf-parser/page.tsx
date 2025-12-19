@@ -157,7 +157,7 @@ export default function PDFParserPage() {
       sampleQuestions: parsedQuestions.slice(0, 5).map(q => q.question), // Sample for inspiration
     };
     sessionStorage.setItem('inspiredTestData', JSON.stringify(inspiredTestData));
-    router.push('/?tab=ai-generate&inspired=true');
+    router.push('/?inspired=true');
   };
 
   // Preview mode - show TestViewer
