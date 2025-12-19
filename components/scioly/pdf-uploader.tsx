@@ -14,7 +14,7 @@ interface TestInfo {
 }
 
 interface PDFUploaderProps {
-  onQuestionsExtracted: (questions: Question[], rawText: string, testInfo?: TestInfo) => void;
+  onQuestionsExtracted: (questions: Question[], rawText: string, testInfo?: TestInfo, fileName?: string) => void;
 }
 
 export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
@@ -134,7 +134,7 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
           processingTime: result.metadata?.processingTimeMs,
           testInfo: result.testInfo
         });
-        onQuestionsExtracted(result.questions, result.rawText || '', result.testInfo);
+        onQuestionsExtracted(result.questions, result.rawText || '', result.testInfo, selectedFile?.name);
       } else {
         setError('PDF parsing failed');
         setErrorDetails('The server did not return a success response.');

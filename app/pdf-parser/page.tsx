@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Question, Test, Region, Difficulty, UserAnswer } from '@/lib/types';
-
-const REGIONS: Region[] = ['Invitational', 'Regionals', 'States', 'Nationals'];
+import { Question, Test, Difficulty } from '@/lib/types';
 import { PDFUploader } from '@/components/scioly/pdf-uploader';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { Button } from '@/components/ui/button';
@@ -13,10 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { generateId } from '@/lib/utils';
-import { ArrowLeft, Save, FileText, Edit3, Play, Eye } from 'lucide-react';
+import { ArrowLeft, Save, FileText, Edit3, Play, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function PDFParserPage() {
+  const router = useRouter();
   const [parsedQuestions, setParsedQuestions] = useState<Question[]>([]);
   const [rawText, setRawText] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -25,7 +25,6 @@ export default function PDFParserPage() {
     description: '',
     year: new Date().getFullYear(),
     topic: '',
-    region: '' as '' | Region,
     difficulty: 'Regional' as Difficulty,
     totalTime: 3600, // 1 hour default
   });
@@ -37,21 +36,34 @@ export default function PDFParserPage() {
     topic: string | null;
     year: number | null;
     difficulty: string;
-  }) => {
+  }, fileName?: string) => {
     setParsedQuestions(questions);
     setRawText(text);
 
-    // Auto-fill test metadata from parsed info
-    if (testInfo) {
-      setTestMetadata(prev => ({
-        ...prev,
-        title: testInfo.title || prev.title,
-        topic: testInfo.topic || prev.topic,
-        year: testInfo.year || prev.year,
-        difficulty: (testInfo.difficulty as Difficulty) || prev.difficulty,
-        description: testInfo.title ? `Parsed from uploaded PDF - ${testInfo.title}` : prev.description,
-      }));
-    }
+    // Generate title from filename if no title from AI
+    const generateTitleFromFileName = (name: string): string => {
+      // Remove .pdf extension and replace underscores/hyphens with spaces
+      return name
+        .replace(/\.pdf$/i, '')
+        .replace(/[_-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    };
+
+    const autoTitle = testInfo?.title || (fileName ? generateTitleFromFileName(fileName) : '');
+    const autoTopic = testInfo?.topic || '';
+
+    setTestMetadata(prev => ({
+      ...prev,
+      title: autoTitle || prev.title,
+      topic: autoTopic || prev.topic,
+      year: testInfo?.year || prev.year,
+      difficulty: (testInfo?.difficulty as Difficulty) || prev.difficulty,
+      description: autoTitle ? `Parsed from uploaded PDF` : prev.description,
+    }));
   };
 
   const handleQuestionEdit = (index: number, field: keyof Question, value: any) => {
@@ -80,7 +92,6 @@ export default function PDFParserPage() {
       description: testMetadata.description,
       year: testMetadata.year,
       topic: testMetadata.topic,
-      region: testMetadata.region || undefined,
       difficulty: testMetadata.difficulty,
       totalTime: testMetadata.totalTime,
       questions: parsedQuestions,
@@ -118,7 +129,6 @@ export default function PDFParserPage() {
       description: testMetadata.description,
       year: testMetadata.year,
       topic: testMetadata.topic || 'General',
-      region: testMetadata.region || undefined,
       difficulty: testMetadata.difficulty,
       totalTime: testMetadata.totalTime,
       questions: parsedQuestions,
@@ -136,6 +146,18 @@ export default function PDFParserPage() {
 
   const handleExitPreview = () => {
     setIsPreviewMode(false);
+  };
+
+  const handleGenerateInspiredTest = () => {
+    // Store the parsed test info in sessionStorage for the AI generator to use
+    const inspiredTestData = {
+      topic: testMetadata.topic,
+      title: testMetadata.title,
+      questionCount: parsedQuestions.length,
+      sampleQuestions: parsedQuestions.slice(0, 5).map(q => q.question), // Sample for inspiration
+    };
+    sessionStorage.setItem('inspiredTestData', JSON.stringify(inspiredTestData));
+    router.push('/?tab=ai-generate&inspired=true');
   };
 
   // Preview mode - show TestViewer
@@ -246,48 +268,6 @@ export default function PDFParserPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="region">Competition Level</Label>
-                  <select
-                    id="region"
-                    value={testMetadata.region}
-                    onChange={(e) =>
-                      setTestMetadata({
-                        ...testMetadata,
-                        region: e.target.value as '' | Region,
-                      })
-                    }
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="">Select Level</option>
-                    {REGIONS.map((region) => (
-                      <option key={region} value={region}>
-                        {region}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <Label htmlFor="difficulty">Difficulty</Label>
-                  <select
-                    id="difficulty"
-                    value={testMetadata.difficulty}
-                    onChange={(e) =>
-                      setTestMetadata({
-                        ...testMetadata,
-                        difficulty: e.target.value as Difficulty,
-                      })
-                    }
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="Invitational">Invitational</option>
-                    <option value="Regional">Regional</option>
-                    <option value="State">State</option>
-                    <option value="National">National</option>
-                  </select>
-                </div>
-
-                <div>
                   <Label htmlFor="totalTime">Total Time (minutes)</Label>
                   <Input
                     id="totalTime"
@@ -330,9 +310,19 @@ export default function PDFParserPage() {
                 </Button>
 
                 <Button
+                  onClick={handleGenerateInspiredTest}
                   variant="outline"
+                  className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate Inspired Test
+                </Button>
+
+                <Button
+                  variant="ghost"
                   onClick={() => setShowRawText(!showRawText)}
-                  className="w-full gap-2"
+                  className="w-full gap-2 text-gray-500"
+                  size="sm"
                 >
                   <FileText className="h-4 w-4" />
                   {showRawText ? 'Hide' : 'Show'} Raw Text
