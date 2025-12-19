@@ -18,7 +18,7 @@ function getOpenAI() {
   });
 }
 
-export const maxDuration = 120; // 2 minutes for PDF processing
+export const maxDuration = 300; // 5 minutes for PDF processing (Vercel Pro max)
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -207,26 +207,28 @@ export async function POST(request: NextRequest) {
 
     const openai = getOpenAI();
 
-    // Truncate text if too long (keep first ~15000 chars to stay within token limits)
-    const truncatedText = text.length > 15000 ? text.substring(0, 15000) + '\n...[truncated]' : text;
+    // Truncate text if too long (keep first ~100000 chars - GPT-4o-mini has 128k context)
+    const truncatedText = text.length > 100000 ? text.substring(0, 100000) + '\n...[truncated]' : text;
 
-    const systemPrompt = `You are a Science Olympiad test parser. Extract questions from the provided PDF text.
+    const systemPrompt = `You are a meticulous Science Olympiad test parser. You MUST extract EVERY SINGLE question from the provided PDF text. Do not skip any questions. Do not summarize.
 
-For each question found, determine:
-1. The question text
-2. Whether it's multiple-choice or short-answer
-3. The answer options (if multiple choice)
-4. The correct answer (if visible in the text, otherwise leave empty)
-5. Point value (if mentioned, otherwise default to 1)
-6. Category/topic area
+CRITICAL: Extract ALL questions, even if there are many (30-50+ is common). Count them as you go.
 
-Also extract metadata about the test:
+For each question found:
+1. The COMPLETE question text (do not truncate)
+2. Type: "multiple-choice" if it has A/B/C/D options, otherwise "short-answer"
+3. Options array for multiple choice, null for short-answer
+4. Correct answer if visible, empty string if not
+5. Point value if shown, default to 1
+6. Category/topic
+
+Also extract metadata:
 - Title (if found)
 - Topic/Event name
 - Year (if found)
 - Competition level (Invitational, Regional, State, National)
 
-Return JSON in this exact format:
+Return JSON:
 {
   "metadata": {
     "title": "string or null",
@@ -237,14 +239,17 @@ Return JSON in this exact format:
   "questions": [
     {
       "type": "multiple-choice or short-answer",
-      "question": "the question text",
+      "question": "the COMPLETE question text",
       "options": ["A) option", "B) option", "C) option", "D) option"] or null,
       "correctAnswer": "the answer if found, empty string if not",
       "points": 1,
       "category": "topic category"
     }
-  ]
-}`;
+  ],
+  "totalFound": <number of questions extracted>
+}
+
+IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, b, c...), or any question format found.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -253,7 +258,7 @@ Return JSON in this exact format:
         { role: 'user', content: `Parse this Science Olympiad test PDF:\n\n${truncatedText}` }
       ],
       temperature: 0.3,
-      max_tokens: 4000,
+      max_tokens: 16000, // Increased to handle more questions
       response_format: { type: 'json_object' },
     });
 

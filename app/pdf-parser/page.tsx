@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Question, Test, Region, Difficulty } from '@/lib/types';
+import { Question, Test, Region, Difficulty, UserAnswer } from '@/lib/types';
 
 const REGIONS: Region[] = ['Invitational', 'Regionals', 'States', 'Nationals'];
 import { PDFUploader } from '@/components/scioly/pdf-uploader';
-import { QuestionDisplay } from '@/components/scioly/question-display';
+import { TestViewer } from '@/components/scioly/test-viewer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { generateId } from '@/lib/utils';
-import { ArrowLeft, Save, FileText, Edit3 } from 'lucide-react';
+import { ArrowLeft, Save, FileText, Edit3, Play, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PDFParserPage() {
@@ -30,10 +30,28 @@ export default function PDFParserPage() {
     totalTime: 3600, // 1 hour default
   });
   const [showRawText, setShowRawText] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  const handleQuestionsExtracted = (questions: Question[], text: string) => {
+  const handleQuestionsExtracted = (questions: Question[], text: string, testInfo?: {
+    title: string | null;
+    topic: string | null;
+    year: number | null;
+    difficulty: string;
+  }) => {
     setParsedQuestions(questions);
     setRawText(text);
+
+    // Auto-fill test metadata from parsed info
+    if (testInfo) {
+      setTestMetadata(prev => ({
+        ...prev,
+        title: testInfo.title || prev.title,
+        topic: testInfo.topic || prev.topic,
+        year: testInfo.year || prev.year,
+        difficulty: (testInfo.difficulty as Difficulty) || prev.difficulty,
+        description: testInfo.title ? `Parsed from uploaded PDF - ${testInfo.title}` : prev.description,
+      }));
+    }
   };
 
   const handleQuestionEdit = (index: number, field: keyof Question, value: any) => {
@@ -90,6 +108,46 @@ export default function PDFParserPage() {
       alert('Failed to save test. Please try again.');
     }
   };
+
+  // Create a test object for preview
+  const createPreviewTest = (): Test => {
+    const totalPoints = parsedQuestions.reduce((sum, q) => sum + q.points, 0);
+    return {
+      id: 'preview-' + generateId(),
+      title: testMetadata.title || 'Untitled Test',
+      description: testMetadata.description,
+      year: testMetadata.year,
+      topic: testMetadata.topic || 'General',
+      region: testMetadata.region || undefined,
+      difficulty: testMetadata.difficulty,
+      totalTime: testMetadata.totalTime,
+      questions: parsedQuestions,
+      totalPoints,
+    };
+  };
+
+  const handlePreviewTest = () => {
+    if (parsedQuestions.length === 0) {
+      alert('No questions to preview');
+      return;
+    }
+    setIsPreviewMode(true);
+  };
+
+  const handleExitPreview = () => {
+    setIsPreviewMode(false);
+  };
+
+  // Preview mode - show TestViewer
+  if (isPreviewMode && parsedQuestions.length > 0) {
+    return (
+      <TestViewer
+        test={createPreviewTest()}
+        onSubmit={() => setIsPreviewMode(false)}
+        onBack={handleExitPreview}
+      />
+    );
+  }
 
   if (parsedQuestions.length === 0) {
     return (
@@ -257,6 +315,15 @@ export default function PDFParserPage() {
                   </div>
                 </div>
 
+                <Button
+                  onClick={handlePreviewTest}
+                  variant="secondary"
+                  className="w-full gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  Preview Test
+                </Button>
+
                 <Button onClick={handleSaveToLibrary} className="w-full gap-2">
                   <Save className="h-4 w-4" />
                   Save to Library
@@ -378,12 +445,11 @@ export default function PDFParserPage() {
                             ))}
                           </div>
                         )}
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Badge variant="outline">{question.category}</Badge>
                           <Badge variant="secondary">{question.points} pts</Badge>
-                          <Badge>
-                            Answer: {question.correctAnswer.substring(0, 50)}
-                            {question.correctAnswer.length > 50 ? '...' : ''}
+                          <Badge variant="outline" className="text-gray-500">
+                            {question.correctAnswer ? 'Answer saved' : 'No answer'}
                           </Badge>
                         </div>
                       </div>

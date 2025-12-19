@@ -6,8 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Loader2, AlertCircle, Eye, FileSearch } from 'lucide-react';
 
+interface TestInfo {
+  title: string | null;
+  topic: string | null;
+  year: number | null;
+  difficulty: string;
+}
+
 interface PDFUploaderProps {
-  onQuestionsExtracted: (questions: Question[], rawText: string) => void;
+  onQuestionsExtracted: (questions: Question[], rawText: string, testInfo?: TestInfo) => void;
 }
 
 type ParseMode = 'text' | 'vision';
@@ -141,9 +148,10 @@ export function PDFUploader({ onQuestionsExtracted }: PDFUploaderProps) {
         console.log(`[PDF Upload] Success!`, {
           questionsCount: result.questions?.length,
           pages: result.pages,
-          processingTime: result.metadata?.processingTimeMs
+          processingTime: result.metadata?.processingTimeMs,
+          testInfo: result.testInfo
         });
-        onQuestionsExtracted(result.questions, result.rawText || '');
+        onQuestionsExtracted(result.questions, result.rawText || '', result.testInfo);
       } else {
         setError('PDF parsing failed');
         setErrorDetails('The server did not return a success response.');

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Test, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
@@ -76,6 +76,7 @@ interface TestResultWithTest {
 export default function HomePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const [currentView, setCurrentView] = useState<ViewType>('browse');
   const [tests, setTests] = useState<Test[]>([]);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
@@ -129,6 +130,31 @@ export default function HomePage() {
   useEffect(() => {
     loadTests(selectedTopic ?? undefined);
   }, [selectedTopic]);
+
+  // Reset view when navigating to home via header link
+  useEffect(() => {
+    if (pathname === '/') {
+      setCurrentView('browse');
+      setSelectedTest(null);
+      setUserAnswers([]);
+      setTimeSpent(0);
+    }
+  }, [pathname]);
+
+  // Listen for custom event from HomeNavLink to reset view
+  useEffect(() => {
+    const handleResetHomeView = () => {
+      setCurrentView('browse');
+      setSelectedTest(null);
+      setUserAnswers([]);
+      setTimeSpent(0);
+    };
+
+    window.addEventListener('reset-home-view', handleResetHomeView);
+    return () => {
+      window.removeEventListener('reset-home-view', handleResetHomeView);
+    };
+  }, []);
 
   const loadTests = async (topic?: string) => {
     setIsLoading(true);

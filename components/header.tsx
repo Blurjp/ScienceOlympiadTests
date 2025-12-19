@@ -1,7 +1,8 @@
 import { auth } from "@/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { User, LogOut, Home, Upload } from "lucide-react"
+import { User, LogOut, Upload } from "lucide-react"
+import { HomeNavLink, HomeLogo } from "./home-nav-link"
 
 export default async function Header() {
   const session = await auth()
@@ -11,21 +12,10 @@ export default async function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">SO</span>
-              </div>
-              <span className="font-bold text-xl hidden sm:inline">SciOly Tests</span>
-            </Link>
+            <HomeLogo />
 
             <nav className="hidden md:flex space-x-6">
-              <Link
-                href="/"
-                className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
-              >
-                <Home className="w-4 h-4 mr-1" />
-                Home
-              </Link>
+              <HomeNavLink />
               {session && (
                 <Link
                   href="/import"

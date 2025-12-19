@@ -198,12 +198,41 @@ export async function POST(request: NextRequest) {
     log('Step 8: Calling OpenAI API');
     const openai = getOpenAI();
 
-    // Allow up to 50000 characters (GPT-4o-mini has 128k context)
-    const truncatedText = text.length > 50000 ? text.substring(0, 50000) + '\n[truncated]' : text;
+    // Allow up to 100000 characters (GPT-4o-mini has 128k context)
+    const truncatedText = text.length > 100000 ? text.substring(0, 100000) + '\n[truncated]' : text;
     log('Step 8a: Text prepared', { originalLength: text.length, truncatedLength: truncatedText.length });
 
-    const prompt = `Extract questions from this test as JSON: {"questions":[{"type":"multiple-choice","question":"...","options":["A","B","C","D"],"correctAnswer":"A","points":1,"category":"General"}]}
+    const prompt = `You MUST extract EVERY SINGLE question from this Science Olympiad test. Do not skip any questions. Do not summarize. Extract ALL of them, even if there are many.
 
+IMPORTANT RULES:
+1. Extract EVERY numbered item (1, 2, 3, etc.)
+2. Extract EVERY lettered sub-question (a, b, c, 1a, 1b, 2a, etc.) as SEPARATE questions
+3. Extract EVERY question that asks something, even if it's part of a larger question
+4. If a question has parts like "a) ... b) ... c) ...", each part is a SEPARATE question
+5. Include ALL fill-in-the-blank, matching, true/false, calculation, and short answer questions
+
+For each question found:
+- type: "multiple-choice" if it has options A/B/C/D, otherwise "short-answer"
+- question: the COMPLETE question text (include any context needed to understand it)
+- options: array of options for multiple choice, null for short-answer
+- correctAnswer: the answer if shown, empty string if not
+- points: point value if shown, default 1
+- category: topic/category if identifiable
+
+Return JSON: {
+  "questions":[...],
+  "totalFound": <number>,
+  "metadata": {
+    "title": "detected test title or null",
+    "topic": "Science Olympiad event name (e.g., Biology, Chemistry, Astronomy)",
+    "year": <year if found, or null>,
+    "difficulty": "Invitational|Regional|State|National based on content"
+  }
+}
+
+CRITICAL: Science Olympiad tests typically have 30-100 questions/sub-questions. If you're finding fewer than 25, you're likely missing sub-questions. Go back and check for lettered sub-parts (a, b, c, etc.).
+
+PDF TEXT:
 ${truncatedText}`;
 
     const completion = await openai.chat.completions.create({
@@ -211,7 +240,7 @@ ${truncatedText}`;
       messages: [
         {
           role: 'system',
-          content: 'You are a document parser that extracts questions from Science Olympiad tests. Output valid JSON only.',
+          content: 'You are a meticulous document parser that extracts EVERY question from Science Olympiad tests. You NEVER skip questions. You extract ALL questions completely, no matter how many there are. Output valid JSON only.',
         },
         {
           role: 'user',
@@ -240,12 +269,14 @@ ${truncatedText}`;
     // Parse the JSON response
     log('Step 9: Parsing AI response');
     let questions: Question[];
+    let extractedMetadata: any = {};
     try {
       const parsed = JSON.parse(content);
 
       // Handle both array and object with questions key
       const questionArray = Array.isArray(parsed) ? parsed : (parsed.questions || []);
-      log('Step 9a: Questions array extracted', { questionCount: questionArray.length });
+      extractedMetadata = parsed.metadata || {};
+      log('Step 9a: Questions array extracted', { questionCount: questionArray.length, metadata: extractedMetadata });
 
       if (!Array.isArray(questionArray) || questionArray.length === 0) {
         log('WARN: No questions found in AI response');
@@ -305,6 +336,12 @@ ${truncatedText}`;
         parsedAt: new Date().toISOString(),
         parsedWithAI: true,
         processingTimeMs: totalTime,
+      },
+      testInfo: {
+        title: extractedMetadata.title || null,
+        topic: extractedMetadata.topic || null,
+        year: extractedMetadata.year || null,
+        difficulty: extractedMetadata.difficulty || 'Regional',
       }
     });
   } catch (error: any) {

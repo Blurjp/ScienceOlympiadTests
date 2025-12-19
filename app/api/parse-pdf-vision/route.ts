@@ -4,7 +4,7 @@ import { Question } from '@/lib/types';
 import { generateId } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_PAGES = 10; // Limit pages to control costs
+const MAX_PAGES = 30; // Increased to handle longer tests
 
 // Extend serverless function timeout
 export const maxDuration = 300; // 5 minutes (Vercel Pro max)
@@ -120,19 +120,19 @@ export async function POST(request: NextRequest) {
       },
     }));
 
-    const systemPrompt = `You are a document parser that extracts questions from Science Olympiad test PDFs.
+    const systemPrompt = `You are a meticulous document parser that extracts EVERY question from Science Olympiad test PDFs. You NEVER skip questions.
 
-Analyze the PDF page images and extract ALL questions you can find.
+CRITICAL: Analyze ALL ${images.length} page images and extract EVERY SINGLE question you can find. Do not skip any. Do not summarize. Tests typically have 30-50+ questions.
 
-For each question, determine:
-- The question text (full question)
-- The question type: "multiple-choice", "short-answer", "true-false", or "calculation"
-- For multiple choice: the options (A, B, C, D, etc.)
-- The correct answer if visible (from an answer key) or leave empty if not shown
-- Point value if shown (default to 1)
-- Category/topic if identifiable
+For each question found:
+- question: The COMPLETE question text (do not truncate)
+- type: "multiple-choice" if it has A/B/C/D options, "short-answer" otherwise
+- options: Array like ["A) ...", "B) ...", "C) ...", "D) ..."] for multiple choice, null for others
+- correctAnswer: The answer if visible, empty string if not
+- points: Point value if shown (default 1)
+- category: Topic/category if identifiable
 
-Output ONLY valid JSON in this exact format:
+Output ONLY valid JSON:
 {
   "questions": [
     {
@@ -154,9 +154,11 @@ Output ONLY valid JSON in this exact format:
   "metadata": {
     "testTitle": "Test title if visible",
     "totalPages": ${images.length},
-    "extractedQuestions": "count"
+    "totalQuestionsFound": <number>
   }
-}`;
+}
+
+IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), or question format. Include ALL of them.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -177,7 +179,7 @@ Output ONLY valid JSON in this exact format:
         },
       ],
       temperature: 0.2,
-      max_tokens: 4000,
+      max_tokens: 16000, // Increased to handle more questions
       response_format: { type: 'json_object' },
     });
 
