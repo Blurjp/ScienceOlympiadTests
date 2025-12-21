@@ -2,7 +2,7 @@ import { auth } from "@/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, LogOut, Upload, Crown, Sparkles } from "lucide-react"
+import { User, LogOut, Upload, Crown } from "lucide-react"
 import { HomeNavLink, HomeLogo } from "./home-nav-link"
 
 export default async function Header() {
@@ -26,13 +26,6 @@ export default async function Header() {
                   Import
                 </Link>
               )}
-              <Link
-                href="/pricing"
-                className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
-              >
-                <Sparkles className="w-4 h-4 mr-1" />
-                Pricing
-              </Link>
             </nav>
           </div>
 
