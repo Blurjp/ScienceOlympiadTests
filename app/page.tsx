@@ -639,87 +639,69 @@ export default function HomePage() {
           </Card>
         )}
 
-        {/* Upload PDF and Import URL */}
-        <div className="grid gap-6 sm:grid-cols-2 mb-6">
-          {/* Upload PDF */}
-          <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Upload className="h-6 w-6 text-green-600" />
-                <CardTitle className="text-lg">Upload Your PDF</CardTitle>
-              </div>
-              <CardDescription>
-                Have your own test PDFs? Upload them and we&apos;ll parse the questions automatically.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-green-800 space-y-1 mb-4">
-                <li>• Extracts questions from PDF files</li>
-                <li>• Supports multiple choice & short answer</li>
-                <li>• Review and edit before saving</li>
-              </ul>
-              <Button
-                onClick={() => handleProtectedNavigation('/pdf-parser')}
-                className="w-full gap-2 bg-green-600 hover:bg-green-700"
+        {/* Import from PDF Section */}
+        <Card className="mb-8 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-6 w-6 text-blue-600" />
+              <CardTitle>Import from PDF</CardTitle>
+            </div>
+            <CardDescription className="text-base">
+              Find real Science Olympiad tests at the{' '}
+              <a
+                href="https://scioly.org/wiki/Test_Exchange_Archive"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline font-medium inline-flex items-center gap-1"
               >
-                <Upload className="h-4 w-4" />
-                Upload PDF Test
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Import from URL */}
-          <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Download className="h-6 w-6 text-orange-600" />
-                <CardTitle className="text-lg">Import from URL</CardTitle>
-              </div>
-              <CardDescription>
-                Paste a PDF link and AI will extract all the questions for you.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-orange-800 space-y-1 mb-4">
-                <li>• Supports direct PDF links</li>
-                <li>• <strong>Google Drive links supported!</strong></li>
-                <li>• AI parses questions automatically</li>
-              </ul>
-              <Button
-                onClick={() => handleProtectedNavigation('/import')}
-                className="w-full gap-2 bg-orange-600 hover:bg-orange-700"
-              >
-                <Download className="h-4 w-4" />
-                Import from URL
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Test Exchange Archive Link */}
-        <a
-          href="https://scioly.org/wiki/Test_Exchange_Archive"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block mb-8"
-        >
-          <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <FolderOpen className="h-6 w-6 text-amber-600" />
+                Test Exchange Archive
+                <ExternalLink className="h-3 w-3" />
+              </a>
+              {' '}— hundreds of real tests from invitationals, regionals, and states. Then import them below:
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Upload PDF */}
+              <div className="p-4 rounded-lg border border-green-200 bg-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <Upload className="h-5 w-5 text-green-600" />
+                  <h3 className="font-semibold text-gray-900">Upload PDF</h3>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-amber-900">Science Olympiad Test Exchange Archive</h3>
-                  <p className="text-sm text-amber-700">
-                    Browse hundreds of real tests from invitationals, regionals, and states on scioly.org
-                  </p>
-                </div>
+                <p className="text-sm text-gray-600 mb-3">
+                  Upload a PDF file from your computer
+                </p>
+                <Button
+                  onClick={() => handleProtectedNavigation('/pdf-parser')}
+                  className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload PDF
+                </Button>
               </div>
-              <ExternalLink className="h-5 w-5 text-amber-600 flex-shrink-0" />
-            </CardContent>
-          </Card>
-        </a>
+
+              {/* Import from URL */}
+              <div className="p-4 rounded-lg border border-orange-200 bg-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <Download className="h-5 w-5 text-orange-600" />
+                  <h3 className="font-semibold text-gray-900">Import from URL</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">
+                  Paste a link (Google Drive supported!)
+                </p>
+                <Button
+                  onClick={() => handleProtectedNavigation('/import')}
+                  className="w-full gap-2 bg-orange-600 hover:bg-orange-700"
+                  size="sm"
+                >
+                  <Download className="h-4 w-4" />
+                  Import URL
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Ad after generators */}
         {process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1 && (
