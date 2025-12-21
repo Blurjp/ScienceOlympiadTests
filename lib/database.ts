@@ -70,6 +70,28 @@ async function initializeDatabase() {
     // Column already exists, ignore
   }
 
+  // Add subscription columns to users table if they don't exist
+  try {
+    await database.execute(`ALTER TABLE users ADD COLUMN stripe_customer_id TEXT UNIQUE`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    await database.execute(`ALTER TABLE users ADD COLUMN subscription_status TEXT DEFAULT 'free'`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    await database.execute(`ALTER TABLE users ADD COLUMN subscription_id TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    await database.execute(`ALTER TABLE users ADD COLUMN subscription_current_period_end DATETIME`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   // Create questions table
   await database.execute(`
     CREATE TABLE IF NOT EXISTS questions (
@@ -376,6 +398,9 @@ export async function deleteTest(testId: string) {
   });
 }
 
+// Subscription status types
+export type SubscriptionStatus = 'free' | 'active' | 'canceled' | 'past_due';
+
 // User operations
 export interface User {
   id: string;
@@ -384,6 +409,10 @@ export interface User {
   image?: string;
   provider?: string;
   providerAccountId?: string;
+  stripeCustomerId?: string;
+  subscriptionStatus?: SubscriptionStatus;
+  subscriptionId?: string;
+  subscriptionCurrentPeriodEnd?: string;
 }
 
 export async function createUser(user: User) {
@@ -421,6 +450,10 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     image: user.image,
     provider: user.provider,
     providerAccountId: user.provider_account_id,
+    stripeCustomerId: user.stripe_customer_id,
+    subscriptionStatus: user.subscription_status || 'free',
+    subscriptionId: user.subscription_id,
+    subscriptionCurrentPeriodEnd: user.subscription_current_period_end,
   };
 }
 
@@ -441,6 +474,10 @@ export async function getUserById(id: string): Promise<User | null> {
     image: user.image,
     provider: user.provider,
     providerAccountId: user.provider_account_id,
+    stripeCustomerId: user.stripe_customer_id,
+    subscriptionStatus: user.subscription_status || 'free',
+    subscriptionId: user.subscription_id,
+    subscriptionCurrentPeriodEnd: user.subscription_current_period_end,
   };
 }
 
@@ -465,6 +502,98 @@ export async function updateUser(userId: string, updates: Partial<User>) {
 
   const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
   await database.execute({ sql: query, args: values });
+}
+
+// Subscription operations
+export interface SubscriptionData {
+  stripeCustomerId?: string;
+  subscriptionStatus?: SubscriptionStatus;
+  subscriptionId?: string;
+  subscriptionCurrentPeriodEnd?: string;
+}
+
+export async function updateUserSubscription(userId: string, data: SubscriptionData) {
+  const database = await getDatabase();
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  if (data.stripeCustomerId !== undefined) {
+    fields.push('stripe_customer_id = ?');
+    values.push(data.stripeCustomerId);
+  }
+  if (data.subscriptionStatus !== undefined) {
+    fields.push('subscription_status = ?');
+    values.push(data.subscriptionStatus);
+  }
+  if (data.subscriptionId !== undefined) {
+    fields.push('subscription_id = ?');
+    values.push(data.subscriptionId);
+  }
+  if (data.subscriptionCurrentPeriodEnd !== undefined) {
+    fields.push('subscription_current_period_end = ?');
+    values.push(data.subscriptionCurrentPeriodEnd);
+  }
+
+  if (fields.length === 0) return;
+
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(userId);
+
+  const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
+  await database.execute({ sql: query, args: values });
+}
+
+export async function getUserByStripeCustomerId(customerId: string): Promise<User | null> {
+  const database = await getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT * FROM users WHERE stripe_customer_id = ?',
+    args: [customerId]
+  });
+
+  if (result.rows.length === 0) return null;
+  const user = result.rows[0] as any;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+    provider: user.provider,
+    providerAccountId: user.provider_account_id,
+    stripeCustomerId: user.stripe_customer_id,
+    subscriptionStatus: user.subscription_status || 'free',
+    subscriptionId: user.subscription_id,
+    subscriptionCurrentPeriodEnd: user.subscription_current_period_end,
+  };
+}
+
+export async function getSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
+  const database = await getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT subscription_status FROM users WHERE id = ?',
+    args: [userId]
+  });
+
+  if (result.rows.length === 0) return 'free';
+  const user = result.rows[0] as any;
+  return (user.subscription_status as SubscriptionStatus) || 'free';
+}
+
+export async function getUserMonthlyAIGenerations(userId: string): Promise<number> {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  // Count successful AI test generations for this user in the current calendar month
+  const result = await database.execute({
+    sql: `SELECT COUNT(*) as count FROM api_usage
+          WHERE user_id = ?
+          AND endpoint = 'generate-ai-test'
+          AND success = 1
+          AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`,
+    args: [userId]
+  });
+
+  return (result.rows[0] as any)?.count || 0;
 }
 
 // Test results operations

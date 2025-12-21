@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest, logApiUsage } from '@/lib/database';
+import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
+import { FREE_TIER_MONTHLY_LIMIT } from '@/lib/stripe';
 
 // GPT-4o-mini pricing (as of 2024)
 const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
@@ -67,6 +68,34 @@ export async function POST(request: NextRequest) {
     userId = session?.user?.id;
   } catch (authError) {
     console.error('Auth error (non-fatal):', authError);
+  }
+
+  // Check usage limits for free users
+  if (userId) {
+    try {
+      const subscriptionStatus = await getSubscriptionStatus(userId);
+
+      // Free users have a monthly limit
+      if (subscriptionStatus !== 'active') {
+        const monthlyUsage = await getUserMonthlyAIGenerations(userId);
+
+        if (monthlyUsage >= FREE_TIER_MONTHLY_LIMIT) {
+          return NextResponse.json(
+            {
+              error: 'Monthly limit reached',
+              limitReached: true,
+              used: monthlyUsage,
+              limit: FREE_TIER_MONTHLY_LIMIT,
+              message: `You've used all ${FREE_TIER_MONTHLY_LIMIT} free AI test generations this month. Upgrade to Pro for unlimited access.`,
+            },
+            { status: 403 }
+          );
+        }
+      }
+    } catch (limitError) {
+      console.error('Usage limit check error (non-fatal):', limitError);
+      // Continue anyway - don't block on limit check failure
+    }
   }
 
   try {

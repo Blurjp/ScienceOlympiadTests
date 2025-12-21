@@ -1,6 +1,9 @@
-// Curated list of publicly available Science Olympiad exam PDFs
-// These are links to third-party sources where exams are publicly posted
-// SciOlyPrep does not host, store, or redistribute these PDFs
+// Curated list of Science Olympiad exam structure templates
+// These are used to inspire AI-generated original questions
+// All generated questions are 100% original - no content is copied
+
+// Link to the Test Exchange Archive where users can find real exams
+export const TEST_EXCHANGE_ARCHIVE_URL = 'https://scioly.org/wiki/Test_Exchange_Archive';
 
 export interface PDFSource {
   id: string;
@@ -14,106 +17,106 @@ export interface PDFSource {
 }
 
 export const CURATED_PDF_SOURCES: PDFSource[] = [
-  // Scioly.org hosted exams (publicly shared by community)
+  // Exam structure templates inspired by Scioly.org community exams
   {
     id: 'scioly-anatomy-2023-inv',
-    name: 'Anatomy & Physiology - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/anatomy-invitational-2023.pdf',
+    name: 'Anatomy & Physiology - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Anatomy and Physiology',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
-    description: 'Community-shared invitational exam covering nervous and immune systems',
+    source: 'Scioly.org Test Exchange',
+    description: 'Invitational-level structure covering nervous and immune systems',
   },
   {
     id: 'scioly-astronomy-2023-inv',
-    name: 'Astronomy - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/astronomy-invitational-2023.pdf',
+    name: 'Astronomy - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Astronomy',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
-    description: 'Community-shared invitational exam on stellar evolution and DSOs',
+    source: 'Scioly.org Test Exchange',
+    description: 'Invitational-level structure on stellar evolution and DSOs',
   },
   {
     id: 'scioly-chemistry-2023-inv',
-    name: 'Chemistry Lab - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/chemistry-invitational-2023.pdf',
+    name: 'Chemistry Lab - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Chemistry Lab',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
-    description: 'Community-shared invitational exam on organic chemistry',
+    source: 'Scioly.org Test Exchange',
+    description: 'Invitational-level structure on organic chemistry',
   },
   {
     id: 'scioly-fossils-2023-inv',
-    name: 'Fossils - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/fossils-invitational-2023.pdf',
+    name: 'Fossils - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Fossils',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
-    description: 'Community-shared invitational exam on paleontology',
+    source: 'Scioly.org Test Exchange',
+    description: 'Invitational-level structure on paleontology',
   },
   {
     id: 'scioly-ecology-2023-inv',
-    name: 'Ecology - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/ecology-invitational-2023.pdf',
+    name: 'Ecology - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Ecology',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
-    description: 'Community-shared invitational exam on ecosystems',
+    source: 'Scioly.org Test Exchange',
+    description: 'Invitational-level structure on ecosystems',
   },
-  // Regional level samples
+  // Regional level templates
   {
     id: 'scioly-anatomy-2022-reg',
-    name: 'Anatomy & Physiology - Sample Regional 2022',
-    url: 'https://scioly.org/tests/anatomy-regional-2022.pdf',
+    name: 'Anatomy & Physiology - Regional Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Anatomy and Physiology',
     year: 2022,
     level: 'Regional',
-    source: 'Scioly.org Community',
+    source: 'Scioly.org Test Exchange',
     description: 'Regional-level exam structure reference',
   },
   {
     id: 'scioly-disease-2023-inv',
-    name: 'Disease Detectives - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/disease-invitational-2023.pdf',
+    name: 'Disease Detectives - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Disease Detectives',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
+    source: 'Scioly.org Test Exchange',
     description: 'Epidemiology and public health exam structure',
   },
   {
     id: 'scioly-dynamic-2023-inv',
-    name: 'Dynamic Planet - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/dynamic-invitational-2023.pdf',
+    name: 'Dynamic Planet - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Dynamic Planet',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
+    source: 'Scioly.org Test Exchange',
     description: 'Earth science and geology exam structure',
   },
   {
     id: 'scioly-forensics-2023-inv',
-    name: 'Forensics - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/forensics-invitational-2023.pdf',
+    name: 'Forensics - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Forensics',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
+    source: 'Scioly.org Test Exchange',
     description: 'Crime scene analysis exam structure',
   },
   {
     id: 'scioly-optics-2023-inv',
-    name: 'Optics - Sample Invitational 2023',
-    url: 'https://scioly.org/tests/optics-invitational-2023.pdf',
+    name: 'Optics - Invitational Style',
+    url: TEST_EXCHANGE_ARCHIVE_URL,
     topic: 'Optics',
     year: 2023,
     level: 'Invitational',
-    source: 'Scioly.org Community',
+    source: 'Scioly.org Test Exchange',
     description: 'Light and optics exam structure',
   },
 ];

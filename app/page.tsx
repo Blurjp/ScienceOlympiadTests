@@ -22,6 +22,8 @@ import {
   Trophy,
   Download,
   RefreshCw,
+  ExternalLink,
+  FolderOpen,
   Beaker,
   Loader2,
   MapPin,
@@ -452,41 +454,35 @@ export default function HomePage() {
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-8">
-        {/* Ways to Get Tests - Overview Section */}
+        {/* Section Title */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Practice Tests</h2>
-          <p className="text-gray-600 mb-4">Choose one of these methods to get practice tests:</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-            <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <Sparkles className="h-6 w-6 text-purple-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-purple-900">AI Generator</p>
-                <p className="text-xs text-purple-700">Generate from any topic</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <FileText className="h-6 w-6 text-blue-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-blue-900">Exam-Inspired</p>
-                <p className="text-xs text-blue-700">Based on real exam formats</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-              <Upload className="h-6 w-6 text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-green-900">Upload PDF</p>
-                <p className="text-xs text-green-700">Parse your own tests</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
-              <Download className="h-6 w-6 text-orange-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-orange-900">Import URL</p>
-                <p className="text-xs text-orange-700">From external sources</p>
-              </div>
-            </div>
-          </div>
         </div>
+
+        {/* Test Exchange Archive Link */}
+        <a
+          href="https://scioly.org/wiki/Test_Exchange_Archive"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mb-8"
+        >
+          <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <FolderOpen className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-900">Science Olympiad Test Exchange Archive</h3>
+                  <p className="text-sm text-amber-700">
+                    Browse hundreds of real tests from invitationals, regionals, and states on scioly.org
+                  </p>
+                </div>
+              </div>
+              <ExternalLink className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            </CardContent>
+          </Card>
+        </a>
 
         {/* AI Test Generator Section */}
         <Card id="ai-generator" className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
@@ -651,7 +647,7 @@ export default function HomePage() {
                       rel="noopener noreferrer"
                       className="underline hover:text-blue-800"
                     >
-                      View Original Exam ↗
+                      Browse Test Exchange ↗
                     </a>
                   </p>
                 </div>

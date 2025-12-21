@@ -37,25 +37,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true
       }
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         // Set basic info from OAuth provider
         token.id = user.id
         token.email = user.email
         token.name = user.name
         token.picture = user.image
+        token.subscriptionStatus = 'free'
+        token.isPro = false
 
         // Try to get additional info from DB
         try {
           const dbUser = await getUserByEmail(user.email!)
           if (dbUser) {
             token.id = dbUser.id
+            token.subscriptionStatus = dbUser.subscriptionStatus || 'free'
+            token.isPro = dbUser.subscriptionStatus === 'active'
           }
         } catch (error) {
           console.error("Error fetching user from DB:", error)
           // Continue with OAuth data
         }
       }
+
+      // Refresh subscription status on session update
+      if (trigger === 'update' && token.email) {
+        try {
+          const dbUser = await getUserByEmail(token.email as string)
+          if (dbUser) {
+            token.subscriptionStatus = dbUser.subscriptionStatus || 'free'
+            token.isPro = dbUser.subscriptionStatus === 'active'
+          }
+        } catch (error) {
+          console.error("Error refreshing subscription status:", error)
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
@@ -64,6 +82,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.email = token.email as string || ""
         session.user.name = token.name as string || ""
         session.user.image = token.picture as string || ""
+        session.user.subscriptionStatus = (token.subscriptionStatus as 'free' | 'active' | 'canceled' | 'past_due') || 'free'
+        session.user.isPro = token.isPro as boolean || false
       }
       return session
     },

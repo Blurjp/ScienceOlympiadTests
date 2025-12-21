@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { User, Mail, Calendar } from "lucide-react"
 import { getUserById, getUserStats } from "@/lib/database"
 import { SignOutButton } from "@/components/auth/sign-out-button"
+import { SubscriptionSection } from "@/components/subscription/subscription-section"
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -92,6 +93,13 @@ export default async function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Subscription */}
+        <SubscriptionSection
+          subscriptionStatus={dbUser?.subscriptionStatus || 'free'}
+          isPro={dbUser?.subscriptionStatus === 'active'}
+          subscriptionCurrentPeriodEnd={dbUser?.subscriptionCurrentPeriodEnd}
+        />
 
         {/* Actions */}
         <Card>
