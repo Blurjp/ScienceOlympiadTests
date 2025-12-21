@@ -430,29 +430,6 @@ export default function HomePage() {
   // Browse view
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 py-12 text-white">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Trophy className="h-12 w-12" />
-            <h1 className="text-4xl font-bold">Science Olympiad Tests</h1>
-          </div>
-          <p className="text-xl text-blue-100">
-            Practice tests, track your progress, and ace your Science Olympiad competitions
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            {session?.user && (
-              <Link href="/history">
-                <Button size="lg" variant="secondary" className="gap-2">
-                  <History className="h-5 w-5" />
-                  Test History
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-
       <div className="mx-auto max-w-6xl px-4 py-8">
         {/* Section Title */}
         <div className="mb-8">
