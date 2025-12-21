@@ -11,6 +11,18 @@ import { validateOriginalContent } from '@/lib/similarity-check';
 const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
 const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
 
+// Map competition level values to database-compatible difficulty values
+// The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
+function mapDifficultyForDatabase(difficulty: string): string {
+  const competitionLevelMap: Record<string, string> = {
+    'Invitational': 'Easy',
+    'Regional': 'Medium',
+    'State': 'Medium',
+    'National': 'Hard',
+  };
+  return competitionLevelMap[difficulty] || difficulty;
+}
+
 export const maxDuration = 120; // 2 minutes for PDF processing
 
 function getOpenAI() {
@@ -180,7 +192,7 @@ export async function POST(request: NextRequest) {
           year: new Date().getFullYear(),
           title: `Original Practice: ${pdfSource.topic} (${pdfSource.level}-style)`,
           description: `AI-generated original practice test inspired by ${pdfSource.level}-level exam structure. All questions are completely original and not copied from any source.`,
-          difficulty: pdfSource.level as any,
+          difficulty: mapDifficultyForDatabase(pdfSource.level) as any,
           totalTime,
           totalPoints,
           topic: pdfSource.topic,
@@ -354,7 +366,7 @@ Generate exactly ${questionCount} original questions.`;
       year: new Date().getFullYear(),
       title: `Original Practice: ${pdfSource.topic} (${metaInfo.difficultyLevel}-style)`,
       description: `AI-generated original practice test inspired by ${metaInfo.difficultyLevel}-level exam structure. All questions are completely original and not copied from any source.`,
-      difficulty: metaInfo.difficultyLevel as any,
+      difficulty: mapDifficultyForDatabase(metaInfo.difficultyLevel) as any,
       totalTime,
       totalPoints,
       topic: pdfSource.topic,
