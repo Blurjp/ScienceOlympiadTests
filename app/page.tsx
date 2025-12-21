@@ -483,14 +483,14 @@ export default function HomePage() {
 
               {/* Question Count */}
               <div>
-                <Label htmlFor="gen-count" className="text-sm">Questions (max 10)</Label>
+                <Label htmlFor="gen-count" className="text-sm">Questions (max 20)</Label>
                 <Input
                   id="gen-count"
                   type="number"
                   min="5"
-                  max="10"
+                  max="20"
                   value={genConfig.questionCount}
-                  onChange={(e) => setGenConfig({ ...genConfig, questionCount: Math.min(parseInt(e.target.value) || 10, 10) })}
+                  onChange={(e) => setGenConfig({ ...genConfig, questionCount: Math.min(parseInt(e.target.value) || 10, 20) })}
                   className="mt-1"
                 />
               </div>
