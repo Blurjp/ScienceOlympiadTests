@@ -459,31 +459,6 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Practice Tests</h2>
         </div>
 
-        {/* Test Exchange Archive Link */}
-        <a
-          href="https://scioly.org/wiki/Test_Exchange_Archive"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block mb-8"
-        >
-          <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <FolderOpen className="h-6 w-6 text-amber-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-amber-900">Science Olympiad Test Exchange Archive</h3>
-                  <p className="text-sm text-amber-700">
-                    Browse hundreds of real tests from invitationals, regionals, and states on scioly.org
-                  </p>
-                </div>
-              </div>
-              <ExternalLink className="h-5 w-5 text-amber-600 flex-shrink-0" />
-            </CardContent>
-          </Card>
-        </a>
-
         {/* AI Test Generator Section */}
         <Card id="ai-generator" className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
           <CardHeader className="pb-2">
@@ -688,7 +663,7 @@ export default function HomePage() {
         )}
 
         {/* Upload PDF and Import URL */}
-        <div className="grid gap-6 sm:grid-cols-2 mb-8">
+        <div className="grid gap-6 sm:grid-cols-2 mb-6">
           {/* Upload PDF */}
           <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
             <CardHeader className="pb-2">
@@ -729,9 +704,9 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <ul className="text-sm text-orange-800 space-y-1 mb-4">
-                <li>• Just paste a PDF URL - that&apos;s it!</li>
+                <li>• Supports direct PDF links</li>
+                <li>• <strong>Google Drive links supported!</strong></li>
                 <li>• AI parses questions automatically</li>
-                <li>• Results cached for instant re-use</li>
               </ul>
               <Button
                 onClick={() => handleProtectedNavigation('/import')}
@@ -743,6 +718,31 @@ export default function HomePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Test Exchange Archive Link */}
+        <a
+          href="https://scioly.org/wiki/Test_Exchange_Archive"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mb-8"
+        >
+          <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <FolderOpen className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-900">Science Olympiad Test Exchange Archive</h3>
+                  <p className="text-sm text-amber-700">
+                    Browse hundreds of real tests from invitationals, regionals, and states on scioly.org
+                  </p>
+                </div>
+              </div>
+              <ExternalLink className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            </CardContent>
+          </Card>
+        </a>
 
         {/* Ad after generators */}
         {process.env.NEXT_PUBLIC_GOOGLE_AD_SLOT_1 && (
