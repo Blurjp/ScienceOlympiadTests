@@ -8,6 +8,18 @@ import { auth } from '@/auth';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
+// Map competition level values to database-compatible difficulty values
+// The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
+function mapDifficultyForDatabase(difficulty: string): string {
+  const competitionLevelMap: Record<string, string> = {
+    'Invitational': 'Easy',
+    'Regional': 'Medium',
+    'State': 'Medium',
+    'National': 'Hard',
+  };
+  return competitionLevelMap[difficulty] || difficulty;
+}
+
 // Extract Google Drive file ID from various URL formats
 function extractGoogleDriveFileId(url: string): string | null {
   // Pattern 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
@@ -103,7 +115,7 @@ export async function POST(request: NextRequest) {
         year: metadata.year || new Date().getFullYear(),
         title: metadata.title || `Test from ${pdfUrl.hostname}`,
         description: `Imported from ${url}`,
-        difficulty: metadata.difficulty || 'Regional',
+        difficulty: mapDifficultyForDatabase(metadata.difficulty || 'Regional') as any,
         totalTime: metadata.totalTime || 3600,
         totalPoints,
         topic: metadata.topic || 'General',
@@ -436,7 +448,7 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
       year: metadata.year || new Date().getFullYear(),
       title: metadata.title || `Test from ${pdfUrl.hostname}`,
       description: `Imported from ${url}`,
-      difficulty: metadata.difficulty || 'Regional',
+      difficulty: mapDifficultyForDatabase(metadata.difficulty || 'Regional') as any,
       totalTime: 3600,
       totalPoints,
       topic: metadata.topic || 'General',
