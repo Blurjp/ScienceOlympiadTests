@@ -13,14 +13,15 @@ const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
 
 // Map competition level values to database-compatible difficulty values
 // The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
-function mapDifficultyForDatabase(difficulty: string): string {
+function mapDifficultyForDatabase(difficulty: string | undefined | null): string {
   const competitionLevelMap: Record<string, string> = {
     'Invitational': 'Easy',
     'Regional': 'Medium',
     'State': 'Medium',
     'National': 'Hard',
   };
-  return competitionLevelMap[difficulty] || difficulty;
+  // Always return a valid difficulty value, default to 'Medium'
+  return competitionLevelMap[difficulty || ''] || 'Medium';
 }
 
 export const maxDuration = 120; // 2 minutes for PDF processing

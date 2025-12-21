@@ -10,14 +10,15 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
 // Map competition level values to database-compatible difficulty values
 // The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
-function mapDifficultyForDatabase(difficulty: string): string {
+function mapDifficultyForDatabase(difficulty: string | undefined | null): string {
   const competitionLevelMap: Record<string, string> = {
     'Invitational': 'Easy',
     'Regional': 'Medium',
     'State': 'Medium',
     'National': 'Hard',
   };
-  return competitionLevelMap[difficulty] || difficulty;
+  // Always return a valid difficulty value, default to 'Medium'
+  return competitionLevelMap[difficulty || ''] || 'Medium';
 }
 
 // Extract Google Drive file ID from various URL formats
