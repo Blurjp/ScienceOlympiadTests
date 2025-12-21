@@ -100,7 +100,7 @@ export default function ImportPage() {
               PDF URL
             </CardTitle>
             <CardDescription>
-              Enter the URL of a publicly accessible Science Olympiad test PDF
+              Enter the URL of a publicly accessible Science Olympiad test PDF. Google Drive links are supported!
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -112,7 +112,7 @@ export default function ImportPage() {
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com/test.pdf"
+                  placeholder="https://drive.google.com/file/d/.../view or any PDF URL"
                   onKeyPress={(e) => e.key === 'Enter' && handleImport()}
                   disabled={isLoading}
                   className="flex-1"
@@ -216,6 +216,13 @@ export default function ImportPage() {
                   <span>The test is saved and ready to practice</span>
                 </li>
               </ul>
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-xs font-medium text-gray-600 mb-1">Supported URL formats:</p>
+                <ul className="text-xs text-gray-500 space-y-0.5">
+                  <li>• Direct PDF links (https://example.com/test.pdf)</li>
+                  <li>• Google Drive sharing links (must be set to &quot;Anyone with link can view&quot;)</li>
+                </ul>
+              </div>
             </div>
 
             {/* URL display */}

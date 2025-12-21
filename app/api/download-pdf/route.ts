@@ -8,6 +8,29 @@ import { auth } from '@/auth';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
+// Extract Google Drive file ID from various URL formats
+function extractGoogleDriveFileId(url: string): string | null {
+  // Pattern 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  // Pattern 2: https://drive.google.com/file/d/FILE_ID/view
+  // Pattern 3: https://drive.google.com/open?id=FILE_ID
+  // Pattern 4: https://drive.google.com/uc?id=FILE_ID&export=download
+
+  const patterns = [
+    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
+    /drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
 // GPT-4o-mini pricing
 const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
 const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
@@ -55,6 +78,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert Google Drive sharing URLs to direct download URLs
+    let downloadUrl = pdfUrl.toString();
+    const googleDriveFileId = extractGoogleDriveFileId(downloadUrl);
+    if (googleDriveFileId) {
+      downloadUrl = `https://drive.google.com/uc?export=download&id=${googleDriveFileId}`;
+      console.log(`Converted Google Drive URL to direct download: ${downloadUrl}`);
+    }
+
     // Check cache first
     const cached = await getCachedPdfParse(url);
     if (cached && cached.questions.length > 0) {
@@ -95,10 +126,11 @@ export async function POST(request: NextRequest) {
     // Download PDF
     let response: Response;
     try {
-      response = await fetch(pdfUrl.toString(), {
+      response = await fetch(downloadUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; SciOlyTestApp/1.0)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
+        redirect: 'follow',
       });
 
       if (!response.ok) {
@@ -139,22 +171,93 @@ export async function POST(request: NextRequest) {
     // Check if it looks like a PDF (should start with %PDF)
     const headerBytes = new TextDecoder().decode(uint8Array.slice(0, 100));
 
-    // Check if we got HTML instead of PDF (common with login pages, error pages)
+    // Check if we got HTML instead of PDF (common with login pages, error pages, or Google Drive virus scan warning)
+    let pdfBytes = uint8Array;
     if (headerBytes.toLowerCase().includes('<html') || headerBytes.toLowerCase().includes('<!doctype')) {
-      return NextResponse.json(
-        {
-          error: 'The URL returned a webpage instead of a PDF file. This usually means the link requires login or the file is not directly accessible.',
-          details: 'The server returned HTML content instead of a PDF. Try using a direct download link.'
-        },
-        { status: 400 }
-      );
+      // Check if this is a Google Drive virus scan warning page
+      const htmlContent = new TextDecoder().decode(uint8Array);
+
+      if (googleDriveFileId && (htmlContent.includes('virus scan') || htmlContent.includes('confirm='))) {
+        // Try to extract the confirm token and retry with it
+        const confirmMatch = htmlContent.match(/confirm=([a-zA-Z0-9_-]+)/);
+        if (confirmMatch) {
+          const confirmToken = confirmMatch[1];
+          const retryUrl = `https://drive.google.com/uc?export=download&id=${googleDriveFileId}&confirm=${confirmToken}`;
+
+          try {
+            const retryResponse = await fetch(retryUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+              redirect: 'follow',
+            });
+
+            if (retryResponse.ok) {
+              const retryBuffer = await retryResponse.arrayBuffer();
+              const retryUint8Array = new Uint8Array(retryBuffer);
+              const retryHeader = new TextDecoder().decode(retryUint8Array.slice(0, 100));
+
+              if (retryHeader.startsWith('%PDF')) {
+                // Successfully got the PDF on retry - use this data
+                pdfBytes = retryUint8Array;
+              } else {
+                // Still not a PDF after retry
+                return NextResponse.json(
+                  {
+                    error: 'Google Drive requires additional confirmation for this file.',
+                    details: 'Try downloading the file manually and using the Upload PDF feature instead.'
+                  },
+                  { status: 400 }
+                );
+              }
+            }
+          } catch (retryError) {
+            console.error('Google Drive retry failed:', retryError);
+            return NextResponse.json(
+              {
+                error: 'Failed to download from Google Drive after virus scan bypass attempt.',
+                details: 'Try downloading the file manually and using the Upload PDF feature instead.'
+              },
+              { status: 400 }
+            );
+          }
+        } else {
+          return NextResponse.json(
+            {
+              error: 'Google Drive requires additional confirmation for this file. This may be because the file is large or flagged for virus scanning.',
+              details: 'Try downloading the file manually and using the Upload PDF feature instead.'
+            },
+            { status: 400 }
+          );
+        }
+      } else if (googleDriveFileId && (htmlContent.includes('Request access') || htmlContent.includes('You need permission'))) {
+        // Check if this is a Google Drive access denied page
+        return NextResponse.json(
+          {
+            error: 'Access denied. The Google Drive file is not publicly shared.',
+            details: 'Please make sure the file sharing is set to "Anyone with the link can view".'
+          },
+          { status: 403 }
+        );
+      } else {
+        return NextResponse.json(
+          {
+            error: 'The URL returned a webpage instead of a PDF file. This usually means the link requires login or the file is not directly accessible.',
+            details: 'The server returned HTML content instead of a PDF. Try using a direct download link.'
+          },
+          { status: 400 }
+        );
+      }
     }
 
-    if (!headerBytes.startsWith('%PDF')) {
+    // Re-check the header with potentially updated bytes
+    const finalHeaderBytes = new TextDecoder().decode(pdfBytes.slice(0, 100));
+
+    if (!finalHeaderBytes.startsWith('%PDF')) {
       return NextResponse.json(
         {
           error: 'The downloaded file is not a valid PDF',
-          details: `File starts with: ${headerBytes.substring(0, 20)}...`
+          details: `File starts with: ${finalHeaderBytes.substring(0, 20)}...`
         },
         { status: 400 }
       );
@@ -163,7 +266,7 @@ export async function POST(request: NextRequest) {
     let text: string;
     let numPages: number;
     try {
-      const result = await extractText(uint8Array, { mergePages: true });
+      const result = await extractText(pdfBytes, { mergePages: true });
       text = result.text as string;
       numPages = result.totalPages;
     } catch (pdfError: any) {
