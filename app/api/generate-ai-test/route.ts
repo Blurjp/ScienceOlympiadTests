@@ -295,20 +295,83 @@ KEY FACTS TO VERIFY:
 COMMON MISTAKES: Confusing P-waves and S-waves. Forgetting Richter scale is logarithmic.`,
   'Ecology': `population dynamics, community interactions, energy flow, nutrient cycles, biomes, and succession.
 
-KEY CONCEPTS TO VERIFY:
-- Energy transfer: Only ~10% energy transfers between trophic levels (10% rule)
-- Population growth: Exponential (J-curve, unlimited resources) vs Logistic (S-curve, carrying capacity K)
-- Species interactions: Mutualism (+/+), Commensalism (+/0), Parasitism (+/-), Predation (+/-), Competition (-/-)
-- Succession: Primary (bare rock, no soil) vs Secondary (after disturbance, soil present)
-- Biomes: Tundra (coldest), Taiga (largest), Temperate forest, Grassland, Desert, Tropical rainforest (most biodiversity)
-- Carbon cycle: Photosynthesis removes CO₂, Respiration/decomposition/combustion release CO₂
-- Nitrogen cycle: N₂ → NH₃ (nitrogen fixation by bacteria) → NO₂⁻/NO₃⁻ (nitrification) → N₂ (denitrification)
+ENERGY FLOW:
+- Producers (autotrophs): Make own food via photosynthesis, base of food chain
+- Consumers (heterotrophs): Primary (herbivores), Secondary (carnivores eat herbivores), Tertiary (top predators)
+- Decomposers: Bacteria and fungi, break down dead matter, recycle nutrients
+- 10% Rule: Only ~10% of energy transfers to next trophic level (rest lost as heat)
+- Food chain: Linear path of energy (grass → rabbit → fox)
+- Food web: Complex interconnected food chains
+- Trophic pyramid: Energy, biomass, or numbers decrease going up levels
+- Gross Primary Productivity (GPP): Total energy captured by producers
+- Net Primary Productivity (NPP): GPP - respiration = energy available to consumers
 
-KEY FORMULAS:
-- Population growth rate: r = (births - deaths) / population
-- Carrying capacity equation: dN/dt = rN(K-N)/K
+POPULATION DYNAMICS:
+- Population: Same species in same area at same time
+- Density: Number of individuals per unit area
+- Exponential growth: dN/dt = rN (J-curve, unlimited resources)
+- Logistic growth: dN/dt = rN(K-N)/K (S-curve, limited resources)
+  - K = carrying capacity (maximum sustainable population)
+  - r = intrinsic growth rate
+- Density-dependent factors: Competition, predation, disease (effects increase with density)
+- Density-independent factors: Weather, natural disasters (effects don't depend on density)
+- r-selected species: Many offspring, little care, short-lived (insects, bacteria)
+- K-selected species: Few offspring, much care, long-lived (elephants, humans)
+- Survivorship curves: Type I (low early death), Type II (constant), Type III (high early death)
 
-COMMON MISTAKES: Confusing primary vs secondary succession. Forgetting only ~10% energy transfers up trophic levels.`,
+SPECIES INTERACTIONS:
+- Mutualism (+/+): Both benefit (bee + flower, mycorrhizae + plant)
+- Commensalism (+/0): One benefits, other unaffected (barnacles on whale)
+- Parasitism (+/-): Parasite benefits, host harmed (tapeworm in intestine)
+- Predation (+/-): Predator benefits, prey killed
+- Competition (-/-): Both harmed, fighting for resources
+  - Interspecific: Between different species
+  - Intraspecific: Within same species (usually more intense)
+- Competitive exclusion principle: Two species can't occupy same niche indefinitely
+- Niche: Role of species in ecosystem (what it eats, where it lives, when active)
+- Keystone species: Disproportionate impact on ecosystem relative to abundance
+
+SUCCESSION:
+- Primary succession: Starts on bare rock/new land, no soil (volcanic island, glacier retreat)
+  - Pioneer species: Lichens, mosses → grasses → shrubs → trees
+  - Very slow (hundreds of years)
+- Secondary succession: After disturbance, soil remains (forest fire, abandoned farm)
+  - Faster than primary (decades)
+- Climax community: Stable end-point of succession
+- Pioneer species: First colonizers, tolerant of harsh conditions
+
+NUTRIENT CYCLES:
+- Carbon cycle:
+  - Photosynthesis removes CO₂ from atmosphere
+  - Respiration, decomposition, combustion release CO₂
+  - Fossil fuels store carbon long-term
+- Nitrogen cycle:
+  - N₂ (78% of atmosphere) → NH₃ (nitrogen fixation by bacteria, lightning)
+  - NH₃ → NO₂⁻ → NO₃⁻ (nitrification by bacteria)
+  - NO₃⁻ → N₂ (denitrification by bacteria)
+  - Plants absorb NO₃⁻ or NH₄⁺
+- Phosphorus cycle: No atmospheric component, from rocks, limiting nutrient
+- Water cycle: Evaporation → Condensation → Precipitation → Runoff/infiltration
+
+BIOMES (terrestrial):
+- Tundra: Coldest, permafrost, low biodiversity, Arctic
+- Taiga (Boreal forest): Largest biome, coniferous trees, cold winters
+- Temperate deciduous forest: Four seasons, deciduous trees
+- Temperate grassland: Hot summers, cold winters, prairies
+- Desert: <25cm rain/year, hot or cold, high temp variation
+- Tropical rainforest: Most biodiversity, warm year-round, high rainfall
+- Savanna: Tropical grassland with scattered trees
+
+AQUATIC BIOMES:
+- Freshwater: Lakes, ponds, rivers, streams, wetlands
+- Marine: Ocean zones - Intertidal, Neritic (continental shelf), Oceanic, Benthic (bottom)
+- Estuary: Where freshwater meets saltwater, very productive
+
+COMMON MISTAKES:
+- Confusing primary vs secondary succession
+- Forgetting 10% rule for energy transfer
+- Mixing up r-selected and K-selected species
+- Confusing niche vs habitat`,
   'Experimental Design': `variables, hypothesis formation, controls, data analysis, and statistics.
 
 KEY CONCEPTS TO VERIFY:
@@ -353,20 +416,84 @@ ESTIMATION TECHNIQUES:
 COMMON MISTAKES: Forgetting unit conversions. Not breaking complex problems into simpler parts.`,
   'Forensics': `evidence analysis, toxicology, DNA analysis, document examination, and crime scene procedures.
 
-KEY FACTS TO VERIFY:
-- Fingerprint patterns: Loop (60-65%, most common), Whorl (30-35%), Arch (5%, rarest)
-- Blood types: A, B, AB (universal recipient), O (universal donor). Rh+ or Rh-
-- Blood spatter: High velocity = fine mist, Low velocity = large drops. Direction from elongation
-- Rigor mortis: Begins 2-4 hrs, peaks 12 hrs, dissipates 24-36 hrs after death
-- Livor mortis: Blood pooling, begins immediately, fixed after 8-12 hrs
-- Algor mortis: Body cooling, ~1.5°F/hr until ambient temperature
+FINGERPRINTS:
+- Patterns: Loop (60-65%, most common), Whorl (30-35%), Arch (5%, rarest)
+- Loop types: Ulnar (opens toward pinky), Radial (opens toward thumb)
+- Whorl types: Plain, Central pocket, Double loop, Accidental
+- Arch types: Plain, Tented
+- Minutiae: Ridge endings, bifurcations (splits), dots - used for matching
+- Latent prints: Invisible, need powder/chemicals to develop
+- Patent prints: Visible, made in blood/ink/paint
+- Plastic prints: 3D impressions in soft material
+- AFIS: Automated Fingerprint Identification System
+
+BLOOD EVIDENCE:
+- Blood types: A, B, AB (universal recipient), O (universal donor)
+- Rh factor: + or - (Rh+ can receive Rh-, Rh- cannot receive Rh+)
+- Antigens: A has A antigens, B has B antigens, AB has both, O has neither
+- Antibodies: A has anti-B, B has anti-A, AB has neither, O has both
+- Presumptive tests: Kastle-Meyer (pink), Luminol (glows), detect possible blood
+- Confirmatory tests: Precipitin test confirms human blood
+- Blood spatter:
+  - High velocity (gunshot): Fine mist, <1mm droplets
+  - Medium velocity (beating): 1-4mm droplets
+  - Low velocity (dripping): >4mm droplets
+  - Direction: Tail points in direction of travel
+  - Angle of impact: Width/Length = sin(angle)
+  - Point of origin: Trace trajectories back using strings
+
+TIME OF DEATH:
+- Algor mortis: Body cooling, ~1.5°F (0.8°C) per hour until ambient
+  - Formula: Hours since death ≈ (98.6 - body temp) / 1.5
+- Livor mortis (lividity): Blood pooling in lowest areas
+  - Begins immediately, becomes fixed after 8-12 hours
+  - If moved after fixation, shows two patterns
+- Rigor mortis: Muscle stiffening from ATP depletion
+  - Begins 2-4 hours, complete at 6-12 hours, peaks at 12 hours
+  - Dissipates 24-48 hours (in same order: jaw, neck, arms, legs)
+- Decomposition stages: Fresh → Bloat → Active decay → Advanced decay → Dry
+- Entomology: Insect succession helps estimate time of death
 
 DNA ANALYSIS:
-- STR (Short Tandem Repeats): Used in forensic DNA profiling
+- Nuclear DNA: Inherited from both parents, unique (except identical twins)
+- Mitochondrial DNA (mtDNA): Inherited from mother only, useful for degraded/hair samples
+- STR (Short Tandem Repeats): 13+ loci analyzed, basis of DNA fingerprinting
 - PCR (Polymerase Chain Reaction): Amplifies small DNA samples
-- Mitochondrial DNA: Inherited from mother only, useful for degraded samples
+- CODIS: Combined DNA Index System (FBI database)
+- Gel electrophoresis: Separates DNA fragments by size
 
-COMMON MISTAKES: Confusing loop vs whorl fingerprints. Getting blood type compatibility wrong.`,
+HAIR AND FIBER:
+- Hair structure: Cuticle (outer), Cortex (middle, pigment), Medulla (inner core)
+- Medulla patterns: Absent, Fragmented, Continuous, Stacked
+- Hair can show: Species, body location, race, treatments, drugs
+- Natural fibers: Cotton, wool, silk (from plants/animals)
+- Synthetic fibers: Polyester, nylon, rayon (manufactured)
+- Cross-section, color, diameter used for comparison
+
+TOXICOLOGY:
+- LD50: Dose lethal to 50% of test population
+- Drugs metabolized mainly by liver
+- Detection: Blood (recent), Urine (days), Hair (months)
+- Common poisons: Cyanide (bitter almonds), Arsenic (garlic), Carbon monoxide (cherry red)
+- Blood alcohol: 0.08% legal limit, 0.30%+ potentially fatal
+
+DOCUMENT EXAMINATION:
+- Handwriting analysis: 12+ characteristics compared
+- Ink analysis: Chromatography separates components
+- Paper analysis: Watermarks, fiber content
+- Indented writing: ESDA (electrostatic detection) reveals impressions
+
+CRIME SCENE:
+- First responder: Secure scene, render aid, call for backup
+- Chain of custody: Document every person who handles evidence
+- Evidence collection: Photograph, sketch, collect, package, label
+- Locard's Exchange Principle: "Every contact leaves a trace"
+
+COMMON MISTAKES:
+- Confusing fingerprint pattern types
+- Getting blood type compatibility wrong (who can receive from whom)
+- Mixing up the three mortis types and their timing
+- Forgetting that mtDNA is maternal only`,
   'Fossils': `fossil types, preservation methods, index fossils, geological time periods, and paleoenvironments.
 
 GEOLOGICAL TIME SCALE (oldest to youngest):
