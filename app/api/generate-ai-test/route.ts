@@ -30,12 +30,39 @@ interface GenerateRequest {
 // OpenAI needs ~2-3 seconds per question, so limit to 10 questions max for reliability
 const MAX_QUESTIONS_FOR_TIMEOUT = 10;
 
-// Competition level difficulty descriptions
+// Competition level difficulty descriptions with specific requirements
 const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
-  'Invitational': 'Invitational-style: simpler recall questions, wide variance in difficulty, good for beginners and early-season practice',
-  'Regional': 'Regional-style: foundational but structured questions, testing core concepts with some application',
-  'State': 'State-level: multi-step reasoning required, deeper understanding of concepts, more challenging applications',
-  'National': 'National-level: extremely deep conceptual understanding, niche topics, complex multi-step problems, competition-ready difficulty',
+  'Invitational': `Invitational-style (EASIEST):
+- Simple recall and basic identification questions
+- Direct questions with straightforward answers
+- Focus on fundamental definitions and concepts
+- Single-step problems only
+- Example: "What is the name of the bone in the upper arm?"`,
+
+  'Regional': `Regional-style (MODERATE):
+- Mix of recall and application questions
+- Some questions requiring 2-step reasoning
+- Testing core concepts with basic applications
+- Include some "why" and "how" questions
+- Example: "If a first-class lever has an effort arm of 3m and a load arm of 1m, what is its mechanical advantage?"`,
+
+  'State': `State-level (CHALLENGING):
+- Multi-step reasoning required for most questions
+- Application of concepts to novel scenarios
+- Connections between multiple concepts
+- Include data interpretation and analysis
+- Obscure but testable details
+- Example: "A patient presents with decreased deep tendon reflexes, muscle weakness, and fasciculations. Which motor neuron type is most likely affected, and what would you expect to see on EMG?"`,
+
+  'National': `National-level (EXTREMELY DIFFICULT):
+- Expect only top competitors to answer correctly
+- Deep, nuanced understanding required
+- Cutting-edge or highly specialized knowledge
+- Complex multi-step calculations
+- Integration of multiple advanced concepts
+- Trick questions that test precise understanding
+- Obscure exceptions and edge cases
+- Example: "Calculate the Schwarzschild radius for a 3 solar mass black hole, then determine the tidal force experienced by a 2-meter tall astronaut at this radius. Would the astronaut survive? Justify with calculations."`,
 };
 
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
