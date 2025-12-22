@@ -67,8 +67,24 @@ const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
 
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Anatomy and Physiology': 'human body systems (nervous, immune, cardiovascular, etc.), organ functions, tissue types, homeostasis, and physiological processes. Include questions about specific structures, functions, and disorders.',
-  'Astronomy': 'stellar evolution, HR diagrams, galaxy types, planetary science, celestial mechanics, cosmology, and observational techniques. Include calculations involving magnitude, distance, and orbital mechanics.',
-  'Chemistry Lab': 'chemical reactions, stoichiometry, equilibrium, acid-base chemistry, redox reactions, lab safety, and analytical techniques. Include balanced equations and calculations.',
+  'Astronomy': `stellar evolution, HR diagrams, galaxy types, planetary science, celestial mechanics, cosmology, and observational techniques.
+
+KEY FORMULAS:
+- Distance modulus: m - M = 5 log(d/10), where d is in parsecs
+- Parallax: d(pc) = 1/p(arcsec)
+- Stefan-Boltzmann: L = 4πR²σT⁴
+- Wien's Law: λmax = 2.898×10⁻³/T (meters)
+- Kepler's 3rd Law: P² = a³ (P in years, a in AU for solar system)
+- Escape velocity: v = √(2GM/r)`,
+  'Chemistry Lab': `chemical reactions, stoichiometry, equilibrium, acid-base chemistry, redox reactions, lab safety, and analytical techniques.
+
+KEY FORMULAS:
+- Molarity: M = moles solute / liters solution
+- Dilution: M₁V₁ = M₂V₂
+- pH = -log[H⁺], pOH = -log[OH⁻], pH + pOH = 14
+- Ideal Gas Law: PV = nRT (R = 0.0821 L·atm/mol·K)
+- Kw = [H⁺][OH⁻] = 1×10⁻¹⁴ at 25°C
+- % yield = (actual/theoretical) × 100%`,
   'Disease Detectives': 'epidemiology concepts (incidence, prevalence, mortality rates), disease transmission modes, outbreak investigation, study designs (cohort, case-control), and public health interventions.',
   'Dynamic Planet': 'plate tectonics, earthquakes, volcanoes, rock cycle, weathering, erosion, geological time scale, and Earth structure. Include specific examples and mechanisms.',
   'Ecology': 'population dynamics, community interactions, energy flow, nutrient cycles, biomes, succession, and conservation biology. Include specific species interactions and calculations.',
@@ -76,9 +92,28 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Fermi Questions': 'order-of-magnitude estimation, dimensional analysis, and logical reasoning to estimate quantities.',
   'Forensics': 'evidence analysis (fingerprints, fibers, blood spatter), toxicology, DNA analysis, document examination, and crime scene procedures.',
   'Fossils': 'fossil types, preservation methods, index fossils, geological time periods, evolutionary relationships, and paleoenvironmental reconstruction.',
-  'Machines': 'simple machines (levers, pulleys, inclined planes, wheels, screws, wedges), mechanical advantage (MA = output force / input force), ideal vs actual MA, efficiency, work, power, and compound machines. The PRIMARY function of a lever is to provide mechanical advantage (multiply force).',
+  'Machines': `simple machines (levers, pulleys, inclined planes, wheels, screws, wedges), mechanical advantage, efficiency, work, power, and compound machines.
+
+KEY FORMULAS (YOU MUST USE THESE CORRECTLY):
+- Lever IMA = effort arm length / load arm length
+- Pulley IMA = number of supporting ropes
+- Inclined Plane IMA = length / height
+- Wheel & Axle IMA = wheel radius / axle radius
+- Screw IMA = 2πr / pitch (where r = handle radius, pitch = thread spacing) - IMPORTANT: Convert units! If r=4cm and pitch=2mm, then IMA = 2π(40mm)/2mm = 125.66
+- Wedge IMA = length / width
+- Efficiency = (AMA / IMA) × 100% = (Work out / Work in) × 100%
+- Work = Force × Distance
+- Power = Work / Time`,
   'Microbe Mission': 'bacterial structure, viral replication, fungal characteristics, microbial ecology, disease mechanisms, and laboratory techniques (Gram staining, culturing).',
-  'Optics': 'reflection, refraction, Snell\'s law, lens and mirror equations, optical instruments (microscopes, telescopes), wave optics, and electromagnetic spectrum.',
+  'Optics': `reflection, refraction, Snell's law, lens and mirror equations, optical instruments (microscopes, telescopes), wave optics, and electromagnetic spectrum.
+
+KEY FORMULAS:
+- Snell's Law: n₁sinθ₁ = n₂sinθ₂
+- Mirror/Lens equation: 1/f = 1/dₒ + 1/dᵢ
+- Magnification: M = -dᵢ/dₒ = hᵢ/hₒ
+- Critical angle: sinθc = n₂/n₁ (when n₁ > n₂)
+- Telescope magnification: M = fₒ/fₑ (objective/eyepiece focal lengths)
+- Wave equation: c = fλ, where c = 3×10⁸ m/s`,
   'Ornithology': 'bird identification (field marks, silhouettes), anatomy, flight mechanics, behavior, migration, ecology, and classification.',
   'Reach for the Stars': 'stellar classification, HR diagrams, stellar evolution, deep sky objects (nebulae, clusters, galaxies), and observational astronomy.',
   'Rocks and Minerals': 'mineral identification (hardness, luster, cleavage), rock classification, rock cycle, and geological processes.',
@@ -231,6 +266,14 @@ CRITICAL REQUIREMENTS:
 2. For multiple choice, the correct answer MUST be among the options
 3. All options must be plausible - no obviously wrong answers
 4. Questions should test real understanding, not trick students
+
+MATHEMATICAL ACCURACY (EXTREMELY IMPORTANT):
+- For ANY calculation question, you MUST work through the math step-by-step BEFORE generating the question
+- ALWAYS verify unit conversions (e.g., cm to mm, m to cm)
+- Double-check that your calculated answer matches one of the multiple choice options
+- Show your work mentally: write out the formula, substitute values, calculate step-by-step
+- If unsure about a calculation, use simpler numbers that you can verify
+- Common error to avoid: forgetting unit conversions (e.g., 4cm = 40mm, not 4mm)
 
 Output valid JSON only.`,
         },
