@@ -16,6 +16,71 @@ export function formatTime(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Normalize answer for comparison
+function normalizeAnswer(answer: string): string {
+  return answer
+    .trim()
+    .toLowerCase()
+    // Remove common punctuation
+    .replace(/[.,;:!?'"()[\]{}]/g, '')
+    // Normalize whitespace
+    .replace(/\s+/g, ' ')
+    // Remove common filler words at start
+    .replace(/^(the|a|an)\s+/g, '')
+    .trim();
+}
+
+// Check if user answer matches correct answer with flexibility
+function isAnswerCorrect(userAnswer: string, correctAnswer: string): boolean {
+  const normalizedUser = normalizeAnswer(userAnswer);
+  const normalizedCorrect = normalizeAnswer(correctAnswer);
+
+  // Exact match after normalization
+  if (normalizedUser === normalizedCorrect) {
+    return true;
+  }
+
+  // Check if user answer contains the correct answer (for short answers)
+  if (normalizedCorrect.length <= 30 && normalizedUser.includes(normalizedCorrect)) {
+    return true;
+  }
+
+  // Check if correct answer contains user answer (for abbreviations)
+  if (normalizedUser.length >= 3 && normalizedCorrect.includes(normalizedUser)) {
+    return true;
+  }
+
+  // Handle common number variations (1 vs one, 1st vs first)
+  const numberWords: Record<string, string[]> = {
+    '0': ['zero'], '1': ['one', 'first', '1st'], '2': ['two', 'second', '2nd'],
+    '3': ['three', 'third', '3rd'], '4': ['four', 'fourth', '4th'],
+    '5': ['five', 'fifth', '5th'], '6': ['six', 'sixth', '6th'],
+    '7': ['seven', 'seventh', '7th'], '8': ['eight', 'eighth', '8th'],
+    '9': ['nine', 'ninth', '9th'], '10': ['ten', 'tenth', '10th'],
+  };
+
+  for (const [num, words] of Object.entries(numberWords)) {
+    const allForms = [num, ...words];
+    const userHas = allForms.find(f => normalizedUser.includes(f));
+    const correctHas = allForms.find(f => normalizedCorrect.includes(f));
+    if (userHas && correctHas) {
+      // Both have the same number, check rest of answer
+      let userWithoutNum = normalizedUser;
+      let correctWithoutNum = normalizedCorrect;
+      allForms.forEach(f => {
+        userWithoutNum = userWithoutNum.replace(f, '').trim();
+        correctWithoutNum = correctWithoutNum.replace(f, '').trim();
+      });
+      if (userWithoutNum === correctWithoutNum ||
+          (correctWithoutNum.length > 0 && userWithoutNum.includes(correctWithoutNum))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function calculateScore(userAnswers: any[], questions: any[]): {
   score: number;
   correctAnswers: number;
@@ -27,9 +92,8 @@ export function calculateScore(userAnswers: any[], questions: any[]): {
   userAnswers.forEach(userAnswer => {
     const question = questions.find(q => q.id === userAnswer.questionId);
     if (question) {
-      const isCorrect = userAnswer.answer.trim().toLowerCase() ===
-                       question.correctAnswer.trim().toLowerCase();
-      if (isCorrect) {
+      const correct = isAnswerCorrect(userAnswer.answer, question.correctAnswer);
+      if (correct) {
         score += question.points;
         correctAnswers++;
       }
@@ -40,6 +104,9 @@ export function calculateScore(userAnswers: any[], questions: any[]): {
 
   return { score, correctAnswers, totalPoints };
 }
+
+// Export for use in results screen
+export { isAnswerCorrect };
 
 export function getDifficultyColor(difficulty: string): string {
   switch (difficulty) {

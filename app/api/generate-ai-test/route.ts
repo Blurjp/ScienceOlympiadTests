@@ -136,31 +136,55 @@ export async function POST(request: NextRequest) {
     const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
     const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
 
-    // Optimized prompt - balanced for speed and clarity
-    const prompt = `Generate ${questionCount} Science Olympiad Division C questions for ${topic} at ${difficulty} level.
+    // Enhanced prompt for higher quality questions
+    const prompt = `You are an expert Science Olympiad coach creating a Division C practice test for ${topic}.
 
-Topic focus: ${topicDescription}
-Difficulty: ${difficultyDescription}
+TOPIC: ${topic}
+FOCUS AREAS: ${topicDescription}
+DIFFICULTY LEVEL: ${difficulty}
+LEVEL DESCRIPTION: ${difficultyDescription}
 
-Requirements:
-- ~70% multiple choice (4 options A-D), ~30% short answer
-- Factually accurate, competition-appropriate
+Generate exactly ${questionCount} high-quality questions following these strict guidelines:
 
-Return valid JSON in this exact format:
+QUESTION QUALITY REQUIREMENTS:
+1. Questions must be factually accurate and scientifically precise
+2. Use proper scientific terminology and units
+3. Questions should test understanding, not just memorization
+4. Include a mix of:
+   - Recall questions (definitions, identification)
+   - Application questions (using concepts in scenarios)
+   - Analysis questions (interpreting data, comparing)
+5. For ${difficulty} level, ensure appropriate complexity
+
+QUESTION TYPES (aim for ~60% multiple choice, ~40% short answer):
+
+MULTIPLE CHOICE:
+- All 4 options should be plausible (no obviously wrong answers)
+- Distractors should represent common misconceptions
+- Avoid "all of the above" or "none of the above"
+- Options should be similar in length and style
+
+SHORT ANSWER:
+- Answer should be 1-5 words (concise)
+- Provide the most precise accepted answer
+- For numerical answers, include units
+- Accept common abbreviations in the answer
+
+Return valid JSON:
 {
   "questions": [
     {
       "type": "multiple-choice",
-      "question": "Question text here?",
-      "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
-      "correctAnswer": "A) First option",
+      "question": "Clear, specific question with context if needed?",
+      "options": ["A) Plausible option 1", "B) Plausible option 2", "C) Plausible option 3", "D) Plausible option 4"],
+      "correctAnswer": "B) Plausible option 2",
       "points": 1,
       "category": "${topic}"
     },
     {
       "type": "short-answer",
-      "question": "Question text here?",
-      "correctAnswer": "Brief answer",
+      "question": "Specific question requiring brief answer?",
+      "correctAnswer": "precise answer",
       "points": 2,
       "category": "${topic}"
     }
@@ -173,15 +197,15 @@ Return valid JSON in this exact format:
       messages: [
         {
           role: 'system',
-          content: 'You are a Science Olympiad test generator. Output valid JSON only.',
+          content: 'You are an expert Science Olympiad coach and test writer with deep knowledge of competition-level science. Generate high-quality, factually accurate questions appropriate for Division C (high school) students. Output valid JSON only.',
         },
         {
           role: 'user',
           content: prompt,
         },
       ],
-      temperature: 0.7,
-      max_tokens: 3000, // Enough for 10 questions with proper JSON
+      temperature: 0.5, // Lower temperature for more consistent, accurate questions
+      max_tokens: 4000, // More tokens for detailed questions
       response_format: { type: 'json_object' },
     });
 
