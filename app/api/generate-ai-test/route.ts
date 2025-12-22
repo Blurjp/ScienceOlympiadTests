@@ -6,9 +6,9 @@ import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
 import { FREE_TIER_MONTHLY_LIMIT } from '@/lib/stripe';
 
-// GPT-4o-mini pricing (as of 2024)
-const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
-const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
+// GPT-4o pricing (as of 2024) - using full model for better quality
+const PRICE_PER_1K_PROMPT_TOKENS = 0.0025;
+const PRICE_PER_1K_COMPLETION_TOKENS = 0.01;
 
 // Increase function timeout for serverless
 export const maxDuration = 60; // 60 seconds max
@@ -39,25 +39,25 @@ const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
 };
 
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
-  'Anatomy and Physiology': 'human body systems, organs, tissues, and physiological processes',
-  'Astronomy': 'stars, galaxies, planets, cosmology, and celestial mechanics',
-  'Chemistry Lab': 'chemical reactions, lab techniques, stoichiometry, and chemical properties',
-  'Disease Detectives': 'epidemiology, disease transmission, public health, and outbreak investigation',
-  'Dynamic Planet': 'Earth science, geology, plate tectonics, and natural disasters',
-  'Ecology': 'ecosystems, food webs, biodiversity, and environmental science',
-  'Experimental Design': 'scientific method, experiment design, data analysis, and statistics',
-  'Fermi Questions': 'estimation problems and order-of-magnitude calculations',
-  'Forensics': 'crime scene analysis, evidence collection, and forensic science techniques',
-  'Fossils': 'paleontology, fossil identification, geological time, and evolution',
-  'Machines': 'simple machines, mechanical advantage, levers, pulleys, inclined planes, and physics of mechanical systems',
-  'Microbe Mission': 'microbiology, bacteria, viruses, and microorganisms',
-  'Optics': 'light, lenses, mirrors, reflection, refraction, and optical instruments',
-  'Ornithology': 'bird identification, anatomy, behavior, and ecology',
-  'Reach for the Stars': 'stellar astronomy, deep sky objects, and astrophysics',
-  'Rocks and Minerals': 'rock types, mineral identification, and geological processes',
-  'Tower': 'structural engineering principles and physics of structures',
-  'Wind Power': 'renewable energy, wind turbine design, and energy physics',
-  'Write It Do It': 'technical writing and following written instructions',
+  'Anatomy and Physiology': 'human body systems (nervous, immune, cardiovascular, etc.), organ functions, tissue types, homeostasis, and physiological processes. Include questions about specific structures, functions, and disorders.',
+  'Astronomy': 'stellar evolution, HR diagrams, galaxy types, planetary science, celestial mechanics, cosmology, and observational techniques. Include calculations involving magnitude, distance, and orbital mechanics.',
+  'Chemistry Lab': 'chemical reactions, stoichiometry, equilibrium, acid-base chemistry, redox reactions, lab safety, and analytical techniques. Include balanced equations and calculations.',
+  'Disease Detectives': 'epidemiology concepts (incidence, prevalence, mortality rates), disease transmission modes, outbreak investigation, study designs (cohort, case-control), and public health interventions.',
+  'Dynamic Planet': 'plate tectonics, earthquakes, volcanoes, rock cycle, weathering, erosion, geological time scale, and Earth structure. Include specific examples and mechanisms.',
+  'Ecology': 'population dynamics, community interactions, energy flow, nutrient cycles, biomes, succession, and conservation biology. Include specific species interactions and calculations.',
+  'Experimental Design': 'variables (independent, dependent, controlled), hypothesis formation, experimental controls, data analysis, statistical concepts, and error analysis.',
+  'Fermi Questions': 'order-of-magnitude estimation, dimensional analysis, and logical reasoning to estimate quantities.',
+  'Forensics': 'evidence analysis (fingerprints, fibers, blood spatter), toxicology, DNA analysis, document examination, and crime scene procedures.',
+  'Fossils': 'fossil types, preservation methods, index fossils, geological time periods, evolutionary relationships, and paleoenvironmental reconstruction.',
+  'Machines': 'simple machines (levers, pulleys, inclined planes, wheels, screws, wedges), mechanical advantage (MA = output force / input force), ideal vs actual MA, efficiency, work, power, and compound machines. The PRIMARY function of a lever is to provide mechanical advantage (multiply force).',
+  'Microbe Mission': 'bacterial structure, viral replication, fungal characteristics, microbial ecology, disease mechanisms, and laboratory techniques (Gram staining, culturing).',
+  'Optics': 'reflection, refraction, Snell\'s law, lens and mirror equations, optical instruments (microscopes, telescopes), wave optics, and electromagnetic spectrum.',
+  'Ornithology': 'bird identification (field marks, silhouettes), anatomy, flight mechanics, behavior, migration, ecology, and classification.',
+  'Reach for the Stars': 'stellar classification, HR diagrams, stellar evolution, deep sky objects (nebulae, clusters, galaxies), and observational astronomy.',
+  'Rocks and Minerals': 'mineral identification (hardness, luster, cleavage), rock classification, rock cycle, and geological processes.',
+  'Tower': 'structural engineering, force analysis, material properties, load distribution, and structural failure modes.',
+  'Wind Power': 'wind turbine design, energy conversion, Betz limit, power calculations, and renewable energy concepts.',
+  'Write It Do It': 'technical writing clarity, precision, and following written instructions.',
 };
 
 export async function POST(request: NextRequest) {
@@ -193,19 +193,27 @@ Return valid JSON:
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o', // Using GPT-4o for higher quality questions
       messages: [
         {
           role: 'system',
-          content: 'You are an expert Science Olympiad coach and test writer with deep knowledge of competition-level science. Generate high-quality, factually accurate questions appropriate for Division C (high school) students. Output valid JSON only.',
+          content: `You are an expert Science Olympiad coach and test writer with 20+ years of experience. You have deep expertise in ${topic} and understand exactly what makes a good competition question.
+
+CRITICAL REQUIREMENTS:
+1. Every question MUST be factually correct - verify your knowledge before generating
+2. For multiple choice, the correct answer MUST be among the options
+3. All options must be plausible - no obviously wrong answers
+4. Questions should test real understanding, not trick students
+
+Output valid JSON only.`,
         },
         {
           role: 'user',
           content: prompt,
         },
       ],
-      temperature: 0.5, // Lower temperature for more consistent, accurate questions
-      max_tokens: 4000, // More tokens for detailed questions
+      temperature: 0.3, // Lower temperature for more accurate, consistent questions
+      max_tokens: 4000,
       response_format: { type: 'json_object' },
     });
 
@@ -227,7 +235,7 @@ Return valid JSON:
         await logApiUsage({
           userId,
           endpoint: 'generate-ai-test',
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           promptTokens,
           completionTokens,
           totalTokens,
@@ -312,7 +320,7 @@ Return valid JSON:
       await logApiUsage({
         userId,
         endpoint: 'generate-ai-test',
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         promptTokens,
         completionTokens,
         totalTokens,
