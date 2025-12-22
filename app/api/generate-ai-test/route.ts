@@ -66,7 +66,17 @@ const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
 };
 
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
-  'Anatomy and Physiology': 'human body systems (nervous, immune, cardiovascular, etc.), organ functions, tissue types, homeostasis, and physiological processes. Include questions about specific structures, functions, and disorders.',
+  'Anatomy and Physiology': `human body systems, organ functions, tissue types, homeostasis, and physiological processes.
+
+KEY FACTS TO VERIFY:
+- Nervous: CNS (brain + spinal cord) vs PNS. Sympathetic = "fight or flight", Parasympathetic = "rest and digest"
+- Cardiovascular: Blood flow order - Right atrium → Right ventricle → Lungs → Left atrium → Left ventricle → Body
+- Respiratory: Gas exchange occurs in alveoli. Diaphragm contracts DOWN during inhalation
+- Digestive: Order - Mouth → Esophagus → Stomach → Small intestine → Large intestine. Most absorption in small intestine
+- Skeletal: 206 bones in adults. Axial (skull, spine, ribs) vs Appendicular (limbs)
+- Muscular: Skeletal (voluntary), Cardiac (involuntary, striated), Smooth (involuntary, not striated)
+- Endocrine: Know hormone sources - Insulin (pancreas), Thyroxine (thyroid), Cortisol (adrenal cortex), Epinephrine (adrenal medulla)
+COMMON MISTAKES: Confusing arteries (away from heart) vs veins (toward heart). Mixing up sympathetic/parasympathetic responses.`,
   'Astronomy': `stellar evolution, HR diagrams, galaxy types, planetary science, celestial mechanics, cosmology, and observational techniques.
 
 KEY FORMULAS:
@@ -85,13 +95,128 @@ KEY FORMULAS:
 - Ideal Gas Law: PV = nRT (R = 0.0821 L·atm/mol·K)
 - Kw = [H⁺][OH⁻] = 1×10⁻¹⁴ at 25°C
 - % yield = (actual/theoretical) × 100%`,
-  'Disease Detectives': 'epidemiology concepts (incidence, prevalence, mortality rates), disease transmission modes, outbreak investigation, study designs (cohort, case-control), and public health interventions.',
-  'Dynamic Planet': 'plate tectonics, earthquakes, volcanoes, rock cycle, weathering, erosion, geological time scale, and Earth structure. Include specific examples and mechanisms.',
-  'Ecology': 'population dynamics, community interactions, energy flow, nutrient cycles, biomes, succession, and conservation biology. Include specific species interactions and calculations.',
-  'Experimental Design': 'variables (independent, dependent, controlled), hypothesis formation, experimental controls, data analysis, statistical concepts, and error analysis.',
-  'Fermi Questions': 'order-of-magnitude estimation, dimensional analysis, and logical reasoning to estimate quantities.',
-  'Forensics': 'evidence analysis (fingerprints, fibers, blood spatter), toxicology, DNA analysis, document examination, and crime scene procedures.',
-  'Fossils': 'fossil types, preservation methods, index fossils, geological time periods, evolutionary relationships, and paleoenvironmental reconstruction.',
+  'Disease Detectives': `epidemiology concepts, disease transmission, outbreak investigation, study designs, and public health.
+
+KEY FORMULAS & DEFINITIONS:
+- Incidence rate = New cases / Population at risk × time period
+- Prevalence = All cases (new + existing) / Total population (snapshot in time)
+- Attack rate = Cases / Exposed population (used in outbreaks)
+- Case fatality rate = Deaths / Cases × 100%
+- Mortality rate = Deaths / Total population
+- Relative Risk (RR) = Incidence in exposed / Incidence in unexposed (used in cohort studies)
+- Odds Ratio (OR) = (a×d)/(b×c) from 2x2 table (used in case-control studies)
+
+STUDY TYPES:
+- Cohort: Follow exposed vs unexposed forward in time → Calculate RR
+- Case-Control: Compare cases vs controls looking backward → Calculate OR
+- Cross-sectional: Snapshot, measures prevalence
+- Randomized Controlled Trial (RCT): Gold standard, random assignment
+
+COMMON MISTAKES: Confusing incidence (new cases) vs prevalence (all cases). Using RR for case-control studies (should use OR).`,
+  'Dynamic Planet': `plate tectonics, earthquakes, volcanoes, rock cycle, weathering, erosion, and Earth structure.
+
+KEY FACTS TO VERIFY:
+- Plate boundaries: Divergent (plates separate, mid-ocean ridges), Convergent (plates collide, subduction/mountains), Transform (plates slide past, earthquakes)
+- Earth layers: Crust (5-70km) → Mantle (2900km) → Outer Core (liquid iron, 2200km) → Inner Core (solid iron, 1200km radius)
+- Earthquake waves: P-waves (Primary, fastest, compressional), S-waves (Secondary, shear, can't travel through liquids), Surface waves (slowest, most destructive)
+- Richter scale: Logarithmic! Each whole number = 10× amplitude, ~32× energy
+- Rock cycle: Igneous (from magma) → Sedimentary (from weathering/deposition) → Metamorphic (heat/pressure) → can become any other type
+- Volcanoes: Shield (gentle slopes, basaltic, Hawaii), Stratovolcano (steep, explosive, Mt. St. Helens), Cinder cone (smallest)
+
+COMMON MISTAKES: Confusing P-waves and S-waves. Forgetting Richter scale is logarithmic.`,
+  'Ecology': `population dynamics, community interactions, energy flow, nutrient cycles, biomes, and succession.
+
+KEY CONCEPTS TO VERIFY:
+- Energy transfer: Only ~10% energy transfers between trophic levels (10% rule)
+- Population growth: Exponential (J-curve, unlimited resources) vs Logistic (S-curve, carrying capacity K)
+- Species interactions: Mutualism (+/+), Commensalism (+/0), Parasitism (+/-), Predation (+/-), Competition (-/-)
+- Succession: Primary (bare rock, no soil) vs Secondary (after disturbance, soil present)
+- Biomes: Tundra (coldest), Taiga (largest), Temperate forest, Grassland, Desert, Tropical rainforest (most biodiversity)
+- Carbon cycle: Photosynthesis removes CO₂, Respiration/decomposition/combustion release CO₂
+- Nitrogen cycle: N₂ → NH₃ (nitrogen fixation by bacteria) → NO₂⁻/NO₃⁻ (nitrification) → N₂ (denitrification)
+
+KEY FORMULAS:
+- Population growth rate: r = (births - deaths) / population
+- Carrying capacity equation: dN/dt = rN(K-N)/K
+
+COMMON MISTAKES: Confusing primary vs secondary succession. Forgetting only ~10% energy transfers up trophic levels.`,
+  'Experimental Design': `variables, hypothesis formation, controls, data analysis, and statistics.
+
+KEY CONCEPTS TO VERIFY:
+- Independent variable: What YOU change/manipulate
+- Dependent variable: What you MEASURE (depends on independent variable)
+- Controlled variables: Everything kept CONSTANT
+- Control group: No treatment, baseline for comparison
+- Experimental group: Receives the treatment
+
+STATISTICAL CONCEPTS:
+- Mean = sum/count, Median = middle value, Mode = most frequent
+- Standard deviation: Measure of spread around the mean
+- Sample size: Larger = more reliable results
+- P-value: < 0.05 typically means statistically significant
+- Correlation ≠ Causation!
+
+ERROR TYPES:
+- Systematic error: Consistent bias in one direction (e.g., miscalibrated instrument)
+- Random error: Unpredictable variations (reduce by averaging multiple trials)
+- Precision: How close repeated measurements are to each other
+- Accuracy: How close measurements are to true value
+
+COMMON MISTAKES: Confusing independent vs dependent variables. Claiming causation from correlation alone.`,
+  'Fermi Questions': `order-of-magnitude estimation, dimensional analysis, and logical reasoning.
+
+KEY REFERENCE VALUES TO USE:
+- US population: ~330 million, World: ~8 billion
+- Average human lifespan: ~80 years, heartbeats: ~100,000/day
+- Speed of light: 3×10⁸ m/s, Speed of sound: ~340 m/s
+- Earth radius: ~6,400 km, Earth-Sun distance: ~150 million km (1 AU)
+- Water density: 1 g/cm³ = 1000 kg/m³
+- Room temperature: ~20-25°C = ~300 K
+- 1 year ≈ π×10⁷ seconds ≈ 3.15×10⁷ seconds
+- 1 mile ≈ 1.6 km, 1 inch = 2.54 cm
+
+ESTIMATION TECHNIQUES:
+- Break into smaller, estimable parts
+- Use geometric mean for ranges: √(low × high)
+- Round to powers of 10
+- Check units cancel correctly (dimensional analysis)
+
+COMMON MISTAKES: Forgetting unit conversions. Not breaking complex problems into simpler parts.`,
+  'Forensics': `evidence analysis, toxicology, DNA analysis, document examination, and crime scene procedures.
+
+KEY FACTS TO VERIFY:
+- Fingerprint patterns: Loop (60-65%, most common), Whorl (30-35%), Arch (5%, rarest)
+- Blood types: A, B, AB (universal recipient), O (universal donor). Rh+ or Rh-
+- Blood spatter: High velocity = fine mist, Low velocity = large drops. Direction from elongation
+- Rigor mortis: Begins 2-4 hrs, peaks 12 hrs, dissipates 24-36 hrs after death
+- Livor mortis: Blood pooling, begins immediately, fixed after 8-12 hrs
+- Algor mortis: Body cooling, ~1.5°F/hr until ambient temperature
+
+DNA ANALYSIS:
+- STR (Short Tandem Repeats): Used in forensic DNA profiling
+- PCR (Polymerase Chain Reaction): Amplifies small DNA samples
+- Mitochondrial DNA: Inherited from mother only, useful for degraded samples
+
+COMMON MISTAKES: Confusing loop vs whorl fingerprints. Getting blood type compatibility wrong.`,
+  'Fossils': `fossil types, preservation methods, index fossils, geological time periods, and paleoenvironments.
+
+GEOLOGICAL TIME SCALE (oldest to youngest):
+- Precambrian (4.6 bya - 541 mya): First life, stromatolites, Ediacaran fauna
+- Paleozoic (541-252 mya): Cambrian explosion, trilobites, first fish, amphibians, reptiles. Ends with largest mass extinction (Permian)
+- Mesozoic (252-66 mya): Age of dinosaurs. Triassic → Jurassic → Cretaceous. Ends with K-Pg extinction (asteroid)
+- Cenozoic (66 mya - present): Age of mammals. Paleogene → Neogene → Quaternary
+
+INDEX FOSSILS (must be widespread, short-lived, abundant, easily identified):
+- Trilobites: Paleozoic (especially Cambrian-Ordovician)
+- Ammonites: Mesozoic
+- Brachiopods: Throughout Paleozoic
+
+FOSSIL TYPES:
+- Body fossils: Actual remains (bones, shells, teeth)
+- Trace fossils: Evidence of activity (footprints, burrows, coprolites)
+- Mold: Cavity left by organism; Cast: Mineral filling of mold
+
+COMMON MISTAKES: Mixing up geological eras/periods. Confusing mold vs cast.`,
   'Machines': `simple machines (levers, pulleys, inclined planes, wheels, screws, wedges), mechanical advantage, efficiency, work, power, and compound machines.
 
 KEY FORMULAS (YOU MUST USE THESE CORRECTLY):
@@ -104,7 +229,23 @@ KEY FORMULAS (YOU MUST USE THESE CORRECTLY):
 - Efficiency = (AMA / IMA) × 100% = (Work out / Work in) × 100%
 - Work = Force × Distance
 - Power = Work / Time`,
-  'Microbe Mission': 'bacterial structure, viral replication, fungal characteristics, microbial ecology, disease mechanisms, and laboratory techniques (Gram staining, culturing).',
+  'Microbe Mission': `bacterial structure, viral replication, fungal characteristics, microbial ecology, and lab techniques.
+
+KEY FACTS TO VERIFY:
+- Bacteria: Prokaryotic (no nucleus), cell wall (peptidoglycan), reproduce by binary fission
+- Gram staining: Gram+ = thick peptidoglycan, retains crystal violet (purple). Gram- = thin peptidoglycan, outer membrane, pink/red
+- Bacterial shapes: Cocci (spheres), Bacilli (rods), Spirilla (spirals)
+- Viruses: NOT cells, need host to reproduce, contain DNA OR RNA (not both), capsid protein coat
+- Viral replication: Lytic (destroys cell) vs Lysogenic (integrates into host DNA)
+- Fungi: Eukaryotic, cell walls of chitin, heterotrophs, reproduce by spores
+- Protists: Eukaryotic, diverse group including algae, protozoa, slime molds
+
+DISEASE EXAMPLES:
+- Bacterial: Tuberculosis, Strep throat, E. coli, Salmonella
+- Viral: Influenza, HIV, COVID-19, Rabies
+- Fungal: Athlete's foot, Ringworm, Candidiasis
+
+COMMON MISTAKES: Calling viruses "alive" or cells. Confusing Gram+ vs Gram- staining results.`,
   'Optics': `reflection, refraction, Snell's law, lens and mirror equations, optical instruments (microscopes, telescopes), wave optics, and electromagnetic spectrum.
 
 KEY FORMULAS:
@@ -114,12 +255,125 @@ KEY FORMULAS:
 - Critical angle: sinθc = n₂/n₁ (when n₁ > n₂)
 - Telescope magnification: M = fₒ/fₑ (objective/eyepiece focal lengths)
 - Wave equation: c = fλ, where c = 3×10⁸ m/s`,
-  'Ornithology': 'bird identification (field marks, silhouettes), anatomy, flight mechanics, behavior, migration, ecology, and classification.',
-  'Reach for the Stars': 'stellar classification, HR diagrams, stellar evolution, deep sky objects (nebulae, clusters, galaxies), and observational astronomy.',
-  'Rocks and Minerals': 'mineral identification (hardness, luster, cleavage), rock classification, rock cycle, and geological processes.',
-  'Tower': 'structural engineering, force analysis, material properties, load distribution, and structural failure modes.',
-  'Wind Power': 'wind turbine design, energy conversion, Betz limit, power calculations, and renewable energy concepts.',
-  'Write It Do It': 'technical writing clarity, precision, and following written instructions.',
+  'Ornithology': `bird identification, anatomy, flight mechanics, behavior, migration, and classification.
+
+KEY FACTS TO VERIFY:
+- Bird orders: Passeriformes (perching birds, largest order ~60%), Anseriformes (ducks/geese), Falconiformes (hawks/eagles), Strigiformes (owls)
+- Flight feathers: Primaries (outer wing, thrust), Secondaries (inner wing, lift), Tail feathers (steering)
+- Bone adaptations: Hollow bones, fused bones (synsacrum, pygostyle), large sternum (keel for flight muscles)
+- Migration: Many use magnetic fields, stars, sun position, landmarks. Flyways: Atlantic, Mississippi, Central, Pacific
+
+COMMON NORTH AMERICAN BIRDS:
+- American Robin: Orange breast, gray back, Turdidae family
+- Northern Cardinal: Male bright red, female brownish, seed-eating beak
+- Blue Jay: Blue with white/black markings, crest, corvid family
+- Red-tailed Hawk: Broad wings, red tail (adults), buteo
+- Great Horned Owl: Large ear tufts, yellow eyes, powerful talons
+
+FIELD MARKS: Size, shape, color patterns, bill shape, tail shape, behavior, habitat, song
+
+COMMON MISTAKES: Confusing similar species (e.g., hawks vs falcons - falcons have pointed wings, hawks have broad rounded wings).`,
+  'Reach for the Stars': `stellar classification, HR diagrams, stellar evolution, deep sky objects, and observational astronomy.
+
+KEY FACTS TO VERIFY:
+- Spectral classes (hot to cool): O B A F G K M ("Oh Be A Fine Girl/Guy, Kiss Me") - O is hottest (blue), M is coolest (red)
+- HR Diagram: X-axis = temperature (reversed: hot left, cool right), Y-axis = luminosity. Main sequence diagonal, giants upper right, white dwarfs lower left
+- Stellar evolution: Nebula → Protostar → Main Sequence → Red Giant → (depends on mass) → White Dwarf/Neutron Star/Black Hole
+- Sun is G-type main sequence star (G2V), ~5,778 K surface temperature
+
+DEEP SKY OBJECTS:
+- Nebulae: Emission (glowing gas), Reflection (reflects starlight), Dark (blocks light), Planetary (dying star shell)
+- Star clusters: Open/Galactic (young, loose, in disk) vs Globular (old, dense, spherical, in halo)
+- Galaxies: Spiral (like Milky Way), Elliptical, Irregular (like Magellanic Clouds)
+
+KEY FORMULAS:
+- Same as Astronomy (Distance modulus, Wien's Law, Stefan-Boltzmann, etc.)
+
+COMMON MISTAKES: Getting spectral class order wrong. Confusing nebula types.`,
+  'Rocks and Minerals': `mineral identification, rock classification, rock cycle, and geological processes.
+
+MOHS HARDNESS SCALE (1-10):
+1-Talc, 2-Gypsum, 3-Calcite, 4-Fluorite, 5-Apatite, 6-Orthoclase, 7-Quartz, 8-Topaz, 9-Corundum, 10-Diamond
+- Fingernail ~2.5, Copper penny ~3.5, Glass ~5.5, Steel file ~6.5
+
+MINERAL PROPERTIES:
+- Luster: Metallic vs Non-metallic (vitreous, pearly, silky, earthy, etc.)
+- Cleavage: Breaks along flat planes (mica = 1 direction, halite = 3 at 90°)
+- Fracture: Irregular break (quartz = conchoidal/shell-like)
+- Streak: Color of powder (often different from mineral color)
+- Specific gravity: Density relative to water
+
+ROCK TYPES:
+- Igneous: From magma/lava. Intrusive (slow cooling, large crystals - granite) vs Extrusive (fast cooling, small/no crystals - basite)
+- Sedimentary: From weathering/deposition. Clastic (sandstone), Chemical (limestone from precipitation), Organic (coal)
+- Metamorphic: Changed by heat/pressure. Foliated (slate, schist, gneiss) vs Non-foliated (marble, quartzite)
+
+COMMON MISTAKES: Confusing cleavage vs fracture. Mixing up intrusive vs extrusive igneous rocks.`,
+  'Tower': `structural engineering, force analysis, material properties, and structural failure modes.
+
+KEY CONCEPTS TO VERIFY:
+- Forces: Tension (pulling apart), Compression (pushing together), Shear (sliding), Torsion (twisting), Bending
+- Triangles are the strongest shape (rigid, can't deform without breaking members)
+- Trusses distribute loads through triangulated members
+
+STRUCTURAL MEMBERS:
+- Beams: Horizontal, resist bending
+- Columns: Vertical, resist compression
+- Braces: Diagonal, provide stability, resist lateral forces
+
+FAILURE MODES:
+- Buckling: Compression member bows outward (longer = more prone to buckling)
+- Tensile failure: Pulled apart when stress exceeds strength
+- Connection failure: Joints break before members
+
+KEY FORMULAS:
+- Stress = Force / Area (σ = F/A)
+- Strain = Change in length / Original length (ε = ΔL/L)
+- Young's Modulus: E = Stress / Strain (material stiffness)
+- Efficiency = Load held / Structure weight
+
+COMMON MISTAKES: Forgetting that thin, long members buckle easily under compression.`,
+  'Wind Power': `wind turbine design, energy conversion, Betz limit, and power calculations.
+
+KEY FORMULAS (MUST VERIFY CALCULATIONS):
+- Power in wind: P = ½ρAv³ (ρ = air density ~1.225 kg/m³, A = swept area, v = wind speed)
+- Swept area: A = πr² (r = blade length)
+- Betz Limit: Maximum efficiency = 59.3% (16/27). No turbine can capture more than this!
+- Tip Speed Ratio (TSR) = Blade tip speed / Wind speed. Optimal ~6-8 for modern turbines
+
+KEY CONCEPTS:
+- Power increases with CUBE of wind speed (double wind = 8× power)
+- Power increases with SQUARE of blade length (double length = 4× swept area)
+- Higher altitude = stronger, more consistent winds
+- Turbine components: Rotor (blades + hub), Nacelle (generator, gearbox), Tower, Foundation
+
+TURBINE TYPES:
+- Horizontal Axis (HAWT): Most common, blades face wind, higher efficiency
+- Vertical Axis (VAWT): Blades perpendicular to ground, works in any wind direction
+
+COMMON MISTAKES: Forgetting power ∝ v³ (not v or v²). Exceeding Betz limit in efficiency calculations.`,
+  'Write It Do It': `technical writing clarity, precision, and following written instructions.
+
+KEY CONCEPTS:
+- Writer must describe how to build an object so another person can recreate it
+- Doer must follow written instructions exactly without seeing the original
+- Clear, unambiguous language is essential
+
+GOOD TECHNICAL WRITING:
+- Use specific measurements (not "small" - say "2 cm")
+- Define orientation clearly (top, bottom, left, right, front, back)
+- Number steps sequentially
+- One action per step
+- Use consistent terminology throughout
+- Avoid pronouns without clear antecedents ("it" - what is "it"?)
+- Include reference points ("place piece A 3 cm from the left edge of piece B")
+
+COMMON MISTAKES:
+- Assuming the reader can see what you see
+- Using vague terms like "attach it here" or "small piece"
+- Skipping steps that seem obvious
+- Not specifying orientation or direction
+- Using inconsistent names for the same parts`,
 };
 
 export async function POST(request: NextRequest) {
@@ -266,6 +520,14 @@ CRITICAL REQUIREMENTS:
 2. For multiple choice, the correct answer MUST be among the options
 3. All options must be plausible - no obviously wrong answers
 4. Questions should test real understanding, not trick students
+
+FACTUAL ACCURACY (VERIFY BEFORE GENERATING):
+- Use the KEY FACTS provided in the topic description - these are verified correct
+- If stating a specific fact (date, name, number, sequence), double-check it's accurate
+- For biological/anatomical questions: verify organ locations, system functions, correct terminology
+- For classification questions: verify taxonomic relationships, category memberships
+- For process questions: verify the correct sequence of steps
+- If you're unsure about a specific fact, use a different question you're confident about
 
 MATHEMATICAL ACCURACY (EXTREMELY IMPORTANT):
 - For ANY calculation question, you MUST work through the math step-by-step BEFORE generating the question
