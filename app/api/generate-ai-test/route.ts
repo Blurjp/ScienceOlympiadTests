@@ -284,15 +284,83 @@ STUDY TYPES:
 COMMON MISTAKES: Confusing incidence (new cases) vs prevalence (all cases). Using RR for case-control studies (should use OR).`,
   'Dynamic Planet': `plate tectonics, earthquakes, volcanoes, rock cycle, weathering, erosion, and Earth structure.
 
-KEY FACTS TO VERIFY:
-- Plate boundaries: Divergent (plates separate, mid-ocean ridges), Convergent (plates collide, subduction/mountains), Transform (plates slide past, earthquakes)
-- Earth layers: Crust (5-70km) → Mantle (2900km) → Outer Core (liquid iron, 2200km) → Inner Core (solid iron, 1200km radius)
-- Earthquake waves: P-waves (Primary, fastest, compressional), S-waves (Secondary, shear, can't travel through liquids), Surface waves (slowest, most destructive)
-- Richter scale: Logarithmic! Each whole number = 10× amplitude, ~32× energy
-- Rock cycle: Igneous (from magma) → Sedimentary (from weathering/deposition) → Metamorphic (heat/pressure) → can become any other type
-- Volcanoes: Shield (gentle slopes, basaltic, Hawaii), Stratovolcano (steep, explosive, Mt. St. Helens), Cinder cone (smallest)
+EARTH'S STRUCTURE:
+- Crust: Thin outer layer (5-70 km)
+  - Oceanic crust: Thinner (~7 km), denser (basalt), younger
+  - Continental crust: Thicker (~35 km), less dense (granite), older
+- Mantle: 2,900 km thick, solid but flows slowly (convection)
+  - Lithosphere: Rigid upper mantle + crust (~100 km)
+  - Asthenosphere: Partially molten, plates float on this
+- Outer Core: Liquid iron/nickel, 2,200 km thick, generates magnetic field
+- Inner Core: Solid iron/nickel, ~1,200 km radius, hottest part (~5,400°C)
+- How we know: Seismic waves (S-waves can't go through liquid outer core)
 
-COMMON MISTAKES: Confusing P-waves and S-waves. Forgetting Richter scale is logarithmic.`,
+PLATE TECTONICS:
+- Plates float on asthenosphere, driven by mantle convection
+- Divergent boundaries: Plates move apart
+  - Mid-ocean ridges (new seafloor), Rift valleys (East Africa)
+  - Seafloor spreading: Youngest rock at ridge, older away
+- Convergent boundaries: Plates collide
+  - Ocean-ocean: Subduction, volcanic island arc (Japan)
+  - Ocean-continent: Subduction, coastal volcanoes (Andes)
+  - Continent-continent: Mountains, no subduction (Himalayas)
+- Transform boundaries: Plates slide past
+  - Earthquakes, no volcanoes (San Andreas Fault)
+- Hot spots: Stationary magma plumes, chains of volcanoes (Hawaii)
+- Evidence for plate tectonics:
+  - Continental fit (Africa + South America)
+  - Fossil distribution (same fossils on separated continents)
+  - Magnetic striping (symmetric pattern at mid-ocean ridges)
+  - Earthquake/volcano distribution (along plate boundaries)
+
+EARTHQUAKES:
+- Focus: Point where rupture begins (underground)
+- Epicenter: Point on surface directly above focus
+- Seismic waves:
+  - P-waves (Primary): Fastest, compressional (push-pull), travel through solids AND liquids
+  - S-waves (Secondary): Slower, shear (side-to-side), only through solids (NOT liquids)
+  - Surface waves (Love, Rayleigh): Slowest, most destructive, travel along surface
+- Magnitude scales:
+  - Richter: Logarithmic! Each whole number = 10× amplitude, ~32× energy
+  - Moment magnitude: More accurate for large quakes
+- Intensity: Mercalli scale (I-XII), measures damage/felt effects
+- Seismograph: Records seismic waves, uses P-S time difference to locate epicenter
+- Locating epicenter: Need 3+ seismograph stations, triangulation
+
+VOLCANOES:
+- Magma: Molten rock underground. Lava: Molten rock at surface
+- Magma types:
+  - Basaltic: Low silica, low viscosity, flows easily, less explosive
+  - Andesitic: Medium silica, medium viscosity
+  - Rhyolitic: High silica, high viscosity, very explosive
+- Volcano types:
+  - Shield: Gentle slopes, basaltic, effusive eruptions (Hawaii, Mars)
+  - Stratovolcano (composite): Steep, alternating lava/ash, explosive (Mt. St. Helens, Fuji)
+  - Cinder cone: Smallest, steep, pyroclastic material
+  - Caldera: Large crater from collapse after massive eruption (Yellowstone)
+- Volcanic hazards: Lava flows, Pyroclastic flows, Lahars (mudflows), Ash fall, Gases
+
+WEATHERING & EROSION:
+- Weathering: Breaking down rock in place
+  - Mechanical/Physical: Frost wedging, Root growth, Thermal expansion, Abrasion
+  - Chemical: Dissolution, Oxidation (rust), Hydrolysis, Acid rain
+- Erosion: Transport of weathered material by water, wind, ice, gravity
+- Deposition: Material settles out when energy decreases
+- Mass wasting: Gravity-driven movement (landslides, rockfalls, creep)
+- Stream features: V-shaped valleys, Meanders, Oxbow lakes, Deltas, Alluvial fans
+- Glacial features: U-shaped valleys, Moraines, Cirques, Drumlins, Erratics
+
+ROCK CYCLE:
+- Igneous → (weathering/erosion) → Sediments → (compaction/cementation) → Sedimentary
+- Sedimentary → (heat/pressure) → Metamorphic
+- Any rock → (melting) → Magma → (cooling) → Igneous
+- Any rock can become any other type through the right processes
+
+COMMON MISTAKES:
+- Confusing P-waves (through liquids) and S-waves (NOT through liquids)
+- Forgetting Richter scale is logarithmic
+- Mixing up magma (underground) and lava (surface)
+- Confusing weathering (in place) and erosion (transport)`,
   'Ecology': `population dynamics, community interactions, energy flow, nutrient cycles, biomes, and succession.
 
 ENERGY FLOW:
