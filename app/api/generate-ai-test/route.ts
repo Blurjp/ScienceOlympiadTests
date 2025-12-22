@@ -68,33 +68,202 @@ const DIFFICULTY_DESCRIPTIONS: Record<string, string> = {
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Anatomy and Physiology': `human body systems, organ functions, tissue types, homeostasis, and physiological processes.
 
-KEY FACTS TO VERIFY:
-- Nervous: CNS (brain + spinal cord) vs PNS. Sympathetic = "fight or flight", Parasympathetic = "rest and digest"
-- Cardiovascular: Blood flow order - Right atrium → Right ventricle → Lungs → Left atrium → Left ventricle → Body
-- Respiratory: Gas exchange occurs in alveoli. Diaphragm contracts DOWN during inhalation
-- Digestive: Order - Mouth → Esophagus → Stomach → Small intestine → Large intestine. Most absorption in small intestine
-- Skeletal: 206 bones in adults. Axial (skull, spine, ribs) vs Appendicular (limbs)
-- Muscular: Skeletal (voluntary), Cardiac (involuntary, striated), Smooth (involuntary, not striated)
-- Endocrine: Know hormone sources - Insulin (pancreas), Thyroxine (thyroid), Cortisol (adrenal cortex), Epinephrine (adrenal medulla)
-COMMON MISTAKES: Confusing arteries (away from heart) vs veins (toward heart). Mixing up sympathetic/parasympathetic responses.`,
+NERVOUS SYSTEM:
+- CNS = Brain + Spinal cord. PNS = Everything else (cranial nerves, spinal nerves)
+- Sympathetic = "fight or flight" (dilates pupils, increases HR, inhibits digestion)
+- Parasympathetic = "rest and digest" (constricts pupils, decreases HR, stimulates digestion)
+- Neuron parts: Dendrites (receive) → Cell body → Axon (transmit) → Axon terminals (release neurotransmitters)
+- Action potential: Resting (-70mV) → Depolarization (Na+ in) → Repolarization (K+ out)
+- Neurotransmitters: Acetylcholine (muscle), Dopamine (reward), Serotonin (mood), GABA (inhibitory), Glutamate (excitatory)
+- Brain regions: Frontal (reasoning), Parietal (sensory), Temporal (hearing/memory), Occipital (vision), Cerebellum (coordination), Brainstem (vital functions)
+
+CARDIOVASCULAR SYSTEM:
+- Blood flow: Vena cava → Right atrium → Tricuspid valve → Right ventricle → Pulmonary valve → Pulmonary artery → LUNGS → Pulmonary vein → Left atrium → Mitral/Bicuspid valve → Left ventricle → Aortic valve → Aorta → Body
+- Arteries = AWAY from heart (thick walls, high pressure). Veins = toward heart (thin walls, valves, low pressure)
+- Cardiac cycle: Systole (contraction, ~120 mmHg), Diastole (relaxation, ~80 mmHg)
+- Blood components: RBCs (oxygen), WBCs (immune), Platelets (clotting), Plasma (55% of blood)
+- Cardiac output = Heart rate × Stroke volume
+
+RESPIRATORY SYSTEM:
+- Path: Nose/mouth → Pharynx → Larynx → Trachea → Bronchi → Bronchioles → Alveoli
+- Gas exchange in alveoli by diffusion (O₂ in, CO₂ out)
+- Diaphragm contracts DOWN and flattens during INHALATION (increases thoracic volume)
+- Tidal volume (~500mL), Vital capacity (~4-5L), Total lung capacity (~6L)
+- Hemoglobin: 4 heme groups, each binds 1 O₂ (max 4 O₂ per hemoglobin)
+
+DIGESTIVE SYSTEM:
+- Order: Mouth (mechanical + amylase) → Esophagus (peristalsis) → Stomach (HCl + pepsin for protein) → Small intestine (most digestion/absorption) → Large intestine (water absorption) → Rectum
+- Small intestine: Duodenum (receives bile + pancreatic juice), Jejunum, Ileum
+- Enzymes: Amylase (starch→sugar), Protease/Pepsin (protein→amino acids), Lipase (fats→fatty acids)
+- Villi and microvilli increase surface area for absorption
+- Liver produces bile (stored in gallbladder), detoxifies blood
+
+SKELETAL SYSTEM:
+- 206 bones in adults, 270 in infants (some fuse)
+- Axial skeleton (80): Skull, vertebrae, ribs, sternum
+- Appendicular skeleton (126): Arms, legs, pelvis, shoulder girdle
+- Bone types: Long (femur), Short (carpals), Flat (skull), Irregular (vertebrae), Sesamoid (patella)
+- Bone cells: Osteoblasts (build), Osteoclasts (break down), Osteocytes (maintain)
+- Joints: Synovial (freely movable), Cartilaginous (slightly movable), Fibrous (immovable)
+
+MUSCULAR SYSTEM:
+- Skeletal: Voluntary, striated, multinucleated, attached to bones
+- Cardiac: Involuntary, striated, branched, intercalated discs, only in heart
+- Smooth: Involuntary, NOT striated, in organs/blood vessels
+- Sliding filament theory: Actin and myosin slide past each other
+- ATP needed for both contraction AND relaxation (rigor mortis = no ATP)
+
+ENDOCRINE SYSTEM:
+- Hypothalamus: Controls pituitary, releases hormones
+- Pituitary (master gland): GH, TSH, ACTH, FSH, LH, Prolactin, ADH, Oxytocin
+- Thyroid: T3/T4 (metabolism), Calcitonin (lowers blood Ca²⁺)
+- Parathyroid: PTH (raises blood Ca²⁺)
+- Adrenal cortex: Cortisol (stress), Aldosterone (Na⁺/K⁺ balance)
+- Adrenal medulla: Epinephrine/Norepinephrine (fight or flight)
+- Pancreas: Insulin (lowers blood glucose), Glucagon (raises blood glucose)
+- Negative feedback: Most hormones regulated this way
+
+IMMUNE SYSTEM:
+- Innate immunity: Skin, mucous membranes, phagocytes, inflammation (non-specific, immediate)
+- Adaptive immunity: B cells (antibodies), T cells (cell-mediated) (specific, memory)
+- Antibodies (immunoglobulins): IgG (most common), IgA (mucosal), IgM (first response), IgE (allergies)
+- T cells: Helper (CD4+), Cytotoxic (CD8+), Regulatory
+- Lymphatic system: Lymph nodes, spleen, thymus, tonsils
+
+COMMON MISTAKES:
+- Confusing arteries vs veins
+- Mixing up sympathetic vs parasympathetic
+- Getting hormone sources wrong
+- Confusing osteoblasts (build) vs osteoclasts (break down)`,
   'Astronomy': `stellar evolution, HR diagrams, galaxy types, planetary science, celestial mechanics, cosmology, and observational techniques.
 
-KEY FORMULAS:
-- Distance modulus: m - M = 5 log(d/10), where d is in parsecs
-- Parallax: d(pc) = 1/p(arcsec)
-- Stefan-Boltzmann: L = 4πR²σT⁴
-- Wien's Law: λmax = 2.898×10⁻³/T (meters)
-- Kepler's 3rd Law: P² = a³ (P in years, a in AU for solar system)
-- Escape velocity: v = √(2GM/r)`,
+KEY FORMULAS (VERIFY ALL CALCULATIONS):
+- Distance modulus: m - M = 5 log(d/10), where d is in parsecs, m = apparent magnitude, M = absolute magnitude
+- Parallax: d(pc) = 1/p(arcsec). Example: p = 0.1 arcsec → d = 10 pc
+- Stefan-Boltzmann Law: L = 4πR²σT⁴ (σ = 5.67×10⁻⁸ W/m²K⁴). Luminosity ∝ R²T⁴
+- Wien's Law: λmax = 2.898×10⁻³/T (meters). Hotter = shorter wavelength (bluer)
+- Kepler's 3rd Law: P² = a³ (P in years, a in AU) OR P² = (4π²/GM)a³
+- Escape velocity: v = √(2GM/r)
+- Orbital velocity: v = √(GM/r)
+- Schwarzschild radius: Rs = 2GM/c²
+- Hubble's Law: v = H₀d (H₀ ≈ 70 km/s/Mpc)
+- Apparent brightness: b = L/(4πd²)
+
+STELLAR CLASSIFICATION:
+- Spectral types (hot→cool): O B A F G K M ("Oh Be A Fine Girl/Guy Kiss Me")
+- O: >30,000K, blue, ionized helium lines
+- B: 10,000-30,000K, blue-white, neutral helium
+- A: 7,500-10,000K, white, strong hydrogen lines (Vega, Sirius)
+- F: 6,000-7,500K, yellow-white
+- G: 5,200-6,000K, yellow (Sun = G2V)
+- K: 3,700-5,200K, orange
+- M: <3,700K, red, molecular bands (TiO)
+- Luminosity classes: I (supergiant), II (bright giant), III (giant), IV (subgiant), V (main sequence/dwarf)
+
+HR DIAGRAM:
+- X-axis: Temperature (DECREASING left to right) or Spectral type (O→M) or Color index (B-V)
+- Y-axis: Luminosity (increasing up) or Absolute magnitude (decreasing up, brighter = more negative)
+- Main sequence: Diagonal band, hydrogen fusion, ~90% of stars
+- Red giants: Upper right, hydrogen shell burning, expanded cool stars
+- White dwarfs: Lower left, hot but dim, Earth-sized, electron degeneracy
+- Mass determines position on main sequence: More massive = hotter, brighter, shorter-lived
+
+STELLAR EVOLUTION:
+- Low mass (<0.5 M☉): Main sequence → Red giant → Planetary nebula → White dwarf
+- Medium mass (0.5-8 M☉): Main sequence → Red giant → Helium flash → Horizontal branch → AGB → Planetary nebula → White dwarf
+- High mass (>8 M☉): Main sequence → Supergiant → Supernova → Neutron star (1.4-3 M☉) or Black hole (>3 M☉)
+- Main sequence lifetime ∝ M/L ∝ 1/M² (more massive = shorter life)
+
+SOLAR SYSTEM:
+- Terrestrial planets: Mercury, Venus, Earth, Mars (rocky, dense, small)
+- Gas giants: Jupiter, Saturn (hydrogen/helium, low density)
+- Ice giants: Uranus, Neptune (water, ammonia, methane)
+- Asteroid belt: Between Mars and Jupiter
+- Kuiper belt: Beyond Neptune, includes Pluto
+- Oort cloud: Spherical shell, source of long-period comets
+- Planet distances: Mercury 0.4 AU, Venus 0.7, Earth 1, Mars 1.5, Jupiter 5.2, Saturn 9.5, Uranus 19.2, Neptune 30
+
+COSMOLOGY:
+- Big Bang: ~13.8 billion years ago
+- CMB (Cosmic Microwave Background): Radiation from 380,000 years after Big Bang, ~2.7 K
+- Dark matter: ~27% of universe, doesn't emit light, detected by gravity
+- Dark energy: ~68% of universe, causes accelerating expansion
+- Observable universe radius: ~46 billion light-years
+
+COMMON MISTAKES:
+- HR diagram temperature axis is REVERSED (hot on left)
+- Confusing apparent vs absolute magnitude
+- Forgetting Wien's law gives wavelength in meters
+- Using wrong units in Kepler's 3rd law`,
   'Chemistry Lab': `chemical reactions, stoichiometry, equilibrium, acid-base chemistry, redox reactions, lab safety, and analytical techniques.
 
-KEY FORMULAS:
-- Molarity: M = moles solute / liters solution
-- Dilution: M₁V₁ = M₂V₂
-- pH = -log[H⁺], pOH = -log[OH⁻], pH + pOH = 14
-- Ideal Gas Law: PV = nRT (R = 0.0821 L·atm/mol·K)
+CONCENTRATION FORMULAS:
+- Molarity (M) = moles solute / liters solution. Units: mol/L
+- Molality (m) = moles solute / kg solvent. Units: mol/kg
+- Dilution: M₁V₁ = M₂V₂ (moles before = moles after)
+- Mass percent = (mass solute / mass solution) × 100%
+- Parts per million (ppm) = (mass solute / mass solution) × 10⁶
+- Mole fraction: χA = nA / (nA + nB + ...)
+
+STOICHIOMETRY:
+- Moles = mass / molar mass = molecules / (6.022×10²³)
+- At STP (0°C, 1 atm): 1 mole gas = 22.4 L
+- Limiting reagent: Reagent that runs out first, determines max product
+- % yield = (actual yield / theoretical yield) × 100%
+- Molar mass from periodic table: Add atomic masses of all atoms
+
+ACID-BASE CHEMISTRY:
+- pH = -log[H⁺], pOH = -log[OH⁻], pH + pOH = 14 (at 25°C)
 - Kw = [H⁺][OH⁻] = 1×10⁻¹⁴ at 25°C
-- % yield = (actual/theoretical) × 100%`,
+- Strong acids (completely dissociate): HCl, HBr, HI, HNO₃, H₂SO₄, HClO₄
+- Strong bases: NaOH, KOH, Ca(OH)₂, Ba(OH)₂
+- Weak acid: Ka = [H⁺][A⁻]/[HA], pKa = -log(Ka)
+- Weak base: Kb = [BH⁺][OH⁻]/[B], pKb = -log(Kb)
+- Ka × Kb = Kw for conjugate pairs
+- Henderson-Hasselbalch: pH = pKa + log([A⁻]/[HA])
+- Buffer: Weak acid + conjugate base, resists pH change
+- Titration: Equivalence point when moles acid = moles base
+
+GAS LAWS:
+- Ideal Gas Law: PV = nRT (R = 0.0821 L·atm/mol·K = 8.314 J/mol·K)
+- Boyle's Law: P₁V₁ = P₂V₂ (constant T, n)
+- Charles's Law: V₁/T₁ = V₂/T₂ (constant P, n)
+- Avogadro's Law: V₁/n₁ = V₂/n₂ (constant P, T)
+- Dalton's Law: Ptotal = P₁ + P₂ + P₃ + ... (partial pressures)
+- Graham's Law: Rate₁/Rate₂ = √(M₂/M₁) (effusion/diffusion)
+
+EQUILIBRIUM:
+- Keq = [products]^coefficients / [reactants]^coefficients (only gases and aqueous)
+- Q < K: Forward reaction favored, Q > K: Reverse reaction favored
+- Le Chatelier's Principle: System shifts to counteract stress
+- Ksp = [ions]^coefficients (solubility product)
+
+REDOX REACTIONS:
+- Oxidation: Loss of electrons, increase in oxidation number
+- Reduction: Gain of electrons, decrease in oxidation number
+- OIL RIG: Oxidation Is Loss, Reduction Is Gain
+- Oxidizing agent: Gets reduced, causes oxidation
+- Reducing agent: Gets oxidized, causes reduction
+- Balancing: Balance atoms, then charges with electrons
+
+THERMOCHEMISTRY:
+- ΔH = Hproducts - Hreactants (negative = exothermic, positive = endothermic)
+- q = mcΔT (specific heat), q = nCΔT (molar heat capacity)
+- Hess's Law: ΔH total = sum of ΔH for each step
+- Bond energy: Energy required to break bonds
+
+LAB SAFETY & TECHNIQUES:
+- Always add acid to water (never water to acid) - "Do as you oughta, add acid to water"
+- Meniscus: Read at bottom of curve for most liquids
+- Significant figures: Measurement uncertainty, trailing zeros matter
+- Burette: 0.01 mL precision, used for titrations
+- Graduated cylinder: ~1% precision, better than beakers
+
+COMMON MISTAKES:
+- Forgetting to convert temperature to Kelvin for gas laws
+- Using wrong R value for units
+- Confusing molarity vs molality
+- Adding water to acid instead of acid to water`,
   'Disease Detectives': `epidemiology concepts, disease transmission, outbreak investigation, study designs, and public health.
 
 KEY FORMULAS & DEFINITIONS:
@@ -217,38 +386,79 @@ FOSSIL TYPES:
 - Mold: Cavity left by organism; Cast: Mineral filling of mold
 
 COMMON MISTAKES: Mixing up geological eras/periods. Confusing mold vs cast.`,
-  'Machines': `simple machines, mechanical advantage, efficiency, work, power, energy, and compound machines.
+  'Machines': `simple machines, mechanical advantage, efficiency, work, power, energy, forces, and compound machines.
 
-FUNDAMENTAL FORMULAS:
-- Work = Force × Distance × cos(θ), where θ = angle between force and displacement. Unit: Joules (J) = N·m
-- Power = Work / Time = Force × Velocity. Unit: Watts (W) = J/s. Also: 1 horsepower = 746 W
+NEWTON'S LAWS:
+- 1st Law (Inertia): Object at rest stays at rest, object in motion stays in motion, unless acted on by net force
+- 2nd Law: F = ma (Force = mass × acceleration). Unit: Newton (N) = kg·m/s²
+- 3rd Law: Every action has equal and opposite reaction. Forces come in pairs
+
+FORCES:
+- Weight: W = mg (g = 9.8 m/s² on Earth, often rounded to 10 m/s²)
+- Normal force: Perpendicular to surface, prevents objects from passing through
+- Friction: f = μN (μ = coefficient of friction, N = normal force)
+  - Static friction: μs (prevents motion, usually larger)
+  - Kinetic friction: μk (during motion, usually smaller)
+- Tension: Force transmitted through rope/string/cable
+- Spring force: F = kx (Hooke's Law, k = spring constant)
+- Net force: Vector sum of all forces. If Fnet = 0, object is in equilibrium
+
+WORK, ENERGY, POWER:
+- Work = Force × Distance × cos(θ). Unit: Joules (J) = N·m
+- Work done by gravity: W = mgh (positive if falling, negative if rising)
+- Work done by friction: W = -fd (always negative, removes energy)
+- Power = Work / Time = Force × Velocity. Unit: Watts (W) = J/s
+- 1 horsepower = 746 W
 - Kinetic Energy: KE = ½mv². Unit: Joules
-- Potential Energy: PE = mgh (gravitational), PE = ½kx² (spring/elastic)
-- Conservation of Energy: Total energy in = Total energy out (in ideal system)
+- Gravitational PE: PE = mgh (h = height above reference)
+- Elastic PE: PE = ½kx² (x = displacement from equilibrium)
+- Conservation of Energy: KE₁ + PE₁ = KE₂ + PE₂ (no friction)
+- Work-Energy Theorem: Wnet = ΔKE = ½mv₂² - ½mv₁²
+
+TORQUE AND ROTATIONAL MOTION:
 - Torque = Force × Lever arm = F × r × sin(θ). Unit: N·m
+- Equilibrium: Στ = 0 (sum of torques = 0)
+- Clockwise torques are negative, counterclockwise are positive (by convention)
+- Center of mass: Point where weight can be considered to act
 
 MECHANICAL ADVANTAGE:
-- IMA (Ideal MA) = Distance effort moves / Distance load moves (theoretical, no friction)
-- AMA (Actual MA) = Load force / Effort force = Fout / Fin (measured, includes friction)
-- Efficiency = (AMA / IMA) × 100% = (Work out / Work in) × 100%. Always < 100% in real machines
+- IMA (Ideal MA) = Distance effort moves / Distance load moves = dE/dL (theoretical, no friction)
+- AMA (Actual MA) = Load force / Effort force = FL/FE (measured, includes friction)
+- Efficiency = (AMA / IMA) × 100% = (Work out / Work in) × 100%
+- Efficiency < 100% always in real machines due to friction
 
 SIMPLE MACHINE IMA FORMULAS (VERIFY UNIT CONVERSIONS!):
-- Lever: IMA = Effort arm / Load arm. Classes: 1st (fulcrum middle), 2nd (load middle), 3rd (effort middle)
-- Pulley: IMA = Number of rope segments supporting the load (count ropes going UP from movable pulley)
-- Inclined Plane: IMA = Length / Height = L/h
-- Wheel & Axle: IMA = Wheel radius / Axle radius = R/r
-- Screw: IMA = 2πr / pitch = Circumference / pitch. EXAMPLE: r=4cm, pitch=2mm → IMA = 2π(40mm)/2mm = 125.66
-- Wedge: IMA = Length / Width (thickness)
+- LEVER: IMA = Effort arm / Load arm = dE/dL
+  - 1st class: Fulcrum between effort and load (seesaw, scissors). IMA can be >, <, or = 1
+  - 2nd class: Load between fulcrum and effort (wheelbarrow, nutcracker). IMA > 1 always
+  - 3rd class: Effort between fulcrum and load (tweezers, fishing rod). IMA < 1 always
+- PULLEY: IMA = Number of rope segments supporting the load
+  - Fixed pulley: IMA = 1 (changes direction only)
+  - Movable pulley: IMA = 2
+  - Block and tackle: Count ropes going UP from movable pulley(s)
+- INCLINED PLANE: IMA = Length / Height = L/h
+  - Longer ramp = greater MA = less effort but more distance
+- WHEEL & AXLE: IMA = Wheel radius / Axle radius = R/r
+  - Examples: Steering wheel, doorknob, screwdriver
+- SCREW: IMA = 2πr / pitch = Circumference of handle / pitch
+  - Pitch = distance between threads = distance traveled in 1 rotation
+  - EXAMPLE: r = 4cm, pitch = 2mm → IMA = 2π(40mm)/2mm = 251.3/2 = 125.66
+- WEDGE: IMA = Length / Width (thickness at base)
+  - Examples: Axe, knife, doorstop, chisel
 
 COMPOUND MACHINES:
-- Total IMA = IMA₁ × IMA₂ × IMA₃ × ... (multiply individual IMAs)
-- Total efficiency = eff₁ × eff₂ × eff₃ × ... (multiply, so compounds are LESS efficient)
+- Combination of 2+ simple machines
+- Total IMA = IMA₁ × IMA₂ × IMA₃ × ...
+- Total efficiency = eff₁ × eff₂ × eff₃ × ... (compounds are LESS efficient)
+- Examples: Scissors (lever + wedge), Bicycle (wheel & axle + lever + pulley)
 
 COMMON MISTAKES:
-- Forgetting unit conversions (cm to mm, etc.)
+- Forgetting unit conversions (cm to mm, etc.) - THIS IS CRITICAL
 - Using wrong pulley count (count supporting ropes, not total ropes)
-- Confusing IMA vs AMA
-- Forgetting efficiency is always < 100%`,
+- Confusing IMA vs AMA (IMA = distances, AMA = forces)
+- Forgetting efficiency is always < 100%
+- Using wrong lever class
+- Forgetting that g ≈ 10 m/s² for calculations`,
   'Microbe Mission': `bacterial structure, viral replication, fungal characteristics, microbial ecology, and lab techniques.
 
 KEY FACTS TO VERIFY:
@@ -266,15 +476,76 @@ DISEASE EXAMPLES:
 - Fungal: Athlete's foot, Ringworm, Candidiasis
 
 COMMON MISTAKES: Calling viruses "alive" or cells. Confusing Gram+ vs Gram- staining results.`,
-  'Optics': `reflection, refraction, Snell's law, lens and mirror equations, optical instruments (microscopes, telescopes), wave optics, and electromagnetic spectrum.
+  'Optics': `reflection, refraction, lenses, mirrors, optical instruments, wave optics, and electromagnetic spectrum.
 
-KEY FORMULAS:
+REFLECTION:
+- Law of Reflection: θincident = θreflected (measured from normal)
+- Plane mirror: Image is virtual, upright, same size, laterally inverted
+- Specular reflection: Smooth surface, clear image
+- Diffuse reflection: Rough surface, scattered light
+
+REFRACTION:
 - Snell's Law: n₁sinθ₁ = n₂sinθ₂
-- Mirror/Lens equation: 1/f = 1/dₒ + 1/dᵢ
+- Index of refraction: n = c/v (c = speed in vacuum, v = speed in medium)
+- Common indices: Vacuum = 1.00, Air ≈ 1.00, Water = 1.33, Glass ≈ 1.5, Diamond = 2.42
+- Light bends TOWARD normal when entering denser medium (higher n)
+- Light bends AWAY from normal when entering less dense medium
+- Critical angle: sinθc = n₂/n₁ (only when n₁ > n₂, going from denser to less dense)
+- Total internal reflection: When θ > θc, all light reflects (fiber optics, diamonds)
+
+MIRRORS:
+- Mirror equation: 1/f = 1/dₒ + 1/dᵢ
 - Magnification: M = -dᵢ/dₒ = hᵢ/hₒ
-- Critical angle: sinθc = n₂/n₁ (when n₁ > n₂)
-- Telescope magnification: M = fₒ/fₑ (objective/eyepiece focal lengths)
-- Wave equation: c = fλ, where c = 3×10⁸ m/s`,
+- Concave mirror (converging): f > 0, center curves away from you
+  - Object beyond C: Real, inverted, smaller
+  - Object at C: Real, inverted, same size
+  - Object between C and F: Real, inverted, larger
+  - Object at F: No image (parallel rays)
+  - Object inside F: Virtual, upright, larger
+- Convex mirror (diverging): f < 0, center curves toward you
+  - Always: Virtual, upright, smaller (car side mirrors)
+- Sign conventions: Real image dᵢ > 0, Virtual image dᵢ < 0
+
+LENSES:
+- Thin lens equation: 1/f = 1/dₒ + 1/dᵢ (same as mirror equation)
+- Converging lens (convex, thicker in middle): f > 0
+- Diverging lens (concave, thinner in middle): f < 0
+- Lensmaker's equation: 1/f = (n-1)(1/R₁ - 1/R₂)
+- Power of lens: P = 1/f (in diopters when f is in meters)
+- Converging lens image types same as concave mirror
+- Diverging lens: Always virtual, upright, smaller
+
+OPTICAL INSTRUMENTS:
+- Magnifying glass: Simple converging lens, object inside F, M = 25cm/f
+- Compound microscope: Two converging lenses
+  - Objective (short f): Creates real, inverted, magnified image
+  - Eyepiece (longer f): Magnifies objective's image
+  - Total M = Mobjective × Meyepiece
+- Telescope (refracting): Two converging lenses
+  - Objective (long f): Creates real, inverted image at focal point
+  - Eyepiece (short f): Magnifies objective's image
+  - Angular magnification: M = -fₒ/fₑ
+- Human eye: Cornea + lens focus on retina, Near point ~25cm, Accommodation adjusts lens
+
+WAVE OPTICS:
+- Wave equation: c = fλ (c = 3×10⁸ m/s)
+- Interference: Constructive (path difference = nλ), Destructive (path difference = (n+½)λ)
+- Double-slit interference (Young's): Bright fringes at d·sinθ = nλ
+- Single-slit diffraction: Dark fringes at a·sinθ = nλ
+- Thin film interference: Extra phase shift at reflection from higher n medium
+- Polarization: Light waves oscillating in one plane
+
+ELECTROMAGNETIC SPECTRUM (low to high frequency/energy, long to short wavelength):
+Radio → Microwave → Infrared → VISIBLE (Red-Orange-Yellow-Green-Blue-Violet) → Ultraviolet → X-ray → Gamma
+- Visible range: ~400nm (violet) to ~700nm (red)
+- E = hf = hc/λ (h = 6.63×10⁻³⁴ J·s, Planck's constant)
+
+COMMON MISTAKES:
+- Forgetting sign conventions for mirrors/lenses
+- Confusing converging vs diverging
+- Mixing up real (can be projected) vs virtual (cannot be projected)
+- Getting Snell's Law direction wrong
+- Forgetting to measure angles from the normal`,
   'Ornithology': `bird identification, anatomy, flight mechanics, behavior, migration, and classification.
 
 KEY FACTS TO VERIFY:
