@@ -397,23 +397,94 @@ ERROR TYPES:
 COMMON MISTAKES: Confusing independent vs dependent variables. Claiming causation from correlation alone.`,
   'Fermi Questions': `order-of-magnitude estimation, dimensional analysis, and logical reasoning.
 
-KEY REFERENCE VALUES TO USE:
-- US population: ~330 million, World: ~8 billion
-- Average human lifespan: ~80 years, heartbeats: ~100,000/day
-- Speed of light: 3×10⁸ m/s, Speed of sound: ~340 m/s
-- Earth radius: ~6,400 km, Earth-Sun distance: ~150 million km (1 AU)
-- Water density: 1 g/cm³ = 1000 kg/m³
-- Room temperature: ~20-25°C = ~300 K
+POPULATION & DEMOGRAPHICS:
+- US population: ~330 million (3.3×10⁸)
+- World population: ~8 billion (8×10⁹)
+- US households: ~130 million
+- US land area: ~3.8 million mi² = ~10 million km²
+- World land area: ~150 million km² (57 million mi²)
+- Average US household: ~2.5 people
+- Average human lifespan: ~80 years
+- Human heartbeats: ~100,000/day, ~1/second at rest
+- Human breaths: ~20,000/day
+- Births per year (world): ~140 million
+- Deaths per year (world): ~60 million
+
+PHYSICAL CONSTANTS:
+- Speed of light: c = 3×10⁸ m/s
+- Speed of sound (air): ~340 m/s = ~1,100 ft/s
+- Gravitational acceleration: g = 10 m/s² (for estimation)
+- Earth radius: ~6,400 km = ~4,000 miles
+- Earth circumference: ~40,000 km = ~25,000 miles
+- Earth-Sun distance: ~150 million km = 1 AU = 8 light-minutes
+- Earth-Moon distance: ~400,000 km = ~240,000 miles
+- Moon radius: ~1,700 km (about 1/4 Earth)
+- Sun radius: ~700,000 km (about 100× Earth)
+
+DENSITIES & MASSES:
+- Water: 1 g/cm³ = 1 kg/L = 1000 kg/m³
+- Air (sea level): ~1.2 kg/m³
+- Iron/Steel: ~8 g/cm³
+- Wood: ~0.5-1 g/cm³
+- Human body: ~1 g/cm³ (we barely float)
+- Earth mass: ~6×10²⁴ kg
+- Sun mass: ~2×10³⁰ kg
+
+TIME CONVERSIONS:
+- 1 minute = 60 seconds
+- 1 hour = 3,600 seconds = 60 minutes
+- 1 day = 86,400 seconds ≈ 10⁵ seconds
 - 1 year ≈ π×10⁷ seconds ≈ 3.15×10⁷ seconds
-- 1 mile ≈ 1.6 km, 1 inch = 2.54 cm
+- 1 year = 365.25 days = 8,766 hours = 525,960 minutes
+
+LENGTH CONVERSIONS:
+- 1 inch = 2.54 cm
+- 1 foot = 30 cm = 0.3 m
+- 1 yard = 0.9 m ≈ 1 m
+- 1 mile = 1.6 km = 5,280 feet
+- 1 meter = 3.3 feet
+- Human height: ~1.7 m = ~5.5 feet
+- Human arm span ≈ height
+
+VOLUME CONVERSIONS:
+- 1 gallon = 3.8 L ≈ 4 L
+- 1 liter = 1000 cm³ = 10⁻³ m³
+- 1 cup = ~250 mL
+- Olympic swimming pool: ~2.5 million liters
+
+EVERYDAY OBJECTS:
+- Car: ~2,000 kg = ~4,000 lbs
+- Car length: ~4-5 m
+- School bus: ~10 m long
+- Football field: 100 yards ≈ 100 m
+- Classroom: ~10m × 10m = 100 m²
+- Sheet of paper: ~0.1 mm thick
+- Human hair: ~0.1 mm diameter
+- Dollar bill: ~15 cm × 6 cm
 
 ESTIMATION TECHNIQUES:
-- Break into smaller, estimable parts
-- Use geometric mean for ranges: √(low × high)
-- Round to powers of 10
-- Check units cancel correctly (dimensional analysis)
+1. Break into smaller parts (divide and conquer)
+2. Round to powers of 10
+3. Use dimensional analysis (check units cancel)
+4. Geometric mean for ranges: √(low × high)
+5. Sanity check your answer
+6. Work from what you know to what you don't
 
-COMMON MISTAKES: Forgetting unit conversions. Not breaking complex problems into simpler parts.`,
+EXAMPLE PROBLEM:
+"How many piano tuners in Chicago?"
+- Chicago population: ~3 million
+- People per household: ~2.5 → ~1.2 million households
+- Households with piano: ~5% → ~60,000 pianos
+- Tunings per year per piano: ~2 → ~120,000 tunings/year
+- Tunings per tuner per day: ~4 → ~1,000/year per tuner
+- Piano tuners needed: ~120,000 / 1,000 = ~120 tuners
+
+COMMON MISTAKES:
+- Forgetting unit conversions
+- Not breaking complex problems into simpler parts
+- Using wrong order of magnitude
+- Not checking if answer is reasonable
+- Forgetting factors of π or 2 that matter at order of magnitude`,
   'Forensics': `evidence analysis, toxicology, DNA analysis, document examination, and crime scene procedures.
 
 FINGERPRINTS:
@@ -588,21 +659,86 @@ COMMON MISTAKES:
 - Forgetting that g ≈ 10 m/s² for calculations`,
   'Microbe Mission': `bacterial structure, viral replication, fungal characteristics, microbial ecology, and lab techniques.
 
-KEY FACTS TO VERIFY:
-- Bacteria: Prokaryotic (no nucleus), cell wall (peptidoglycan), reproduce by binary fission
-- Gram staining: Gram+ = thick peptidoglycan, retains crystal violet (purple). Gram- = thin peptidoglycan, outer membrane, pink/red
-- Bacterial shapes: Cocci (spheres), Bacilli (rods), Spirilla (spirals)
-- Viruses: NOT cells, need host to reproduce, contain DNA OR RNA (not both), capsid protein coat
-- Viral replication: Lytic (destroys cell) vs Lysogenic (integrates into host DNA)
-- Fungi: Eukaryotic, cell walls of chitin, heterotrophs, reproduce by spores
-- Protists: Eukaryotic, diverse group including algae, protozoa, slime molds
+BACTERIA (Prokaryotes):
+- No nucleus (DNA in nucleoid region), no membrane-bound organelles
+- Cell wall: Peptidoglycan (unique to bacteria)
+- Shapes: Cocci (spheres), Bacilli (rods), Spirilla (spirals), Vibrio (comma)
+- Arrangements: Diplo- (pairs), Strepto- (chains), Staphylo- (clusters)
+- Reproduction: Binary fission (asexual), ~20 min doubling time
+- Genetic exchange: Conjugation (plasmid transfer), Transformation (DNA uptake), Transduction (via phage)
+- Structures: Flagella (movement), Pili (attachment), Capsule (protection), Endospores (survival)
 
-DISEASE EXAMPLES:
-- Bacterial: Tuberculosis, Strep throat, E. coli, Salmonella
-- Viral: Influenza, HIV, COVID-19, Rabies
-- Fungal: Athlete's foot, Ringworm, Candidiasis
+GRAM STAINING:
+1. Crystal violet (purple) - all bacteria stain purple
+2. Iodine (mordant) - fixes crystal violet
+3. Alcohol/acetone (decolorizer) - removes from thin cell walls
+4. Safranin (counterstain) - stains decolorized cells pink
+- Gram+ (purple): Thick peptidoglycan, no outer membrane (Staphylococcus, Streptococcus)
+- Gram- (pink/red): Thin peptidoglycan, outer membrane with LPS (E. coli, Salmonella)
 
-COMMON MISTAKES: Calling viruses "alive" or cells. Confusing Gram+ vs Gram- staining results.`,
+VIRUSES:
+- NOT cells, NOT alive by most definitions
+- Structure: Genetic material (DNA OR RNA, never both) + Protein coat (capsid) ± Envelope
+- Shapes: Helical, Icosahedral (20 faces), Complex (bacteriophages)
+- Size: 20-300 nm (much smaller than bacteria)
+- Must use host cell machinery to replicate
+- Lytic cycle: Attachment → Entry → Replication → Assembly → Lysis (kills cell)
+- Lysogenic cycle: DNA integrates into host genome (prophage), replicates with host
+- Retroviruses (HIV): RNA → DNA (reverse transcriptase) → integrates into host
+
+FUNGI:
+- Eukaryotic (membrane-bound nucleus and organelles)
+- Cell walls of CHITIN (not peptidoglycan)
+- Heterotrophs (absorb nutrients externally)
+- Body forms: Unicellular (yeasts) or Multicellular (molds, mushrooms)
+- Multicellular structure: Hyphae (threads) → Mycelium (network)
+- Reproduction: Spores (sexual and asexual)
+- Examples: Yeast (Saccharomyces), Bread mold (Rhizopus), Mushrooms, Penicillium
+- Symbioses: Mycorrhizae (with plants), Lichens (with algae/cyanobacteria)
+
+PROTISTS:
+- Eukaryotic, mostly unicellular, very diverse group
+- Animal-like (protozoa): Heterotrophs, motile
+  - Amoeba (pseudopods), Paramecium (cilia), Euglena (flagella), Plasmodium (malaria)
+- Plant-like (algae): Photosynthetic
+  - Diatoms, Dinoflagellates (red tide), Kelp, Chlamydomonas
+- Fungus-like: Slime molds, Water molds
+
+MICROBIAL ECOLOGY:
+- Decomposers: Break down dead organic matter, recycle nutrients
+- Nitrogen fixation: N₂ → NH₃ (Rhizobium in legume root nodules)
+- Normal flora: Beneficial microbes on/in body (gut bacteria aid digestion)
+- Pathogens: Disease-causing microbes
+- Extremophiles: Thrive in extreme conditions (thermophiles, halophiles, acidophiles)
+
+LAB TECHNIQUES:
+- Aseptic technique: Prevent contamination
+- Streaking for isolation: Get individual colonies
+- Serial dilution: Reduce concentration for counting
+- Pour plate / Spread plate: Grow colonies for counting
+- Colony characteristics: Shape, color, margin, elevation
+- Selective media: Favors certain organisms (MacConkey for Gram-)
+- Differential media: Distinguishes organisms (Blood agar for hemolysis)
+
+DISEASE & IMMUNITY:
+- Koch's postulates: Criteria to prove microbe causes disease
+- Transmission: Direct contact, Droplet, Airborne, Fecal-oral, Vector-borne
+- Antibiotics: Target bacteria (not viruses!) - cell wall, protein synthesis, DNA replication
+- Antibiotic resistance: Overuse → selection for resistant strains
+- Vaccines: Stimulate immune response without causing disease
+
+IMPORTANT DISEASES:
+- Bacterial: Tuberculosis (Mycobacterium), Strep throat, Food poisoning (E. coli, Salmonella), Lyme disease (Borrelia)
+- Viral: Influenza, HIV/AIDS, COVID-19, Rabies, Measles, Chickenpox
+- Fungal: Athlete's foot, Ringworm (not a worm!), Candidiasis, Histoplasmosis
+- Protist: Malaria (Plasmodium), Amoebic dysentery, Sleeping sickness
+
+COMMON MISTAKES:
+- Calling viruses "alive" or "cells"
+- Confusing Gram+ (purple) vs Gram- (pink)
+- Saying bacteria have a nucleus
+- Confusing chitin (fungi) with peptidoglycan (bacteria)
+- Thinking antibiotics work on viruses`,
   'Optics': `reflection, refraction, lenses, mirrors, optical instruments, wave optics, and electromagnetic spectrum.
 
 REFLECTION:
