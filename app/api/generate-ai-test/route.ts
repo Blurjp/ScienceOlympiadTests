@@ -217,18 +217,38 @@ FOSSIL TYPES:
 - Mold: Cavity left by organism; Cast: Mineral filling of mold
 
 COMMON MISTAKES: Mixing up geological eras/periods. Confusing mold vs cast.`,
-  'Machines': `simple machines (levers, pulleys, inclined planes, wheels, screws, wedges), mechanical advantage, efficiency, work, power, and compound machines.
+  'Machines': `simple machines, mechanical advantage, efficiency, work, power, energy, and compound machines.
 
-KEY FORMULAS (YOU MUST USE THESE CORRECTLY):
-- Lever IMA = effort arm length / load arm length
-- Pulley IMA = number of supporting ropes
-- Inclined Plane IMA = length / height
-- Wheel & Axle IMA = wheel radius / axle radius
-- Screw IMA = 2πr / pitch (where r = handle radius, pitch = thread spacing) - IMPORTANT: Convert units! If r=4cm and pitch=2mm, then IMA = 2π(40mm)/2mm = 125.66
-- Wedge IMA = length / width
-- Efficiency = (AMA / IMA) × 100% = (Work out / Work in) × 100%
-- Work = Force × Distance
-- Power = Work / Time`,
+FUNDAMENTAL FORMULAS:
+- Work = Force × Distance × cos(θ), where θ = angle between force and displacement. Unit: Joules (J) = N·m
+- Power = Work / Time = Force × Velocity. Unit: Watts (W) = J/s. Also: 1 horsepower = 746 W
+- Kinetic Energy: KE = ½mv². Unit: Joules
+- Potential Energy: PE = mgh (gravitational), PE = ½kx² (spring/elastic)
+- Conservation of Energy: Total energy in = Total energy out (in ideal system)
+- Torque = Force × Lever arm = F × r × sin(θ). Unit: N·m
+
+MECHANICAL ADVANTAGE:
+- IMA (Ideal MA) = Distance effort moves / Distance load moves (theoretical, no friction)
+- AMA (Actual MA) = Load force / Effort force = Fout / Fin (measured, includes friction)
+- Efficiency = (AMA / IMA) × 100% = (Work out / Work in) × 100%. Always < 100% in real machines
+
+SIMPLE MACHINE IMA FORMULAS (VERIFY UNIT CONVERSIONS!):
+- Lever: IMA = Effort arm / Load arm. Classes: 1st (fulcrum middle), 2nd (load middle), 3rd (effort middle)
+- Pulley: IMA = Number of rope segments supporting the load (count ropes going UP from movable pulley)
+- Inclined Plane: IMA = Length / Height = L/h
+- Wheel & Axle: IMA = Wheel radius / Axle radius = R/r
+- Screw: IMA = 2πr / pitch = Circumference / pitch. EXAMPLE: r=4cm, pitch=2mm → IMA = 2π(40mm)/2mm = 125.66
+- Wedge: IMA = Length / Width (thickness)
+
+COMPOUND MACHINES:
+- Total IMA = IMA₁ × IMA₂ × IMA₃ × ... (multiply individual IMAs)
+- Total efficiency = eff₁ × eff₂ × eff₃ × ... (multiply, so compounds are LESS efficient)
+
+COMMON MISTAKES:
+- Forgetting unit conversions (cm to mm, etc.)
+- Using wrong pulley count (count supporting ropes, not total ropes)
+- Confusing IMA vs AMA
+- Forgetting efficiency is always < 100%`,
   'Microbe Mission': `bacterial structure, viral replication, fungal characteristics, microbial ecology, and lab techniques.
 
 KEY FACTS TO VERIFY:
