@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations } from '@/lib/database';
+import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getReferenceQuestions, formatReferenceQuestionsForPrompt } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
 import { FREE_TIER_MONTHLY_LIMIT } from '@/lib/stripe';
+import { getSeedQuestionsForTopic } from '@/lib/seed-reference-questions';
 
 // GPT-4o pricing (as of 2024) - using full model for better quality
 const PRICE_PER_1K_PROMPT_TOKENS = 0.0025;
@@ -1074,6 +1075,34 @@ export async function POST(request: NextRequest) {
     const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
     const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
 
+    // Fetch reference questions for few-shot learning
+    let referenceExamples = '';
+    try {
+      // First try database (for scraped/imported questions)
+      const dbQuestions = await getReferenceQuestions({
+        topic,
+        difficulty,
+        limit: 3,
+        minQuality: 7,
+      });
+
+      if (dbQuestions.length > 0) {
+        referenceExamples = formatReferenceQuestionsForPrompt(dbQuestions);
+      } else {
+        // Fall back to seed questions
+        const seedQuestions = getSeedQuestionsForTopic(topic);
+        const filtered = seedQuestions
+          .filter(q => q.difficulty === difficulty || seedQuestions.length < 5)
+          .slice(0, 3);
+        if (filtered.length > 0) {
+          referenceExamples = formatReferenceQuestionsForPrompt(filtered);
+        }
+      }
+    } catch (refError) {
+      console.error('Error fetching reference questions (non-fatal):', refError);
+      // Continue without reference examples
+    }
+
     // Enhanced prompt for higher quality questions
     const prompt = `You are an expert Science Olympiad coach creating a Division C practice test for ${topic}.
 
@@ -1107,7 +1136,11 @@ SHORT ANSWER:
 - Provide the most precise accepted answer
 - For numerical answers, include units
 - Accept common abbreviations in the answer
+${referenceExamples ? `
+${referenceExamples}
 
+Use these historical examples as a guide for question style, difficulty, and format. Your questions should be original but follow similar quality standards.
+` : ''}
 Return valid JSON:
 {
   "questions": [
