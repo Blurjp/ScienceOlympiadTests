@@ -4,10 +4,11 @@
 
 import { ReferenceQuestion } from './database';
 
+// Use canonical topic names (matching UI exactly)
 export const SEED_REFERENCE_QUESTIONS: ReferenceQuestion[] = [
-  // ==================== ANATOMY & PHYSIOLOGY ====================
+  // ==================== ANATOMY AND PHYSIOLOGY ====================
   {
-    topic: 'Anatomy & Physiology',
+    topic: 'Anatomy and Physiology',
     subtopic: 'Nervous System',
     difficulty: 'National',
     questionType: 'multiple-choice',
@@ -26,7 +27,7 @@ export const SEED_REFERENCE_QUESTIONS: ReferenceQuestion[] = [
     tags: ['neurons', 'action potential', 'ion channels']
   },
   {
-    topic: 'Anatomy & Physiology',
+    topic: 'Anatomy and Physiology',
     subtopic: 'Cardiovascular',
     difficulty: 'State',
     questionType: 'calculation',
@@ -39,7 +40,7 @@ export const SEED_REFERENCE_QUESTIONS: ReferenceQuestion[] = [
     tags: ['cardiac output', 'calculation', 'cardiovascular']
   },
   {
-    topic: 'Anatomy & Physiology',
+    topic: 'Anatomy and Physiology',
     subtopic: 'Respiratory',
     difficulty: 'Regional',
     questionType: 'short-answer',

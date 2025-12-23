@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import {
-  saveReferenceQuestion,
   saveReferenceQuestionsBatch,
   getReferenceQuestionStats,
-  ReferenceQuestion
+  ReferenceQuestion,
+  saveScrapedTestsBatch,
+  getScrapedTestStats,
+  ScrapedTest,
 } from '@/lib/database';
+import { normalizeTopic, isValidTopic } from '@/lib/topic-utils';
 
 // This is an admin-only endpoint to scrape and import historical tests
-// It's used to populate the reference_questions database
+// It's used to populate the scraped_tests and reference_questions databases
 
 interface ScrapedTestLink {
   topic: string;
@@ -20,86 +23,49 @@ interface ScrapedTestLink {
   title: string;
 }
 
-// Map Test Exchange topic names to our standard topics
-const TOPIC_MAPPING: Record<string, string> = {
-  'anatomy': 'Anatomy & Physiology',
-  'anatomy and physiology': 'Anatomy & Physiology',
-  'astronomy': 'Astronomy',
-  'chemistry lab': 'Chemistry Lab',
-  'chem lab': 'Chemistry Lab',
-  'disease detectives': 'Disease Detectives',
-  'dynamic planet': 'Dynamic Planet',
-  'ecology': 'Ecology',
-  'experimental design': 'Experimental Design',
-  'exp design': 'Experimental Design',
-  'fermi questions': 'Fermi Questions',
-  'fermi': 'Fermi Questions',
-  'forensics': 'Forensics',
-  'fossils': 'Fossils',
-  'machines': 'Machines',
-  'simple machines': 'Machines',
-  'compound machines': 'Machines',
-  'microbe mission': 'Microbe Mission',
-  'optics': 'Optics',
-  'ornithology': 'Ornithology',
-  'reach for the stars': 'Astronomy',
-  'rocks and minerals': 'Dynamic Planet',
-  'wind power': 'Machines',
-  'write it do it': 'Write It Do It',
-  'tower': 'Machines',
-  'detector building': 'Machines',
-  'crime busters': 'Forensics',
-  'herpetology': 'Ecology',
-  'entomology': 'Ecology',
-  'green generation': 'Ecology',
-  'water quality': 'Ecology',
-  'thermodynamics': 'Chemistry Lab',
-  'protein modeling': 'Anatomy & Physiology',
-  'cell biology': 'Anatomy & Physiology',
-};
-
 // Parse the Test Exchange Archive HTML to extract test links
 function parseTestExchangeHTML(html: string): ScrapedTestLink[] {
   const links: ScrapedTestLink[] = [];
 
-  // Find all links in the HTML
-  const linkRegex = /<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
-  let match;
-
-  // Current section context
-  let currentTopic = '';
-
-  // Look for section headers to determine topic
-  const sectionRegex = /<h[23][^>]*>([^<]+)<\/h[23]>/gi;
+  // Extract text content and links more robustly
+  // First, find section headers to determine topic context
   const sections: { topic: string; position: number }[] = [];
 
-  while ((match = sectionRegex.exec(html)) !== null) {
-    const headerText = match[1].toLowerCase().trim();
+  // Match headers with possible nested elements (using [\s\S] instead of 's' flag for dotAll)
+  const headerRegex = /<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
+  let headerMatch;
 
-    // Check if this matches a known topic
-    for (const [key, value] of Object.entries(TOPIC_MAPPING)) {
-      if (headerText.includes(key)) {
-        sections.push({ topic: value, position: match.index });
-        break;
-      }
+  while ((headerMatch = headerRegex.exec(html)) !== null) {
+    // Strip HTML tags from header content
+    const headerText = headerMatch[1].replace(/<[^>]+>/g, '').toLowerCase().trim();
+
+    // Try to normalize the header text as a topic
+    const normalizedTopic = normalizeTopic(headerText);
+    if (isValidTopic(normalizedTopic)) {
+      sections.push({ topic: normalizedTopic, position: headerMatch.index });
     }
   }
 
-  // Now find all links and associate them with topics
-  while ((match = linkRegex.exec(html)) !== null) {
-    const url = match[1];
-    const title = match[2].trim();
+  // Find all links - use a more robust regex that handles nested elements
+  const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let linkMatch;
+
+  while ((linkMatch = linkRegex.exec(html)) !== null) {
+    const url = linkMatch[1];
+    // Strip HTML tags from link text
+    const title = linkMatch[2].replace(/<[^>]+>/g, '').trim();
 
     // Skip navigation and non-test links
     if (url.startsWith('#') ||
         url.includes('edit') ||
         url.includes('wiki/index') ||
         url.includes('Special:') ||
+        url.includes('action=') ||
         title.length < 3) {
       continue;
     }
 
-    // Only process Google Drive links and PDFs
+    // Only process Google Drive links, PDFs, and Dropbox
     if (!url.includes('drive.google.com') &&
         !url.includes('.pdf') &&
         !url.includes('dropbox') &&
@@ -110,7 +76,7 @@ function parseTestExchangeHTML(html: string): ScrapedTestLink[] {
     // Determine current topic based on position
     let topic = 'Unknown';
     for (let i = sections.length - 1; i >= 0; i--) {
-      if (match.index > sections[i].position) {
+      if (linkMatch.index > sections[i].position) {
         topic = sections[i].topic;
         break;
       }
@@ -166,22 +132,6 @@ function parseTestExchangeHTML(html: string): ScrapedTestLink[] {
   return links;
 }
 
-// Convert difficulty based on tournament level
-function getDifficultyFromTournament(tournament: string, title: string): 'Invitational' | 'Regional' | 'State' | 'National' {
-  const lowerTitle = (tournament + ' ' + title).toLowerCase();
-
-  if (lowerTitle.includes('national') || lowerTitle.includes('nationals')) {
-    return 'National';
-  }
-  if (lowerTitle.includes('state') || lowerTitle.includes('states')) {
-    return 'State';
-  }
-  if (lowerTitle.includes('regional') || lowerTitle.includes('regionals')) {
-    return 'Regional';
-  }
-  return 'Invitational';
-}
-
 // Scrape the Test Exchange Archive
 async function scrapeTestExchangeArchive(): Promise<ScrapedTestLink[]> {
   try {
@@ -203,44 +153,46 @@ async function scrapeTestExchangeArchive(): Promise<ScrapedTestLink[]> {
   }
 }
 
-// Store scraped links as reference questions metadata (for later PDF parsing)
+// Store scraped links to the scraped_tests table
 async function storeScrapedLinks(links: ScrapedTestLink[]): Promise<{
-  stored: number;
+  inserted: number;
   skipped: number;
   byTopic: Record<string, number>;
 }> {
-  // This stores the links for later processing
-  // In production, you would parse the PDFs to extract actual questions
-
-  // For now, create placeholder reference entries
-  // These will be enriched when PDFs are actually parsed
-
   const byTopic: Record<string, number> = {};
-  let stored = 0;
-  let skipped = 0;
+
+  // Filter to only tests with known topics
+  const testsToStore: ScrapedTest[] = [];
+  let preFilterSkipped = 0;
 
   for (const link of links) {
-    // Only process test files (not keys or answer sheets yet)
-    if (link.type !== 'test' && link.type !== 'unknown') {
-      skipped++;
-      continue;
-    }
-
     // Skip if topic is unknown
-    if (link.topic === 'Unknown') {
-      skipped++;
+    if (link.topic === 'Unknown' || !isValidTopic(link.topic)) {
+      preFilterSkipped++;
       continue;
     }
 
     byTopic[link.topic] = (byTopic[link.topic] || 0) + 1;
-    stored++;
 
-    // Note: In production, we would actually parse the PDF here
-    // For now, just logging the found tests
-    console.log(`Found test: ${link.topic} - ${link.title} (${link.year})`);
+    testsToStore.push({
+      topic: link.topic, // Already normalized in parseTestExchangeHTML
+      year: link.year,
+      tournament: link.tournament,
+      division: link.division,
+      testType: link.type,
+      url: link.url,
+      title: link.title,
+    });
   }
 
-  return { stored, skipped, byTopic };
+  // Batch save to database
+  const result = await saveScrapedTestsBatch(testsToStore);
+
+  return {
+    inserted: result.inserted,
+    skipped: result.skipped + preFilterSkipped,
+    byTopic,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -257,12 +209,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get current stats
-    const stats = await getReferenceQuestionStats();
+    // Get current stats for both tables
+    const referenceStats = await getReferenceQuestionStats();
+    const scrapedStats = await getScrapedTestStats();
 
     return NextResponse.json({
-      message: 'Reference questions database stats',
-      stats,
+      message: 'Test database stats',
+      referenceQuestions: referenceStats,
+      scrapedTests: scrapedStats,
     });
   } catch (error: any) {
     console.error('Error getting stats:', error);
@@ -288,12 +242,12 @@ export async function POST(request: NextRequest) {
     const { action } = body;
 
     if (action === 'scrape') {
-      // Scrape the Test Exchange Archive
+      // Scrape the Test Exchange Archive and persist to scraped_tests table
       const links = await scrapeTestExchangeArchive();
       const result = await storeScrapedLinks(links);
 
       return NextResponse.json({
-        message: 'Scraping complete',
+        message: 'Scraping complete - test metadata stored in database',
         totalLinksFound: links.length,
         ...result,
       });
@@ -316,7 +270,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action. Use "scrape" or "import-questions"' }, { status: 400 });
   } catch (error: any) {
     console.error('Error in scrape-tests:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,5 +1,6 @@
 import { createClient, Client } from '@libsql/client';
 import { Test, Question } from './types';
+import { normalizeTopic } from './topic-utils';
 
 let db: Client | null = null;
 let initialized = false;
@@ -1220,7 +1221,8 @@ async function initializeReferenceQuestionsTable() {
       tags TEXT,
       quality_score INTEGER DEFAULT 5,
       use_count INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(topic, question_text)
     )
   `);
 
@@ -1229,6 +1231,148 @@ async function initializeReferenceQuestionsTable() {
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_difficulty ON reference_questions(difficulty)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_type ON reference_questions(question_type)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_quality ON reference_questions(quality_score DESC)`);
+}
+
+// Initialize scraped tests table (metadata for tests found but not yet parsed)
+async function initializeScrapedTestsTable() {
+  const database = getClient();
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS scraped_tests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      topic TEXT NOT NULL,
+      year INTEGER,
+      tournament TEXT,
+      division TEXT,
+      test_type TEXT CHECK(test_type IN ('test', 'key', 'answer_sheet', 'unknown')),
+      url TEXT NOT NULL UNIQUE,
+      title TEXT,
+      parsed BOOLEAN DEFAULT 0,
+      parsed_at DATETIME,
+      question_count INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_scraped_tests_topic ON scraped_tests(topic)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_scraped_tests_parsed ON scraped_tests(parsed)`);
+}
+
+// Scraped Test interface
+export interface ScrapedTest {
+  id?: number;
+  topic: string;
+  year?: number;
+  tournament?: string;
+  division?: string;
+  testType: 'test' | 'key' | 'answer_sheet' | 'unknown';
+  url: string;
+  title?: string;
+  parsed?: boolean;
+  parsedAt?: string;
+  questionCount?: number;
+}
+
+// Save a scraped test entry
+export async function saveScrapedTest(test: ScrapedTest): Promise<number> {
+  const database = await getDatabase();
+  await initializeScrapedTestsTable();
+
+  const normalizedTopic = normalizeTopic(test.topic);
+
+  const result = await database.execute({
+    sql: `INSERT OR IGNORE INTO scraped_tests
+      (topic, year, tournament, division, test_type, url, title)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      normalizedTopic,
+      test.year || null,
+      test.tournament || null,
+      test.division || null,
+      test.testType,
+      test.url,
+      test.title || null,
+    ]
+  });
+
+  return Number(result.lastInsertRowid);
+}
+
+// Save multiple scraped tests in batch
+export async function saveScrapedTestsBatch(tests: ScrapedTest[]): Promise<{ inserted: number; skipped: number }> {
+  const database = await getDatabase();
+  await initializeScrapedTestsTable();
+
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const test of tests) {
+    try {
+      const result = await saveScrapedTest(test);
+      if (result > 0) {
+        inserted++;
+      } else {
+        skipped++; // Already exists (IGNORE)
+      }
+    } catch (e) {
+      console.error('Failed to save scraped test:', e);
+      skipped++;
+    }
+  }
+
+  return { inserted, skipped };
+}
+
+// Get scraped tests that haven't been parsed yet
+export async function getUnparsedScrapedTests(limit: number = 10): Promise<ScrapedTest[]> {
+  const database = await getDatabase();
+  await initializeScrapedTestsTable();
+
+  const result = await database.execute({
+    sql: `SELECT * FROM scraped_tests WHERE parsed = 0 ORDER BY created_at DESC LIMIT ?`,
+    args: [limit]
+  });
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    topic: r.topic,
+    year: r.year,
+    tournament: r.tournament,
+    division: r.division,
+    testType: r.test_type,
+    url: r.url,
+    title: r.title,
+    parsed: Boolean(r.parsed),
+    parsedAt: r.parsed_at,
+    questionCount: r.question_count,
+  }));
+}
+
+// Get scraped test stats
+export async function getScrapedTestStats(): Promise<{
+  total: number;
+  parsed: number;
+  unparsed: number;
+  byTopic: { topic: string; count: number }[];
+}> {
+  const database = await getDatabase();
+  await initializeScrapedTestsTable();
+
+  const total = await database.execute('SELECT COUNT(*) as count FROM scraped_tests');
+  const parsed = await database.execute('SELECT COUNT(*) as count FROM scraped_tests WHERE parsed = 1');
+  const byTopic = await database.execute(
+    'SELECT topic, COUNT(*) as count FROM scraped_tests GROUP BY topic ORDER BY count DESC'
+  );
+
+  const totalCount = (total.rows[0] as any)?.count || 0;
+  const parsedCount = (parsed.rows[0] as any)?.count || 0;
+
+  return {
+    total: totalCount,
+    parsed: parsedCount,
+    unparsed: totalCount - parsedCount,
+    byTopic: byTopic.rows.map((r: any) => ({ topic: r.topic, count: r.count })),
+  };
 }
 
 // Reference Question interface
@@ -1250,17 +1394,20 @@ export interface ReferenceQuestion {
   useCount?: number;
 }
 
-// Save a reference question
+// Save a reference question (idempotent - ignores duplicates based on topic+question_text)
 export async function saveReferenceQuestion(question: ReferenceQuestion): Promise<number> {
   const database = await getDatabase();
   await initializeReferenceQuestionsTable();
 
+  // Normalize topic name
+  const normalizedTopic = normalizeTopic(question.topic);
+
   const result = await database.execute({
-    sql: `INSERT INTO reference_questions
+    sql: `INSERT OR IGNORE INTO reference_questions
       (topic, subtopic, difficulty, question_type, question_text, correct_answer, options, explanation, source_year, source_tournament, source_url, tags, quality_score)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
-      question.topic,
+      normalizedTopic,
       question.subtopic || null,
       question.difficulty,
       question.questionType,
@@ -1307,8 +1454,11 @@ export async function getReferenceQuestions(options: {
   const database = await getDatabase();
   await initializeReferenceQuestionsTable();
 
+  // Normalize topic name for query
+  const normalizedTopic = normalizeTopic(options.topic);
+
   let sql = `SELECT * FROM reference_questions WHERE topic = ?`;
-  const args: any[] = [options.topic];
+  const args: any[] = [normalizedTopic];
 
   if (options.difficulty) {
     sql += ` AND difficulty = ?`;
@@ -1363,9 +1513,12 @@ export async function getRandomReferenceQuestions(topic: string, count: number =
   const database = await getDatabase();
   await initializeReferenceQuestionsTable();
 
+  // Normalize topic name for query
+  const normalizedTopic = normalizeTopic(topic);
+
   const result = await database.execute({
     sql: `SELECT * FROM reference_questions WHERE topic = ? ORDER BY RANDOM() LIMIT ?`,
-    args: [topic, count]
+    args: [normalizedTopic, count]
   });
 
   return result.rows.map((r: any) => ({
