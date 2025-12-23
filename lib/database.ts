@@ -1193,3 +1193,241 @@ export async function getRecentApiCalls(limit: number = 50): Promise<{
     createdAt: r.created_at,
   }));
 }
+
+// ============================================
+// Reference Questions Database (Historical Tests)
+// ============================================
+
+// Initialize reference questions table
+async function initializeReferenceQuestionsTable() {
+  const database = getClient();
+
+  // Table to store curated reference questions from historical tests
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS reference_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      topic TEXT NOT NULL,
+      subtopic TEXT,
+      difficulty TEXT CHECK(difficulty IN ('Invitational', 'Regional', 'State', 'National')),
+      question_type TEXT CHECK(question_type IN ('multiple-choice', 'short-answer', 'calculation', 'diagram')),
+      question_text TEXT NOT NULL,
+      correct_answer TEXT NOT NULL,
+      options TEXT,
+      explanation TEXT,
+      source_year INTEGER,
+      source_tournament TEXT,
+      source_url TEXT,
+      tags TEXT,
+      quality_score INTEGER DEFAULT 5,
+      use_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create indexes for fast lookup
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_topic ON reference_questions(topic)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_difficulty ON reference_questions(difficulty)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_type ON reference_questions(question_type)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_quality ON reference_questions(quality_score DESC)`);
+}
+
+// Reference Question interface
+export interface ReferenceQuestion {
+  id?: number;
+  topic: string;
+  subtopic?: string;
+  difficulty: 'Invitational' | 'Regional' | 'State' | 'National';
+  questionType: 'multiple-choice' | 'short-answer' | 'calculation' | 'diagram';
+  questionText: string;
+  correctAnswer: string;
+  options?: string[];
+  explanation?: string;
+  sourceYear?: number;
+  sourceTournament?: string;
+  sourceUrl?: string;
+  tags?: string[];
+  qualityScore?: number;
+  useCount?: number;
+}
+
+// Save a reference question
+export async function saveReferenceQuestion(question: ReferenceQuestion): Promise<number> {
+  const database = await getDatabase();
+  await initializeReferenceQuestionsTable();
+
+  const result = await database.execute({
+    sql: `INSERT INTO reference_questions
+      (topic, subtopic, difficulty, question_type, question_text, correct_answer, options, explanation, source_year, source_tournament, source_url, tags, quality_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      question.topic,
+      question.subtopic || null,
+      question.difficulty,
+      question.questionType,
+      question.questionText,
+      question.correctAnswer,
+      question.options ? JSON.stringify(question.options) : null,
+      question.explanation || null,
+      question.sourceYear || null,
+      question.sourceTournament || null,
+      question.sourceUrl || null,
+      question.tags ? JSON.stringify(question.tags) : null,
+      question.qualityScore || 5
+    ]
+  });
+
+  return Number(result.lastInsertRowid);
+}
+
+// Save multiple reference questions in batch
+export async function saveReferenceQuestionsBatch(questions: ReferenceQuestion[]): Promise<number> {
+  const database = await getDatabase();
+  await initializeReferenceQuestionsTable();
+
+  let inserted = 0;
+  for (const question of questions) {
+    try {
+      await saveReferenceQuestion(question);
+      inserted++;
+    } catch (e) {
+      console.error('Failed to save reference question:', e);
+    }
+  }
+  return inserted;
+}
+
+// Get reference questions for AI prompt generation
+export async function getReferenceQuestions(options: {
+  topic: string;
+  difficulty?: string;
+  questionType?: string;
+  limit?: number;
+  minQuality?: number;
+}): Promise<ReferenceQuestion[]> {
+  const database = await getDatabase();
+  await initializeReferenceQuestionsTable();
+
+  let sql = `SELECT * FROM reference_questions WHERE topic = ?`;
+  const args: any[] = [options.topic];
+
+  if (options.difficulty) {
+    sql += ` AND difficulty = ?`;
+    args.push(options.difficulty);
+  }
+
+  if (options.questionType) {
+    sql += ` AND question_type = ?`;
+    args.push(options.questionType);
+  }
+
+  if (options.minQuality) {
+    sql += ` AND quality_score >= ?`;
+    args.push(options.minQuality);
+  }
+
+  // Order by quality and randomize within quality tiers
+  sql += ` ORDER BY quality_score DESC, RANDOM() LIMIT ?`;
+  args.push(options.limit || 10);
+
+  const result = await database.execute({ sql, args });
+
+  // Update use count for returned questions
+  for (const row of result.rows) {
+    await database.execute({
+      sql: `UPDATE reference_questions SET use_count = use_count + 1 WHERE id = ?`,
+      args: [(row as any).id]
+    });
+  }
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    topic: r.topic,
+    subtopic: r.subtopic,
+    difficulty: r.difficulty,
+    questionType: r.question_type,
+    questionText: r.question_text,
+    correctAnswer: r.correct_answer,
+    options: r.options ? JSON.parse(r.options) : undefined,
+    explanation: r.explanation,
+    sourceYear: r.source_year,
+    sourceTournament: r.source_tournament,
+    sourceUrl: r.source_url,
+    tags: r.tags ? JSON.parse(r.tags) : undefined,
+    qualityScore: r.quality_score,
+    useCount: r.use_count,
+  }));
+}
+
+// Get random reference questions for variety
+export async function getRandomReferenceQuestions(topic: string, count: number = 5): Promise<ReferenceQuestion[]> {
+  const database = await getDatabase();
+  await initializeReferenceQuestionsTable();
+
+  const result = await database.execute({
+    sql: `SELECT * FROM reference_questions WHERE topic = ? ORDER BY RANDOM() LIMIT ?`,
+    args: [topic, count]
+  });
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    topic: r.topic,
+    subtopic: r.subtopic,
+    difficulty: r.difficulty,
+    questionType: r.question_type,
+    questionText: r.question_text,
+    correctAnswer: r.correct_answer,
+    options: r.options ? JSON.parse(r.options) : undefined,
+    explanation: r.explanation,
+    sourceYear: r.source_year,
+    sourceTournament: r.source_tournament,
+    sourceUrl: r.source_url,
+    tags: r.tags ? JSON.parse(r.tags) : undefined,
+    qualityScore: r.quality_score,
+    useCount: r.use_count,
+  }));
+}
+
+// Get reference question stats
+export async function getReferenceQuestionStats(): Promise<{
+  totalQuestions: number;
+  byTopic: { topic: string; count: number }[];
+  byDifficulty: { difficulty: string; count: number }[];
+}> {
+  const database = await getDatabase();
+  await initializeReferenceQuestionsTable();
+
+  const total = await database.execute('SELECT COUNT(*) as count FROM reference_questions');
+  const byTopic = await database.execute(
+    'SELECT topic, COUNT(*) as count FROM reference_questions GROUP BY topic ORDER BY count DESC'
+  );
+  const byDifficulty = await database.execute(
+    'SELECT difficulty, COUNT(*) as count FROM reference_questions GROUP BY difficulty ORDER BY count DESC'
+  );
+
+  return {
+    totalQuestions: (total.rows[0] as any)?.count || 0,
+    byTopic: byTopic.rows.map((r: any) => ({ topic: r.topic, count: r.count })),
+    byDifficulty: byDifficulty.rows.map((r: any) => ({ difficulty: r.difficulty, count: r.count })),
+  };
+}
+
+// Format reference questions for AI prompt (few-shot examples)
+export function formatReferenceQuestionsForPrompt(questions: ReferenceQuestion[]): string {
+  if (questions.length === 0) return '';
+
+  let formatted = '\n\nHISTORICAL EXAMPLE QUESTIONS (use these as style/quality reference):\n';
+
+  for (const q of questions) {
+    formatted += `\n--- Example (${q.difficulty}, ${q.sourceYear || 'Unknown Year'}) ---\n`;
+    formatted += `Q: ${q.questionText}\n`;
+    if (q.options && q.options.length > 0) {
+      formatted += `Options: ${q.options.join(' | ')}\n`;
+    }
+    formatted += `A: ${q.correctAnswer}\n`;
+    if (q.explanation) {
+      formatted += `Explanation: ${q.explanation}\n`;
+    }
+  }
+
+  return formatted;
+}
