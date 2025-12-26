@@ -3,6 +3,8 @@ import { auth } from '@/auth';
 import { getUserMonthlyAIGenerations, getSubscriptionStatus } from '@/lib/database';
 import { FREE_TIER_MONTHLY_LIMIT } from '@/lib/stripe';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const session = await auth();

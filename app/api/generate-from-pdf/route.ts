@@ -7,6 +7,8 @@ import { auth } from '@/auth';
 import { getSourceById, PDFSource } from '@/lib/pdf-sources';
 import { validateOriginalContent } from '@/lib/similarity-check';
 
+export const dynamic = 'force-dynamic';
+
 // GPT-4o-mini pricing
 const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
 const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;

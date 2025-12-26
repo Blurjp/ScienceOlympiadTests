@@ -6,6 +6,8 @@ import {
 } from '@/lib/database';
 import { SEED_REFERENCE_QUESTIONS } from '@/lib/seed-reference-questions';
 
+export const dynamic = 'force-dynamic';
+
 // This is an admin-only endpoint to seed the reference questions database
 // with high-quality example questions for few-shot learning
 

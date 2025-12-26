@@ -8,6 +8,8 @@ import {
   getScrapedTestStats,
   ScrapedTest,
 } from '@/lib/database';
+
+export const dynamic = 'force-dynamic';
 import { normalizeTopic, isValidTopic } from '@/lib/topic-utils';
 
 // This is an admin-only endpoint to scrape and import historical tests

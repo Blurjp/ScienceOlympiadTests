@@ -6,6 +6,8 @@ import { generateId } from '@/lib/utils';
 import { Test, Question, Region } from '@/lib/types';
 import { auth } from '@/auth';
 
+export const dynamic = 'force-dynamic';
+
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
 // Map competition level values to database-compatible difficulty values

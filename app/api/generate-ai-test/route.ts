@@ -7,6 +7,8 @@ import { auth } from '@/auth';
 import { FREE_TIER_MONTHLY_LIMIT } from '@/lib/stripe';
 import { getSeedQuestionsForTopic } from '@/lib/seed-reference-questions';
 
+export const dynamic = 'force-dynamic';
+
 // GPT-4o pricing (as of 2024) - using full model for better quality
 const PRICE_PER_1K_PROMPT_TOKENS = 0.0025;
 const PRICE_PER_1K_COMPLETION_TOKENS = 0.01;
