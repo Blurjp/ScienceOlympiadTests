@@ -60,7 +60,12 @@ describe('POST /api/save-test', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.testId).toBe('test-1');
-      expect(mockSaveTest).toHaveBeenCalledWith(validTest);
+      // The API maps competition levels to database-compatible difficulty values
+      // 'Invitational' -> 'Easy', 'Regional'/'State' -> 'Medium', 'National' -> 'Hard'
+      expect(mockSaveTest).toHaveBeenCalledWith({
+        ...validTest,
+        difficulty: 'Easy', // Mapped from 'Invitational'
+      });
     });
   });
 
