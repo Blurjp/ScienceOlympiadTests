@@ -86,41 +86,15 @@ async function extractMetaInformation(pdfSource: PDFSource): Promise<ExamMetaInf
   const topic = pdfSource.topic;
   const level = pdfSource.level;
 
-  // Default question type distribution
+  // All questions are multiple choice for consistency
   let questionTypes: Record<string, number> = {
-    'multiple-choice': 60,
-    'short-answer': 30,
-    'calculation': 5,
-    'diagram': 5,
+    'multiple-choice': 100,
+    'short-answer': 0,
+    'calculation': 0,
+    'diagram': 0,
   };
 
-  // Try to get real distribution from reference questions
-  try {
-    const refQuestions = await getReferenceQuestions({
-      topic,
-      difficulty: level,
-      limit: 50,
-    });
-
-    if (refQuestions.length > 10) {
-      // Calculate actual distribution from reference data
-      const typeCounts: Record<string, number> = {};
-      refQuestions.forEach(q => {
-        const normalizedType = normalizeQuestionType(q.questionType);
-        typeCounts[normalizedType] = (typeCounts[normalizedType] || 0) + 1;
-      });
-
-      const total = refQuestions.length;
-      questionTypes = {
-        'multiple-choice': Math.round((typeCounts['multiple-choice'] || 0) / total * 100),
-        'short-answer': Math.round((typeCounts['short-answer'] || 0) / total * 100),
-        'calculation': Math.round((typeCounts['calculation'] || 0) / total * 100),
-        'diagram': Math.round((typeCounts['diagram'] || 0) / total * 100),
-      };
-    }
-  } catch (e) {
-    console.warn('Could not fetch reference questions for metadata:', e);
-  }
+  // All questions are multiple choice - no need to query reference distribution
 
   // Determine characteristics based on topic
   const isLabEvent = ['Chemistry Lab', 'Forensics'].includes(topic);
@@ -288,14 +262,10 @@ ${referenceExamples}
 
 Use these historical examples as a guide for question style, difficulty, and format. Your questions must be COMPLETELY ORIGINAL but follow similar quality standards.
 ` : ''}
-QUESTION TYPE REQUIREMENTS:
-- multiple-choice: All 4 options must be plausible, correctAnswer MUST exactly match one option
-- short-answer: Answer should be 1-5 words
-- calculation: Include units, show clear numerical answers
-- diagram: Questions about interpreting visual data (describe what diagram would show)
-
-QUESTION MIX: Aim for ~${metaInfo.questionTypes['multiple-choice']}% multiple choice, ~${metaInfo.questionTypes['short-answer']}% short answer
-${metaInfo.hasCalculations ? 'Include calculation-based questions where appropriate.' : ''}
+QUESTION TYPE: ALL MULTIPLE CHOICE
+- Every question MUST be multiple-choice with exactly 4 options (A, B, C, D)
+- All 4 options must be plausible - no obviously wrong answers
+- correctAnswer MUST exactly match one of the options
 
 OUTPUT FORMAT - Return a JSON object:
 {
@@ -306,13 +276,6 @@ OUTPUT FORMAT - Return a JSON object:
       "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
       "correctAnswer": "B) Option 2",
       "points": 1,
-      "category": "${pdfSource.topic}"
-    },
-    {
-      "type": "short-answer",
-      "question": "Original question here?",
-      "correctAnswer": "Brief answer",
-      "points": 2,
       "category": "${pdfSource.topic}"
     }
   ]
@@ -326,10 +289,9 @@ Generate exactly ${questionCount} original questions.`;
 
 CRITICAL REQUIREMENTS:
 1. Every question MUST be factually correct - verify your knowledge before generating
-2. For multiple choice, correctAnswer MUST exactly match one of the options
-3. Use only these question types: multiple-choice, short-answer, calculation, diagram
-4. Do NOT use "diagram-analysis" - use "diagram" instead
-5. All options must be plausible - no obviously wrong answers
+2. ALL questions MUST be multiple-choice with exactly 4 options
+3. correctAnswer MUST exactly match one of the options
+4. All 4 options must be plausible - no obviously wrong answers
 
 MATHEMATICAL ACCURACY:
 - For ANY calculation question, work through the math step-by-step BEFORE generating

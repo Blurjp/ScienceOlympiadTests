@@ -1125,19 +1125,13 @@ QUESTION QUALITY REQUIREMENTS:
    - Analysis questions (interpreting data, comparing)
 5. For ${difficulty} level, ensure appropriate complexity
 
-QUESTION TYPES (aim for ~60% multiple choice, ~40% short answer):
-
-MULTIPLE CHOICE:
+QUESTION TYPE: ALL MULTIPLE CHOICE
+- Every question MUST be multiple-choice with exactly 4 options (A, B, C, D)
 - All 4 options should be plausible (no obviously wrong answers)
 - Distractors should represent common misconceptions
 - Avoid "all of the above" or "none of the above"
 - Options should be similar in length and style
-
-SHORT ANSWER:
-- Answer should be 1-5 words (concise)
-- Provide the most precise accepted answer
-- For numerical answers, include units
-- Accept common abbreviations in the answer
+- correctAnswer MUST exactly match one of the options
 ${referenceExamples ? `
 ${referenceExamples}
 
@@ -1153,16 +1147,11 @@ Return valid JSON:
       "correctAnswer": "B) Plausible option 2",
       "points": 1,
       "category": "${topic}"
-    },
-    {
-      "type": "short-answer",
-      "question": "Specific question requiring brief answer?",
-      "correctAnswer": "precise answer",
-      "points": 2,
-      "category": "${topic}"
     }
   ]
-}`;
+}
+
+Generate exactly ${questionCount} multiple-choice questions.`;
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
@@ -1174,9 +1163,10 @@ Return valid JSON:
 
 CRITICAL REQUIREMENTS:
 1. Every question MUST be factually correct - verify your knowledge before generating
-2. For multiple choice, the correct answer MUST be among the options
-3. All options must be plausible - no obviously wrong answers
-4. Questions should test real understanding, not trick students
+2. ALL questions MUST be multiple-choice with exactly 4 options (A, B, C, D)
+3. The correctAnswer MUST exactly match one of the options
+4. All options must be plausible - no obviously wrong answers
+5. Questions should test real understanding, not trick students
 
 FACTUAL ACCURACY (VERIFY BEFORE GENERATING):
 - Use the KEY FACTS provided in the topic description - these are verified correct
