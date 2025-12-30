@@ -45,14 +45,25 @@ export default function HistoryPage() {
     }
   }, [status, router]);
 
+  const [error, setError] = useState<string | null>(null);
+
   const loadHistory = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/history');
       const data = await response.json();
+
+      if (!response.ok) {
+        console.error('History API error:', data);
+        setError(data.error || 'Failed to load history');
+        return;
+      }
+
       setResults(data.results || []);
     } catch (error) {
       console.error('Error loading history:', error);
+      setError('Network error - please try again');
     } finally {
       setIsLoading(false);
     }
@@ -171,8 +182,20 @@ export default function HistoryPage() {
           </div>
         )}
 
+        {/* Error Display */}
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="py-6 text-center">
+              <p className="text-red-700 font-medium">{error}</p>
+              <Button onClick={loadHistory} variant="outline" className="mt-4">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results List */}
-        {results.length === 0 ? (
+        {!error && results.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <History className="mx-auto h-12 w-12 text-gray-400" />
@@ -185,7 +208,7 @@ export default function HistoryPage() {
               </Link>
             </CardContent>
           </Card>
-        ) : (
+        ) : !error && (
           <div className="space-y-4">
             {results.map((result) => (
               <Card key={result.id} className="transition-all hover:shadow-md">
