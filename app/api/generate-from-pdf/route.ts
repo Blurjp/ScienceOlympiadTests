@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration } from '@/lib/database';
+import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
 import { getSourceById, PDFSource } from '@/lib/pdf-sources';
-import { validateOriginalContent } from '@/lib/similarity-check';
+import { validateOriginalContent, validateAndRepairQuestions, normalizeQuestionType, ValidQuestionType } from '@/lib/similarity-check';
+import { TOPIC_DESCRIPTIONS, DIFFICULTY_DESCRIPTIONS } from '@/lib/topic-descriptions';
+import { getSeedQuestionsForTopic } from '@/lib/seed-reference-questions';
 
 export const dynamic = 'force-dynamic';
 
-// GPT-4o-mini pricing
-const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
-const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
+// GPT-4o pricing (upgraded from gpt-4o-mini for better quality)
+const PRICE_PER_1K_PROMPT_TOKENS = 0.0025;
+const PRICE_PER_1K_COMPLETION_TOKENS = 0.01;
 
 // Map competition level values to database-compatible difficulty values
 // The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
@@ -79,54 +81,57 @@ Every question must be:
 - Appropriate for the indicated difficulty level`;
 
 // Analyze PDF to extract ONLY meta-information (no question content)
+// Uses real data from reference questions when available
 async function extractMetaInformation(pdfSource: PDFSource): Promise<ExamMetaInfo> {
-  // Since we cannot actually fetch PDFs in this demo, we'll generate
-  // realistic meta-information based on the source's indicated properties
-  // In production, this would use a PDF parsing library that extracts
-  // ONLY structural information, never question text
+  const topic = pdfSource.topic;
+  const level = pdfSource.level;
 
-  const topicKeywords: Record<string, string[]> = {
-    'Anatomy and Physiology': ['skeletal', 'muscular', 'nervous', 'cardiovascular', 'respiratory', 'digestive', 'immune', 'endocrine'],
-    'Astronomy': ['stellar', 'planetary', 'galactic', 'cosmology', 'spectroscopy', 'HR diagram', 'DSO', 'celestial mechanics'],
-    'Chemistry Lab': ['organic', 'inorganic', 'thermodynamics', 'kinetics', 'equilibrium', 'acids', 'bases', 'redox'],
-    'Disease Detectives': ['epidemiology', 'transmission', 'outbreak', 'statistics', 'public health', 'surveillance'],
-    'Dynamic Planet': ['tectonics', 'earthquakes', 'volcanoes', 'glaciers', 'oceanography', 'atmosphere'],
-    'Ecology': ['ecosystems', 'food webs', 'populations', 'biomes', 'biodiversity', 'succession'],
-    'Forensics': ['evidence', 'analysis', 'toxicology', 'fingerprints', 'DNA', 'ballistics'],
-    'Fossils': ['paleontology', 'stratigraphy', 'evolution', 'identification', 'geological time'],
-    'Optics': ['reflection', 'refraction', 'lenses', 'mirrors', 'diffraction', 'interference', 'polarization'],
+  // Default question type distribution
+  let questionTypes: Record<string, number> = {
+    'multiple-choice': 60,
+    'short-answer': 30,
+    'calculation': 5,
+    'diagram': 5,
   };
 
-  const topic = pdfSource.topic;
-  const keywords = topicKeywords[topic] || ['general science'];
+  // Try to get real distribution from reference questions
+  try {
+    const refQuestions = await getReferenceQuestions({
+      topic,
+      difficulty: level,
+      limit: 50,
+    });
 
-  // Generate realistic distribution based on topic
-  const distribution: Record<string, number> = {};
-  keywords.forEach((kw, i) => {
-    distribution[kw] = Math.max(5, 20 - i * 2);
-  });
+    if (refQuestions.length > 10) {
+      // Calculate actual distribution from reference data
+      const typeCounts: Record<string, number> = {};
+      refQuestions.forEach(q => {
+        const normalizedType = normalizeQuestionType(q.questionType);
+        typeCounts[normalizedType] = (typeCounts[normalizedType] || 0) + 1;
+      });
 
-  // Normalize to 100%
-  const total = Object.values(distribution).reduce((a, b) => a + b, 0);
-  Object.keys(distribution).forEach(k => {
-    distribution[k] = Math.round((distribution[k] / total) * 100);
-  });
+      const total = refQuestions.length;
+      questionTypes = {
+        'multiple-choice': Math.round((typeCounts['multiple-choice'] || 0) / total * 100),
+        'short-answer': Math.round((typeCounts['short-answer'] || 0) / total * 100),
+        'calculation': Math.round((typeCounts['calculation'] || 0) / total * 100),
+        'diagram': Math.round((typeCounts['diagram'] || 0) / total * 100),
+      };
+    }
+  } catch (e) {
+    console.warn('Could not fetch reference questions for metadata:', e);
+  }
 
-  // Determine question types based on topic
+  // Determine characteristics based on topic
   const isLabEvent = ['Chemistry Lab', 'Forensics'].includes(topic);
-  const isCalculationHeavy = ['Astronomy', 'Optics', 'Dynamic Planet'].includes(topic);
+  const isCalculationHeavy = ['Astronomy', 'Optics', 'Dynamic Planet', 'Machines'].includes(topic);
 
   return {
-    topicDistribution: distribution,
-    questionTypes: {
-      'multiple-choice': isLabEvent ? 50 : 70,
-      'short-answer': isLabEvent ? 30 : 20,
-      'calculation': isCalculationHeavy ? 15 : 5,
-      'diagram-analysis': isLabEvent ? 5 : 5,
-    },
-    difficultyLevel: pdfSource.level,
+    topicDistribution: {}, // Will use TOPIC_DESCRIPTIONS instead
+    questionTypes,
+    difficultyLevel: level,
     totalQuestions: 30,
-    sectionStructure: `Structured exam for ${topic} with ${pdfSource.level}-level difficulty`,
+    sectionStructure: `${level}-level exam for ${topic}`,
     timeLimitMinutes: 50,
     hasCalculations: isCalculationHeavy,
     hasDiagrams: true,
@@ -229,13 +234,40 @@ export async function POST(request: NextRequest) {
     // Extract ONLY meta-information (never question content)
     const metaInfo = await extractMetaInformation(pdfSource);
 
-    // Build the generation prompt with meta-info only
+    // Get topic and difficulty descriptions from shared module
+    const topicDescription = TOPIC_DESCRIPTIONS[pdfSource.topic] || pdfSource.topic;
+    const difficultyDescription = DIFFICULTY_DESCRIPTIONS[pdfSource.level] || pdfSource.level;
+
+    // Fetch reference questions for few-shot learning (same pattern as generate-ai-test)
+    let referenceExamples = '';
+    try {
+      // First try database (for scraped/imported questions)
+      const dbQuestions = await getReferenceQuestions({
+        topic: pdfSource.topic,
+        difficulty: pdfSource.level,
+        limit: 3,
+        minQuality: 7,
+      });
+
+      if (dbQuestions.length > 0) {
+        referenceExamples = formatReferenceQuestionsForPrompt(dbQuestions);
+      } else {
+        // Fall back to seed questions
+        const seedQuestions = getSeedQuestionsForTopic(pdfSource.topic);
+        const filtered = seedQuestions
+          .filter(q => q.difficulty === pdfSource.level || seedQuestions.length < 5)
+          .slice(0, 3);
+        if (filtered.length > 0) {
+          referenceExamples = formatReferenceQuestionsForPrompt(filtered);
+        }
+      }
+    } catch (refError) {
+      console.error('Error fetching reference questions (non-fatal):', refError);
+    }
+
+    // Build the generation prompt with topic knowledge and examples
     const metaInfoJson = JSON.stringify({
-      topic_distribution: metaInfo.topicDistribution,
       question_types: metaInfo.questionTypes,
-      difficulty_level: metaInfo.difficultyLevel,
-      total_questions: questionCount,
-      section_structure: metaInfo.sectionStructure,
       time_limit_minutes: metaInfo.timeLimitMinutes,
       has_calculations: metaInfo.hasCalculations,
       has_diagrams: metaInfo.hasDiagrams,
@@ -243,53 +275,81 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = `Generate ${questionCount} completely ORIGINAL questions for a ${pdfSource.topic} Science Olympiad test.
 
-META-INFORMATION (use as structural guide ONLY):
-${metaInfoJson}
+TOPIC: ${pdfSource.topic}
+FOCUS AREAS: ${topicDescription}
 
-REQUIREMENTS:
-1. Match the difficulty level: ${metaInfo.difficultyLevel}
-2. Follow the topic distribution percentages approximately
-3. Include the question type mix: ${Math.round(metaInfo.questionTypes['multiple-choice'])}% multiple choice, ${Math.round(metaInfo.questionTypes['short-answer'])}% short answer
-4. ${metaInfo.hasCalculations ? 'Include some calculation-based questions' : 'Focus on conceptual understanding'}
-5. All questions must be COMPLETELY ORIGINAL - do not copy or paraphrase any existing exam questions
+DIFFICULTY LEVEL: ${metaInfo.difficultyLevel}
+LEVEL DESCRIPTION: ${difficultyDescription}
+
+META-INFORMATION (use as structural guide):
+${metaInfoJson}
+${referenceExamples ? `
+${referenceExamples}
+
+Use these historical examples as a guide for question style, difficulty, and format. Your questions must be COMPLETELY ORIGINAL but follow similar quality standards.
+` : ''}
+QUESTION TYPE REQUIREMENTS:
+- multiple-choice: All 4 options must be plausible, correctAnswer MUST exactly match one option
+- short-answer: Answer should be 1-5 words
+- calculation: Include units, show clear numerical answers
+- diagram: Questions about interpreting visual data (describe what diagram would show)
+
+QUESTION MIX: Aim for ~${metaInfo.questionTypes['multiple-choice']}% multiple choice, ~${metaInfo.questionTypes['short-answer']}% short answer
+${metaInfo.hasCalculations ? 'Include calculation-based questions where appropriate.' : ''}
 
 OUTPUT FORMAT - Return a JSON object:
 {
   "questions": [
     {
       "type": "multiple-choice",
-      "question": "Your original question here?",
-      "options": ["A) Option", "B) Option", "C) Option", "D) Option"],
-      "correctAnswer": "A) Option",
+      "question": "Original question here?",
+      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
+      "correctAnswer": "B) Option 2",
       "points": 1,
       "category": "${pdfSource.topic}"
     },
     {
       "type": "short-answer",
-      "question": "Your original question here?",
-      "correctAnswer": "The correct answer",
+      "question": "Original question here?",
+      "correctAnswer": "Brief answer",
       "points": 2,
       "category": "${pdfSource.topic}"
     }
   ]
 }
 
+CRITICAL: For multiple-choice, correctAnswer MUST be the EXACT text of one of the options.
 Generate exactly ${questionCount} original questions.`;
+
+    // Enhanced system prompt with validation requirements
+    const enhancedSystemPrompt = `${SAFE_GENERATION_SYSTEM_PROMPT}
+
+CRITICAL REQUIREMENTS:
+1. Every question MUST be factually correct - verify your knowledge before generating
+2. For multiple choice, correctAnswer MUST exactly match one of the options
+3. Use only these question types: multiple-choice, short-answer, calculation, diagram
+4. Do NOT use "diagram-analysis" - use "diagram" instead
+5. All options must be plausible - no obviously wrong answers
+
+MATHEMATICAL ACCURACY:
+- For ANY calculation question, work through the math step-by-step BEFORE generating
+- ALWAYS verify unit conversions
+- Double-check that your calculated answer is correct`;
 
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o', // Upgraded from gpt-4o-mini for better quality
       messages: [
         {
           role: 'system',
-          content: SAFE_GENERATION_SYSTEM_PROMPT,
+          content: enhancedSystemPrompt,
         },
         {
           role: 'user',
           content: userPrompt,
         },
       ],
-      temperature: 0.8, // Higher temperature for more originality
+      temperature: 0.3, // Lower temperature for accuracy (was 0.8)
       max_tokens: 4000,
       response_format: { type: 'json_object' },
     });
@@ -307,7 +367,7 @@ Generate exactly ${questionCount} original questions.`;
       await logApiUsage({
         userId,
         endpoint: 'generate-from-pdf',
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         promptTokens,
         completionTokens,
         totalTokens,
@@ -335,9 +395,27 @@ Generate exactly ${questionCount} original questions.`;
         throw new Error('No questions in response');
       }
 
-      questions = questionArray.map((q: any) => ({
+      // Validate and repair questions before final mapping
+      const { validQuestions, rejectedQuestions, totalRepairs, allIssues } =
+        validateAndRepairQuestions(questionArray);
+
+      if (allIssues.length > 0) {
+        console.warn('Question validation issues:', allIssues);
+      }
+
+      if (rejectedQuestions.length > 0) {
+        console.warn(`Rejected ${rejectedQuestions.length} invalid questions:`,
+          rejectedQuestions.map(r => r.issues));
+      }
+
+      if (validQuestions.length === 0) {
+        throw new Error('All questions were invalid after validation');
+      }
+
+      // Map to final Question format with normalized types
+      questions = validQuestions.map((q: any) => ({
         id: generateId(),
-        type: q.type || 'short-answer',
+        type: normalizeQuestionType(q.type) as Question['type'],
         question: q.question,
         options: q.options,
         correctAnswer: q.correctAnswer,
@@ -352,11 +430,10 @@ Generate exactly ${questionCount} original questions.`;
       );
     }
 
-    // Validate content quality
+    // Additional content quality validation
     const validation = validateOriginalContent(questions);
     if (!validation.isValid) {
       console.warn('Content validation warnings:', validation.issues);
-      // We'll still proceed but log the warnings
     }
 
     // Calculate totals
@@ -392,7 +469,7 @@ Generate exactly ${questionCount} original questions.`;
     await logApiUsage({
       userId,
       endpoint: 'generate-from-pdf',
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       promptTokens,
       completionTokens,
       totalTokens,

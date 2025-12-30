@@ -168,3 +168,189 @@ export function extractSafeMetaKeywords(text: string): string[] {
   // Return unique terms, limited to prevent over-matching
   return Array.from(new Set(scientificTerms)).slice(0, 50);
 }
+
+// ============================================================================
+// Question Validation and Repair Utilities
+// ============================================================================
+
+export type ValidQuestionType = 'multiple-choice' | 'short-answer' | 'calculation' | 'diagram';
+
+// Normalize question type to match database enum
+export function normalizeQuestionType(type: string): ValidQuestionType {
+  const normalized = type.toLowerCase().trim();
+
+  // Map variations to canonical types
+  const typeMap: Record<string, ValidQuestionType> = {
+    'multiple-choice': 'multiple-choice',
+    'multiplechoice': 'multiple-choice',
+    'mc': 'multiple-choice',
+    'multiple choice': 'multiple-choice',
+    'short-answer': 'short-answer',
+    'shortanswer': 'short-answer',
+    'short answer': 'short-answer',
+    'sa': 'short-answer',
+    'calculation': 'calculation',
+    'calc': 'calculation',
+    'diagram': 'diagram',
+    'diagram-analysis': 'diagram', // Key normalization
+    'diagramanalysis': 'diagram',
+    'diagram analysis': 'diagram',
+  };
+
+  return typeMap[normalized] || 'short-answer';
+}
+
+// Validate MC question has correctAnswer in options
+export function validateMultipleChoice(question: {
+  type: string;
+  options?: string[];
+  correctAnswer: string;
+}): { isValid: boolean; repairedAnswer?: string; issue?: string } {
+  if (question.type !== 'multiple-choice') {
+    return { isValid: true };
+  }
+
+  if (!question.options || question.options.length === 0) {
+    return { isValid: false, issue: 'Multiple choice question has no options' };
+  }
+
+  const correctAnswer = question.correctAnswer.trim();
+
+  // Check exact match first
+  if (question.options.includes(correctAnswer)) {
+    return { isValid: true };
+  }
+
+  // Try to find a match by stripping letter prefix (e.g., "A) " or "A. ")
+  const answerWithoutPrefix = correctAnswer.replace(/^[A-Da-d][.)]\s*/, '').trim();
+  for (const option of question.options) {
+    const optionContent = option.replace(/^[A-Da-d][.)]\s*/, '').trim();
+    if (optionContent.toLowerCase() === answerWithoutPrefix.toLowerCase()) {
+      return { isValid: true, repairedAnswer: option };
+    }
+  }
+
+  // Try partial match (answer contained in option or vice versa)
+  for (const option of question.options) {
+    const optionContent = option.replace(/^[A-Da-d][.)]\s*/, '').trim().toLowerCase();
+    const answerContent = answerWithoutPrefix.toLowerCase();
+    if (optionContent.includes(answerContent) || answerContent.includes(optionContent)) {
+      // Only repair if it's a close enough match (at least 80% overlap)
+      const minLen = Math.min(optionContent.length, answerContent.length);
+      const maxLen = Math.max(optionContent.length, answerContent.length);
+      if (minLen / maxLen > 0.8) {
+        return { isValid: true, repairedAnswer: option };
+      }
+    }
+  }
+
+  return {
+    isValid: false,
+    issue: `correctAnswer "${correctAnswer}" not found in options: ${question.options.join(', ')}`,
+  };
+}
+
+export interface QuestionForValidation {
+  type: string;
+  question: string;
+  options?: string[];
+  correctAnswer: string;
+  points?: number;
+  category?: string;
+}
+
+export interface QuestionValidationResult {
+  repaired: QuestionForValidation;
+  wasRepaired: boolean;
+  issues: string[];
+  rejected: boolean;
+}
+
+// Validate and repair a single question
+export function validateAndRepairQuestion(question: QuestionForValidation): QuestionValidationResult {
+  const issues: string[] = [];
+  let wasRepaired = false;
+  let rejected = false;
+
+  const repaired = { ...question };
+
+  // 1. Normalize question type
+  const normalizedType = normalizeQuestionType(question.type);
+  if (normalizedType !== question.type) {
+    issues.push(`Normalized type from "${question.type}" to "${normalizedType}"`);
+    repaired.type = normalizedType;
+    wasRepaired = true;
+  }
+
+  // 2. Validate MC correctAnswer is in options
+  if (repaired.type === 'multiple-choice') {
+    const mcValidation = validateMultipleChoice(repaired);
+    if (!mcValidation.isValid) {
+      if (mcValidation.issue) {
+        issues.push(mcValidation.issue);
+      }
+      rejected = true; // Can't repair, must reject
+    } else if (mcValidation.repairedAnswer && mcValidation.repairedAnswer !== repaired.correctAnswer) {
+      issues.push(`Repaired correctAnswer from "${repaired.correctAnswer}" to "${mcValidation.repairedAnswer}"`);
+      repaired.correctAnswer = mcValidation.repairedAnswer;
+      wasRepaired = true;
+    }
+  }
+
+  // 3. Ensure required fields
+  if (!repaired.question || repaired.question.trim().length < 10) {
+    issues.push('Question text too short or missing');
+    rejected = true;
+  }
+
+  if (!repaired.correctAnswer || repaired.correctAnswer.trim().length === 0) {
+    issues.push('Missing correctAnswer');
+    rejected = true;
+  }
+
+  // 4. Ensure points has valid value
+  if (!repaired.points || repaired.points < 1) {
+    repaired.points = repaired.type === 'short-answer' ? 2 : 1;
+    wasRepaired = true;
+  }
+
+  // 5. Ensure MC has exactly 4 options
+  if (repaired.type === 'multiple-choice' && repaired.options) {
+    if (repaired.options.length < 2) {
+      issues.push('Multiple choice needs at least 2 options');
+      rejected = true;
+    }
+  }
+
+  return { repaired, wasRepaired, issues, rejected };
+}
+
+// Validate batch of questions
+export function validateAndRepairQuestions(questions: QuestionForValidation[]): {
+  validQuestions: QuestionForValidation[];
+  rejectedQuestions: { original: QuestionForValidation; issues: string[] }[];
+  totalRepairs: number;
+  allIssues: string[];
+} {
+  const validQuestions: QuestionForValidation[] = [];
+  const rejectedQuestions: { original: QuestionForValidation; issues: string[] }[] = [];
+  const allIssues: string[] = [];
+  let totalRepairs = 0;
+
+  for (let i = 0; i < questions.length; i++) {
+    const { repaired, wasRepaired, issues, rejected } = validateAndRepairQuestion(questions[i]);
+
+    if (issues.length > 0) {
+      allIssues.push(...issues.map(issue => `Q${i + 1}: ${issue}`));
+    }
+
+    if (rejected) {
+      rejectedQuestions.push({ original: questions[i], issues });
+    } else {
+      validQuestions.push(repaired);
+      if (wasRepaired) totalRepairs++;
+    }
+  }
+
+  return { validQuestions, rejectedQuestions, totalRepairs, allIssues };
+}
