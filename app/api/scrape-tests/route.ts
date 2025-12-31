@@ -302,6 +302,13 @@ export async function POST(request: NextRequest) {
       // Only process "test" type, not "key" or "answer_sheet"
       unparsedTests = unparsedTests.filter(t => t.testType === 'test' || t.testType === 'unknown');
 
+      // Filter to only Google Drive and Dropbox links (more accessible than scioly.org wiki)
+      unparsedTests = unparsedTests.filter(t =>
+        t.url.includes('drive.google.com') ||
+        t.url.includes('docs.google.com') ||
+        t.url.includes('dropbox.com')
+      );
+
       if (unparsedTests.length === 0) {
         return NextResponse.json({
           message: 'No unparsed tests to process',
