@@ -117,9 +117,13 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  // Require authentication (bypass in development)
+  // Check for admin key bypass
+  const adminKey = request.headers.get('x-admin-key');
+  const isAdminBypass = adminKey && adminKey === process.env.ADMIN_SECRET_KEY;
+
+  // Require authentication (bypass in development or with admin key)
   const isDev = process.env.NODE_ENV === 'development';
-  if (!session && !isDev) {
+  if (!session && !isDev && !isAdminBypass) {
     return NextResponse.json(
       { error: 'Authentication required' },
       { status: 401 }
