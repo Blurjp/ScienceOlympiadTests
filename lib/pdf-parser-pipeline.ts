@@ -57,6 +57,11 @@ export function convertDropboxUrl(url: string): string {
 
 // Get downloadable URL from various sources
 export function getDownloadableUrl(url: string): string | null {
+  // Handle relative URLs from scioly.org
+  if (url.startsWith('/w/') || url.startsWith('/wiki/')) {
+    return `https://scioly.org${url}`;
+  }
+
   if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
     return convertGoogleDriveUrl(url);
   }
@@ -67,6 +72,11 @@ export function getDownloadableUrl(url: string): string | null {
 
   // Direct PDF links
   if (url.endsWith('.pdf') || url.includes('.pdf?')) {
+    return url;
+  }
+
+  // Full URLs to scioly.org
+  if (url.includes('scioly.org')) {
     return url;
   }
 
