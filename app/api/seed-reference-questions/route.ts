@@ -11,18 +11,25 @@ export const dynamic = 'force-dynamic';
 // This is an admin-only endpoint to seed the reference questions database
 // with high-quality example questions for few-shot learning
 
+async function checkAdminAccess(request: NextRequest): Promise<boolean> {
+  // Check for admin secret key
+  const adminKey = request.headers.get('x-admin-key');
+  if (adminKey && adminKey === process.env.ADMIN_SECRET_KEY) {
+    return true;
+  }
+
+  // Check session auth
+  const session = await auth();
+  if (!session?.user?.email) return false;
+
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+  return adminEmails.includes(session.user.email);
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Check admin authorization
-    const session = await auth();
-    if (!session?.user?.email) {
+    if (!await checkAdminAccess(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only allow specific admin emails
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     // Get current stats before seeding
@@ -49,16 +56,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Check admin authorization
-    const session = await auth();
-    if (!session?.user?.email) {
+    if (!await checkAdminAccess(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only allow specific admin emails
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     // Get current stats
