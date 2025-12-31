@@ -202,18 +202,32 @@ async function storeScrapedLinks(links: ScrapedTestLink[]): Promise<{
   };
 }
 
+async function checkAdminAccess(request: NextRequest): Promise<{ authorized: boolean; error?: string }> {
+  // Option 1: Check for admin secret key in header
+  const adminKey = request.headers.get('x-admin-key');
+  if (adminKey && adminKey === process.env.ADMIN_SECRET_KEY) {
+    return { authorized: true };
+  }
+
+  // Option 2: Check session-based auth
+  const session = await auth();
+  if (!session?.user?.email) {
+    return { authorized: false, error: 'Unauthorized' };
+  }
+
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+  if (!adminEmails.includes(session.user.email)) {
+    return { authorized: false, error: 'Admin access required' };
+  }
+
+  return { authorized: true };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Check admin authorization
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only allow specific admin emails (you should configure this)
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    const access = await checkAdminAccess(request);
+    if (!access.authorized) {
+      return NextResponse.json({ error: access.error }, { status: 401 });
     }
 
     // Get current stats for both tables
@@ -233,16 +247,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check admin authorization
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only allow specific admin emails
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    const access = await checkAdminAccess(request);
+    if (!access.authorized) {
+      return NextResponse.json({ error: access.error }, { status: 401 });
     }
 
     const body = await request.json();
