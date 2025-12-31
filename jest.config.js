@@ -33,6 +33,8 @@ const config = {
     '!lib/topic-descriptions.ts',
     '!lib/seed-reference-questions.ts',
     '!lib/topic-utils.ts',
+    // Exclude PDF parsing pipeline (requires external integration testing)
+    '!lib/pdf-parser-pipeline.ts',
     // Exclude external service integrations
     '!lib/stripe.ts',
     // Exclude complex AI routes (require OpenAI integration tests)

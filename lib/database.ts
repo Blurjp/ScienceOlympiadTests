@@ -1375,6 +1375,15 @@ export async function getScrapedTestStats(): Promise<{
   };
 }
 
+// Mark a scraped test as parsed
+export async function markScrapedTestAsParsed(id: number, questionCount: number): Promise<void> {
+  const database = await getDatabase();
+  await database.execute({
+    sql: `UPDATE scraped_tests SET parsed = 1, parsed_at = CURRENT_TIMESTAMP, question_count = ? WHERE id = ?`,
+    args: [questionCount, id],
+  });
+}
+
 // Reference Question interface
 export interface ReferenceQuestion {
   id?: number;

@@ -6,10 +6,15 @@ import {
   ReferenceQuestion,
   saveScrapedTestsBatch,
   getScrapedTestStats,
+  getUnparsedScrapedTests,
+  markScrapedTestAsParsed,
   ScrapedTest,
 } from '@/lib/database';
+import { processPDF } from '@/lib/pdf-parser-pipeline';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes for processing PDFs
+
 import { normalizeTopic, isValidTopic } from '@/lib/topic-utils';
 
 // This is an admin-only endpoint to scrape and import historical tests
@@ -272,7 +277,115 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use "scrape" or "import-questions"' }, { status: 400 });
+    if (action === 'process') {
+      // Process unparsed PDFs using GPT-4 Vision
+      const { limit = 5, topic } = body;
+
+      if (!process.env.OPENAI_API_KEY) {
+        return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+      }
+
+      // Get unparsed tests (optionally filtered by topic)
+      let unparsedTests = await getUnparsedScrapedTests(limit);
+
+      if (topic) {
+        unparsedTests = unparsedTests.filter(t => t.topic === topic);
+      }
+
+      // Only process "test" type, not "key" or "answer_sheet"
+      unparsedTests = unparsedTests.filter(t => t.testType === 'test' || t.testType === 'unknown');
+
+      if (unparsedTests.length === 0) {
+        return NextResponse.json({
+          message: 'No unparsed tests to process',
+          processed: 0,
+        });
+      }
+
+      const results: {
+        id: number;
+        title: string;
+        success: boolean;
+        questionsExtracted: number;
+        error?: string;
+      }[] = [];
+
+      // Process each PDF
+      for (const test of unparsedTests) {
+        console.log(`Processing: ${test.title} (${test.url})`);
+
+        // Determine difficulty from tournament/title
+        let difficulty: 'Invitational' | 'Regional' | 'State' | 'National' = 'Invitational';
+        const lowerTitle = (test.title || '').toLowerCase();
+        const lowerTournament = (test.tournament || '').toLowerCase();
+
+        if (lowerTitle.includes('national') || lowerTournament.includes('national')) {
+          difficulty = 'National';
+        } else if (lowerTitle.includes('state') || lowerTournament.includes('state')) {
+          difficulty = 'State';
+        } else if (lowerTitle.includes('regional') || lowerTournament.includes('regional')) {
+          difficulty = 'Regional';
+        }
+
+        try {
+          const result = await processPDF(
+            test.url,
+            test.topic,
+            difficulty,
+            process.env.OPENAI_API_KEY!,
+            test.year,
+            test.tournament
+          );
+
+          if (result.success && result.questions.length > 0) {
+            // Save extracted questions to database
+            await saveReferenceQuestionsBatch(result.questions);
+
+            // Mark test as parsed
+            await markScrapedTestAsParsed(test.id!, result.questions.length);
+
+            results.push({
+              id: test.id!,
+              title: test.title || 'Unknown',
+              success: true,
+              questionsExtracted: result.questions.length,
+            });
+          } else {
+            results.push({
+              id: test.id!,
+              title: test.title || 'Unknown',
+              success: false,
+              questionsExtracted: 0,
+              error: result.error || 'No questions extracted',
+            });
+          }
+        } catch (err: any) {
+          results.push({
+            id: test.id!,
+            title: test.title || 'Unknown',
+            success: false,
+            questionsExtracted: 0,
+            error: err.message,
+          });
+        }
+
+        // Add delay between requests to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      const totalExtracted = results.reduce((sum, r) => sum + r.questionsExtracted, 0);
+      const successCount = results.filter(r => r.success).length;
+
+      return NextResponse.json({
+        message: 'PDF processing complete',
+        processed: results.length,
+        successful: successCount,
+        totalQuestionsExtracted: totalExtracted,
+        results,
+      });
+    }
+
+    return NextResponse.json({ error: 'Invalid action. Use "scrape", "import-questions", or "process"' }, { status: 400 });
   } catch (error: any) {
     console.error('Error in scrape-tests:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
