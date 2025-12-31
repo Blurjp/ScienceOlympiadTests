@@ -94,7 +94,9 @@ export async function downloadPDFAsBase64(url: string): Promise<{ success: boole
   try {
     const response = await fetch(downloadUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; SciOlyTestApp/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/pdf,*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
       redirect: 'follow',
     });
