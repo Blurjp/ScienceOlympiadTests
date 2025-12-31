@@ -42,15 +42,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ tests });
-  } catch (error: any) {
-    console.error('Database error:', error?.message || error);
+  } catch (error) {
+    console.error('Database error:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to fetch tests from database',
-        details: error?.message || 'Unknown error',
-        hasTursoUrl: !!process.env.TURSO_DATABASE_URL,
-        hasTursoToken: !!process.env.TURSO_AUTH_TOKEN,
-      },
+      { error: 'Failed to fetch tests from database' },
       { status: 500 }
     );
   }

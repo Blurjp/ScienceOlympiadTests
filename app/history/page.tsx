@@ -36,15 +36,6 @@ export default function HistoryPage() {
   const router = useRouter();
   const [results, setResults] = useState<TestResultWithTest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    } else if (status === 'authenticated') {
-      loadHistory();
-    }
-  }, [status, router]);
-
   const [error, setError] = useState<string | null>(null);
 
   const loadHistory = async () => {
@@ -55,19 +46,26 @@ export default function HistoryPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error('History API error:', data);
         setError(data.error || 'Failed to load history');
         return;
       }
 
       setResults(data.results || []);
-    } catch (error) {
-      console.error('Error loading history:', error);
+    } catch (err) {
+      console.error('Error loading history:', err);
       setError('Network error - please try again');
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    } else if (status === 'authenticated') {
+      loadHistory();
+    }
+  }, [status, router]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
