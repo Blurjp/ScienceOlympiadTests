@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt } from '@/lib/database';
+import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
@@ -43,15 +43,15 @@ interface GenerateFromPDFRequest {
 
 // Meta-information structure (NO copyrightable content)
 interface ExamMetaInfo {
-  topicDistribution: Record<string, number>;
-  questionTypes: Record<string, number>;
   difficultyLevel: string;
-  totalQuestions: number;
-  sectionStructure: string;
   timeLimitMinutes: number;
   hasCalculations: boolean;
   hasDiagrams: boolean;
   hasLabProcedures: boolean;
+  // Real data from reference questions (when available)
+  subtopics: string[];
+  subtopicCount: number; // Accurate count of questions with subtopics
+  hasRealData: boolean;
 }
 
 // System prompt for safe generation (loaded from prompts file concept)
@@ -86,30 +86,37 @@ async function extractMetaInformation(pdfSource: PDFSource): Promise<ExamMetaInf
   const topic = pdfSource.topic;
   const level = pdfSource.level;
 
-  // All questions are multiple choice for consistency
-  let questionTypes: Record<string, number> = {
-    'multiple-choice': 100,
-    'short-answer': 0,
-    'calculation': 0,
-    'diagram': 0,
-  };
+  // Query real data from reference_questions table, filtered by difficulty
+  let topicMeta: TopicMeta | null = null;
+  try {
+    topicMeta = await getTopicMeta(topic, level);
+    // If no data for this difficulty, fall back to all difficulties
+    if (!topicMeta.hasData) {
+      topicMeta = await getTopicMeta(topic);
+    }
+  } catch (err) {
+    console.warn('Failed to get topic meta (non-fatal):', err);
+  }
 
-  // All questions are multiple choice - no need to query reference distribution
+  // Extract subtopics from real data (for prompt guidance)
+  const subtopics = topicMeta?.hasData
+    ? topicMeta.subtopics.slice(0, 5).map(s => s.subtopic)
+    : [];
 
   // Determine characteristics based on topic
   const isLabEvent = ['Chemistry Lab', 'Forensics'].includes(topic);
   const isCalculationHeavy = ['Astronomy', 'Optics', 'Dynamic Planet', 'Machines'].includes(topic);
 
   return {
-    topicDistribution: {}, // Will use TOPIC_DESCRIPTIONS instead
-    questionTypes,
     difficultyLevel: level,
-    totalQuestions: 30,
-    sectionStructure: `${level}-level exam for ${topic}`,
     timeLimitMinutes: 50,
     hasCalculations: isCalculationHeavy,
     hasDiagrams: true,
     hasLabProcedures: isLabEvent,
+    // Real data fields
+    subtopics,
+    subtopicCount: topicMeta?.subtopicCount || 0,
+    hasRealData: topicMeta?.hasData || false,
   };
 }
 
@@ -225,6 +232,7 @@ export async function POST(request: NextRequest) {
         difficulty: pdfSource.level,
         limit: 3,
         minQuality: 7,
+        requireAnswer: true, // Filter out placeholder answers for few-shot examples
       });
 
       if (dbQuestions.length > 0) {
@@ -245,17 +253,21 @@ export async function POST(request: NextRequest) {
 
     // Build the generation prompt with topic knowledge and examples
     const metaInfoJson = JSON.stringify({
-      question_types: metaInfo.questionTypes,
       time_limit_minutes: metaInfo.timeLimitMinutes,
       has_calculations: metaInfo.hasCalculations,
       has_diagrams: metaInfo.hasDiagrams,
     }, null, 2);
 
+    // Build subtopic guidance if we have real data (use subtopicCount for accurate display)
+    const subtopicGuidance = metaInfo.subtopics.length > 0
+      ? `\nSUBTOPICS TO COVER (based on ${metaInfo.subtopicCount} ${metaInfo.difficultyLevel}-level historical questions):\n${metaInfo.subtopics.map(s => `- ${s}`).join('\n')}\nDistribute questions across these subtopics for comprehensive coverage.\n`
+      : '';
+
     const userPrompt = `Generate ${questionCount} completely ORIGINAL questions for a ${pdfSource.topic} Science Olympiad test.
 
 TOPIC: ${pdfSource.topic}
 FOCUS AREAS: ${topicDescription}
-
+${subtopicGuidance}
 DIFFICULTY LEVEL: ${metaInfo.difficultyLevel}
 LEVEL DESCRIPTION: ${difficultyDescription}
 
@@ -400,6 +412,53 @@ MATHEMATICAL ACCURACY:
     const validation = validateOriginalContent(questions);
     if (!validation.isValid) {
       console.warn('Content validation warnings:', validation.issues);
+    }
+
+    // Check for duplicate questions (exact or near-exact matches)
+    const questionTexts = questions.map(q => q.question);
+    // Strip common question stems before comparing
+    const commonStems = [
+      'which of the following',
+      'what is the',
+      'which statement',
+      'select the',
+      'choose the',
+      'identify the',
+    ];
+    const stripStems = (text: string): string => {
+      let cleaned = text.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      for (const stem of commonStems) {
+        if (cleaned.startsWith(stem)) {
+          cleaned = cleaned.slice(stem.length).trim();
+        }
+      }
+      return cleaned;
+    };
+
+    const duplicateIndices: number[] = [];
+    for (let i = 0; i < questionTexts.length; i++) {
+      for (let j = i + 1; j < questionTexts.length; j++) {
+        const q1 = stripStems(questionTexts[i]);
+        const q2 = stripStems(questionTexts[j]);
+        // Check if core content (after stem removal) is >90% similar
+        const minLen = Math.min(q1.length, q2.length);
+        const maxLen = Math.max(q1.length, q2.length);
+        // Only compare if both have substantial content after stem removal
+        if (minLen > 30 && minLen / maxLen > 0.8) {
+          // Check for high substring overlap
+          if (q1.includes(q2.substring(0, Math.floor(q2.length * 0.9))) ||
+              q2.includes(q1.substring(0, Math.floor(q1.length * 0.9)))) {
+            duplicateIndices.push(j); // Mark later duplicate for removal
+          }
+        }
+      }
+    }
+
+    // Remove duplicate questions
+    if (duplicateIndices.length > 0) {
+      const uniqueIndices = new Set(duplicateIndices);
+      questions = questions.filter((_, idx) => !uniqueIndices.has(idx));
+      console.warn(`Removed ${duplicateIndices.length} duplicate questions`);
     }
 
     // Calculate totals

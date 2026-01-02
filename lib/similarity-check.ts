@@ -314,11 +314,39 @@ export function validateAndRepairQuestion(question: QuestionForValidation): Ques
     wasRepaired = true;
   }
 
-  // 5. Ensure MC has exactly 4 options
-  if (repaired.type === 'multiple-choice' && repaired.options) {
-    if (repaired.options.length < 2) {
-      issues.push('Multiple choice needs at least 2 options');
+  // 5. Ensure MC has exactly 4 unique options
+  if (repaired.type === 'multiple-choice') {
+    if (!repaired.options || !Array.isArray(repaired.options)) {
+      issues.push('Multiple choice question missing options array');
       rejected = true;
+    } else if (repaired.options.length !== 4) {
+      issues.push(`Multiple choice must have exactly 4 options, got ${repaired.options.length}`);
+      rejected = true;
+    } else {
+      // Normalize options by stripping common prefixes: A) A. A: (A) etc.
+      const stripOptionPrefix = (opt: string): string => {
+        return opt
+          .replace(/^\(?[A-Da-d][).:\]]\)?\s*/, '') // Handles A) A. A: (A) [A]
+          .replace(/^\d+[).:\]]\s*/, '')            // Handles 1) 1. 1: for numbered options
+          .trim();
+      };
+      const normalizedOptions = repaired.options.map(stripOptionPrefix);
+
+      // Check for empty options AFTER normalization (catches "A)" with no content)
+      const emptyIndices = normalizedOptions
+        .map((opt, idx) => opt.length === 0 ? idx : -1)
+        .filter(idx => idx !== -1);
+      if (emptyIndices.length > 0) {
+        issues.push(`Multiple choice has empty option(s) at position(s): ${emptyIndices.map(i => i + 1).join(', ')}`);
+        rejected = true;
+      }
+
+      // Check for unique options (case-insensitive comparison of normalized content)
+      const uniqueOptions = new Set(normalizedOptions.map(opt => opt.toLowerCase()));
+      if (uniqueOptions.size !== 4) {
+        issues.push('Multiple choice options must all be unique (found duplicates)');
+        rejected = true;
+      }
     }
   }
 

@@ -314,6 +314,9 @@ export async function POST(request: NextRequest) {
         title: string;
         success: boolean;
         questionsExtracted: number;
+        pageCount?: number;
+        totalPages?: number;
+        truncated?: boolean;
         error?: string;
       }[] = [];
 
@@ -351,11 +354,19 @@ export async function POST(request: NextRequest) {
             // Mark test as parsed
             await markScrapedTestAsParsed(test.id!, result.questions.length);
 
+            // Log truncation warning if applicable
+            if (result.truncated) {
+              console.warn(`PDF truncated: ${test.title} - processed ${result.pageCount}/${result.totalPages} pages`);
+            }
+
             results.push({
               id: test.id!,
               title: test.title || 'Unknown',
               success: true,
               questionsExtracted: result.questions.length,
+              pageCount: result.pageCount,
+              totalPages: result.totalPages,
+              truncated: result.truncated,
             });
           } else {
             results.push({
@@ -363,6 +374,9 @@ export async function POST(request: NextRequest) {
               title: test.title || 'Unknown',
               success: false,
               questionsExtracted: 0,
+              pageCount: result.pageCount,
+              totalPages: result.totalPages,
+              truncated: result.truncated,
               error: result.error || 'No questions extracted',
             });
           }

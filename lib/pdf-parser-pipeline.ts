@@ -5,6 +5,8 @@ import OpenAI from 'openai';
 import { ReferenceQuestion } from './database';
 import { normalizeTopic } from './topic-utils';
 
+const MAX_PAGES = 20; // Limit pages to control API costs
+
 // Types for the pipeline
 export interface ParsedQuestion {
   questionText: string;
@@ -20,6 +22,8 @@ export interface PDFParseResult {
   questions: ParsedQuestion[];
   error?: string;
   pageCount?: number;
+  totalPages?: number; // Total pages in PDF (may be > pageCount if truncated)
+  truncated?: boolean; // True if PDF had more pages than MAX_PAGES
 }
 
 // Convert Google Drive share link to direct download link
@@ -121,34 +125,91 @@ export async function downloadPDFAsBase64(url: string): Promise<{ success: boole
   }
 }
 
-// Parse questions from PDF using GPT-4 Vision
+// Convert PDF buffer to page images using pdf-to-img
+async function pdfToImages(pdfBuffer: Buffer): Promise<{
+  images: string[];
+  totalPages: number;
+  truncated: boolean;
+  error?: string;
+}> {
+  try {
+    // Dynamic import for pdf-to-img (ESM module)
+    const { pdf } = await import('pdf-to-img');
+
+    const images: string[] = [];
+    const document = await pdf(pdfBuffer, { scale: 1.5 });
+
+    let totalPages = 0;
+    for await (const image of document) {
+      totalPages++;
+      if (images.length < MAX_PAGES) {
+        const base64 = Buffer.from(image).toString('base64');
+        images.push(base64);
+      }
+      // Continue counting total pages even after we stop collecting images
+    }
+
+    return {
+      images,
+      totalPages,
+      truncated: totalPages > MAX_PAGES,
+    };
+  } catch (error: any) {
+    return { images: [], totalPages: 0, truncated: false, error: error.message };
+  }
+}
+
+// Parse questions from PDF using GPT-4 Vision (multi-page support)
 export async function parseQuestionsFromPDF(
   pdfBase64: string,
   topic: string,
   difficulty: string,
   openaiApiKey: string
 ): Promise<PDFParseResult> {
+  // Convert base64 PDF to buffer, then to page images
+  const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+  const { images, totalPages, truncated, error: conversionError } = await pdfToImages(pdfBuffer);
+
+  if (conversionError || images.length === 0) {
+    return {
+      success: false,
+      questions: [],
+      error: conversionError || 'Could not extract pages from PDF',
+      totalPages,
+      truncated,
+    };
+  }
+
   const openai = new OpenAI({ apiKey: openaiApiKey });
+
+  // Build image content array for all pages
+  const imageContents: OpenAI.ChatCompletionContentPart[] = images.map((base64) => ({
+    type: 'image_url' as const,
+    image_url: {
+      url: `data:image/png;base64,${base64}`,
+      detail: 'high' as const,
+    },
+  }));
 
   const systemPrompt = `You are an expert at extracting Science Olympiad test questions from exam PDFs.
 
-Your task is to extract ALL questions from the provided PDF image and structure them as JSON.
+CRITICAL: Analyze ALL ${images.length} page images and extract EVERY question you can find.
 
 For each question, identify:
 1. The question text (complete, including any context or data provided)
 2. The question type: "multiple-choice", "short-answer", "calculation", or "diagram"
-3. The correct answer (if visible in the PDF - look for answer keys, or leave as "See answer key" if not shown)
+3. The correct answer (if visible - look for answer keys). If not visible, use empty string ""
 4. For multiple choice: extract all options (A, B, C, D)
 5. Any subtopic category if indicated
 
 IMPORTANT:
-- Extract EVERY question you can see
+- Extract EVERY question from ALL pages
 - Preserve the exact wording of questions
-- Include any diagrams descriptions in the question text
-- For calculation questions, note the expected format of the answer
-- If the PDF shows an answer key, include the correct answers
+- Include diagram descriptions in the question text
+- If answer is not visible, use "" (empty string), NOT "See answer key"
+- Tests typically have 20-50 questions
 
-Return a JSON object in this exact format:
+Return a JSON object:
 {
   "questions": [
     {
@@ -159,7 +220,7 @@ Return a JSON object in this exact format:
       "subtopic": "Optional subtopic category"
     }
   ],
-  "pageInfo": "Brief description of what was on this page"
+  "totalQuestions": <number>
 }`;
 
   try {
@@ -175,20 +236,15 @@ Return a JSON object in this exact format:
           content: [
             {
               type: 'text',
-              text: `This is a ${difficulty}-level Science Olympiad ${topic} exam. Extract all questions from this PDF page. Return valid JSON only.`,
+              text: `This is a ${difficulty}-level Science Olympiad ${topic} exam with ${images.length} pages. Extract all questions. Return valid JSON only.`,
             },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:application/pdf;base64,${pdfBase64}`,
-                detail: 'high',
-              },
-            },
+            ...imageContents,
           ],
         },
       ],
-      max_tokens: 4000,
+      max_tokens: 16000, // Increased for multi-page extraction
       temperature: 0.1,
+      response_format: { type: 'json_object' },
     });
 
     const content = response.choices[0]?.message?.content;
@@ -197,17 +253,11 @@ Return a JSON object in this exact format:
       return { success: false, questions: [], error: 'Empty response from API' };
     }
 
-    // Parse JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return { success: false, questions: [], error: 'No JSON found in response' };
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(content);
     const questions: ParsedQuestion[] = (parsed.questions || []).map((q: any) => ({
       questionText: q.questionText || q.question || '',
       questionType: normalizeQuestionType(q.questionType || q.type || 'short-answer'),
-      correctAnswer: q.correctAnswer || q.answer || 'See answer key',
+      correctAnswer: q.correctAnswer || q.answer || '',
       options: q.options,
       subtopic: q.subtopic,
     }));
@@ -215,13 +265,17 @@ Return a JSON object in this exact format:
     return {
       success: true,
       questions,
-      pageCount: 1,
+      pageCount: images.length,
+      totalPages,
+      truncated,
     };
   } catch (error: any) {
     return {
       success: false,
       questions: [],
       error: error.message,
+      totalPages,
+      truncated,
     };
   }
 }
@@ -280,6 +334,9 @@ export async function processPDF(
   success: boolean;
   questions: ReferenceQuestion[];
   error?: string;
+  pageCount?: number;
+  totalPages?: number;
+  truncated?: boolean;
 }> {
   // Step 1: Download PDF
   const downloadResult = await downloadPDFAsBase64(url);
@@ -305,6 +362,9 @@ export async function processPDF(
       success: false,
       questions: [],
       error: `Parse failed: ${parseResult.error}`,
+      pageCount: parseResult.pageCount,
+      totalPages: parseResult.totalPages,
+      truncated: parseResult.truncated,
     };
   }
 
@@ -321,5 +381,8 @@ export async function processPDF(
   return {
     success: true,
     questions: referenceQuestions,
+    pageCount: parseResult.pageCount,
+    totalPages: parseResult.totalPages,
+    truncated: parseResult.truncated,
   };
 }

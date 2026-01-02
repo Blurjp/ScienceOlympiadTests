@@ -718,12 +718,16 @@ export interface CachedGeneration {
   useCount: number;
 }
 
+// Cache version - increment this when making quality improvements to prompts/validation
+// This ensures old cached generations are ignored after improvements
+export const GENERATION_CACHE_VERSION = 6; // v6: Multi-page PDF parsing, filter placeholder answers from few-shot
+
 // Generate a cache key based on source and parameters
 export function generateCacheKey(sourceId: string, questionCount: number): string {
-  // Using a simple key format: sourceId + questionCount + bucket
+  // Using a simple key format: version + sourceId + questionCount + bucket
   // Bucket allows multiple cached versions for same config
   const bucket = Math.floor(Math.random() * 5); // 5 different cached versions
-  return `${sourceId}_${questionCount}_v${bucket}`;
+  return `gen_v${GENERATION_CACHE_VERSION}_${sourceId}_${questionCount}_b${bucket}`;
 }
 
 // Get a cached generation if available
@@ -731,14 +735,15 @@ export async function getCachedGeneration(sourceId: string, questionCount: numbe
   const database = await getDatabase();
   await initializeGenerationCacheTable();
 
-  // Try to find a cached version with matching source and question count
-  // Get the least recently used one to rotate through cached versions
+  // Try to find a cached version with matching source, question count, AND current version
+  // The cache_key starts with "gen_v{VERSION}_" so we filter by prefix to ignore old versions
+  const versionPrefix = `gen_v${GENERATION_CACHE_VERSION}_${sourceId}_${questionCount}_%`;
   const result = await database.execute({
     sql: `SELECT * FROM generation_cache
-          WHERE source_id = ? AND question_count = ?
+          WHERE source_id = ? AND question_count = ? AND cache_key LIKE ?
           ORDER BY last_used_at ASC
           LIMIT 1`,
-    args: [sourceId, questionCount]
+    args: [sourceId, questionCount, versionPrefix]
   });
 
   if (result.rows.length === 0) return null;
@@ -1452,6 +1457,24 @@ export async function saveReferenceQuestionsBatch(questions: ReferenceQuestion[]
   return inserted;
 }
 
+// Placeholder answer patterns to filter out from few-shot examples
+const PLACEHOLDER_ANSWER_PATTERNS = [
+  'see answer key',
+  'see key',
+  'answer key',
+  'not provided',
+  'not shown',
+  'n/a',
+  'tbd',
+  'unknown',
+];
+
+function isPlaceholderAnswer(answer: string | null | undefined): boolean {
+  if (!answer || answer.trim() === '') return true;
+  const lower = answer.toLowerCase().trim();
+  return PLACEHOLDER_ANSWER_PATTERNS.some(pattern => lower.includes(pattern));
+}
+
 // Get reference questions for AI prompt generation
 export async function getReferenceQuestions(options: {
   topic: string;
@@ -1459,6 +1482,7 @@ export async function getReferenceQuestions(options: {
   questionType?: string;
   limit?: number;
   minQuality?: number;
+  requireAnswer?: boolean; // If true, exclude placeholder answers
 }): Promise<ReferenceQuestion[]> {
   const database = await getDatabase();
   await initializeReferenceQuestionsTable();
@@ -1484,21 +1508,21 @@ export async function getReferenceQuestions(options: {
     args.push(options.minQuality);
   }
 
+  // Filter out empty/null answers at SQL level (application-level filter handles placeholders)
+  if (options.requireAnswer) {
+    sql += ` AND correct_answer IS NOT NULL AND correct_answer != ''`;
+  }
+
   // Order by quality and randomize within quality tiers
+  // Request more than needed to allow for filtering
+  const fetchLimit = (options.limit || 10) * 2;
   sql += ` ORDER BY quality_score DESC, RANDOM() LIMIT ?`;
-  args.push(options.limit || 10);
+  args.push(fetchLimit);
 
   const result = await database.execute({ sql, args });
 
-  // Update use count for returned questions
-  for (const row of result.rows) {
-    await database.execute({
-      sql: `UPDATE reference_questions SET use_count = use_count + 1 WHERE id = ?`,
-      args: [(row as any).id]
-    });
-  }
-
-  return result.rows.map((r: any) => ({
+  // Map to ReferenceQuestion format
+  let questions: ReferenceQuestion[] = result.rows.map((r: any) => ({
     id: r.id,
     topic: r.topic,
     subtopic: r.subtopic,
@@ -1515,6 +1539,26 @@ export async function getReferenceQuestions(options: {
     qualityScore: r.quality_score,
     useCount: r.use_count,
   }));
+
+  // Filter out placeholder answers at application level (catches patterns SQL missed)
+  if (options.requireAnswer) {
+    questions = questions.filter(q => !isPlaceholderAnswer(q.correctAnswer));
+  }
+
+  // Apply the original limit after filtering
+  questions = questions.slice(0, options.limit || 10);
+
+  // Update use count for returned questions
+  for (const q of questions) {
+    if (q.id) {
+      await database.execute({
+        sql: `UPDATE reference_questions SET use_count = use_count + 1 WHERE id = ?`,
+        args: [q.id]
+      });
+    }
+  }
+
+  return questions;
 }
 
 // Get random reference questions for variety
@@ -1570,6 +1614,60 @@ export async function getReferenceQuestionStats(): Promise<{
     totalQuestions: (total.rows[0] as any)?.count || 0,
     byTopic: byTopic.rows.map((r: any) => ({ topic: r.topic, count: r.count })),
     byDifficulty: byDifficulty.rows.map((r: any) => ({ difficulty: r.difficulty, count: r.count })),
+  };
+}
+
+// Get per-topic metadata from reference questions for realistic generation
+// Simplified: only returns subtopics since we generate MC-only
+export interface TopicMeta {
+  subtopics: { subtopic: string; count: number }[];
+  subtopicCount: number; // Count of questions with subtopics (for accurate display)
+  hasData: boolean;
+}
+
+export async function getTopicMeta(topic: string, difficulty?: string): Promise<TopicMeta> {
+  const database = await getDatabase();
+  await initializeReferenceQuestionsTable();
+
+  const normalizedTopic = normalizeTopic(topic);
+
+  // Build query with optional difficulty filter
+  const difficultyFilter = difficulty ? ' AND difficulty = ?' : '';
+  const args = difficulty ? [normalizedTopic, difficulty] : [normalizedTopic];
+
+  // Get subtopic distribution (only questions with non-empty subtopics)
+  const subtopicResult = await database.execute({
+    sql: `SELECT subtopic, COUNT(*) as count
+          FROM reference_questions
+          WHERE topic = ?${difficultyFilter} AND subtopic IS NOT NULL AND subtopic != ''
+          GROUP BY subtopic ORDER BY count DESC LIMIT 10`,
+    args
+  });
+
+  // Get count of questions with subtopics (for accurate "based on N" display)
+  const countResult = await database.execute({
+    sql: `SELECT COUNT(*) as count
+          FROM reference_questions
+          WHERE topic = ?${difficultyFilter} AND subtopic IS NOT NULL AND subtopic != ''`,
+    args
+  });
+  const subtopicCount = (countResult.rows[0] as any)?.count || 0;
+
+  if (subtopicResult.rows.length === 0) {
+    return {
+      subtopics: [],
+      subtopicCount: 0,
+      hasData: false,
+    };
+  }
+
+  return {
+    subtopics: subtopicResult.rows.map((r: any) => ({
+      subtopic: r.subtopic || 'general',
+      count: r.count,
+    })),
+    subtopicCount,
+    hasData: true,
   };
 }
 
