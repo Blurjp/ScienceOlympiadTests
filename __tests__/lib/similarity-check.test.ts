@@ -5,6 +5,10 @@ import {
   checkSimilarity,
   validateOriginalContent,
   extractSafeMetaKeywords,
+  normalizeQuestionType,
+  validateMultipleChoice,
+  validateAndRepairQuestion,
+  validateAndRepairQuestions,
   SimilarityResult,
 } from '@/lib/similarity-check';
 
@@ -275,5 +279,307 @@ describe('extractSafeMetaKeywords', () => {
     keywords.forEach(keyword => {
       expect(keyword).toBe(keyword.toLowerCase());
     });
+  });
+});
+
+describe('normalizeQuestionType', () => {
+  test('normalizes multiple-choice variations', () => {
+    expect(normalizeQuestionType('multiple-choice')).toBe('multiple-choice');
+    expect(normalizeQuestionType('multiplechoice')).toBe('multiple-choice');
+    expect(normalizeQuestionType('mc')).toBe('multiple-choice');
+    expect(normalizeQuestionType('MULTIPLE CHOICE')).toBe('multiple-choice');
+  });
+
+  test('normalizes short-answer variations', () => {
+    expect(normalizeQuestionType('short-answer')).toBe('short-answer');
+    expect(normalizeQuestionType('shortanswer')).toBe('short-answer');
+    expect(normalizeQuestionType('sa')).toBe('short-answer');
+    expect(normalizeQuestionType('SHORT ANSWER')).toBe('short-answer');
+  });
+
+  test('normalizes calculation variations', () => {
+    expect(normalizeQuestionType('calculation')).toBe('calculation');
+    expect(normalizeQuestionType('calc')).toBe('calculation');
+    expect(normalizeQuestionType('CALCULATION')).toBe('calculation');
+  });
+
+  test('normalizes diagram variations', () => {
+    expect(normalizeQuestionType('diagram')).toBe('diagram');
+    expect(normalizeQuestionType('diagram-analysis')).toBe('diagram');
+    expect(normalizeQuestionType('diagramanalysis')).toBe('diagram');
+  });
+
+  test('defaults to short-answer for unknown types', () => {
+    expect(normalizeQuestionType('unknown')).toBe('short-answer');
+    expect(normalizeQuestionType('')).toBe('short-answer');
+  });
+});
+
+describe('validateMultipleChoice', () => {
+  test('returns valid for non-multiple-choice questions', () => {
+    const result = validateMultipleChoice({
+      type: 'short-answer',
+      correctAnswer: 'Test answer',
+    });
+    expect(result.isValid).toBe(true);
+  });
+
+  test('returns invalid for MC without options', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      correctAnswer: 'A) Test',
+    });
+    expect(result.isValid).toBe(false);
+    expect(result.issue).toContain('no options');
+  });
+
+  test('returns valid when correctAnswer matches exactly', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A) Nitrogen', 'B) Oxygen', 'C) Argon', 'D) Carbon'],
+      correctAnswer: 'B) Oxygen',
+    });
+    expect(result.isValid).toBe(true);
+  });
+
+  test('repairs correctAnswer with prefix mismatch', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A) Nitrogen', 'B) Oxygen', 'C) Argon', 'D) Carbon'],
+      correctAnswer: 'Oxygen',
+    });
+    expect(result.isValid).toBe(true);
+    expect(result.repairedAnswer).toBe('B) Oxygen');
+  });
+
+  test('handles double prefixes in correctAnswer', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A) Nitrogen', 'B) Oxygen', 'C) Argon', 'D) Carbon'],
+      correctAnswer: 'B. b. Oxygen',
+    });
+    expect(result.isValid).toBe(true);
+    expect(result.repairedAnswer).toBe('B) Oxygen');
+  });
+
+  test('handles double prefixes in options', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A. a. Nitrogen', 'B. b. Oxygen', 'C. c. Argon', 'D. d. Carbon'],
+      correctAnswer: 'Oxygen',
+    });
+    expect(result.isValid).toBe(true);
+  });
+
+  test('returns invalid when answer not found', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A) Nitrogen', 'B) Oxygen', 'C) Argon', 'D) Carbon'],
+      correctAnswer: 'Helium',
+    });
+    expect(result.isValid).toBe(false);
+    expect(result.issue).toContain('not found in options');
+  });
+
+  test('repairs via partial match with sufficient overlap', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A) N2', 'B) O2', 'C) Ar', 'D) CO2'],
+      correctAnswer: 'O2 gas',
+    });
+    // "O2" is contained in "O2 gas", and 2/6 < 0.8 so won't match
+    // Testing that partial match requires 80% overlap
+    expect(result.isValid).toBe(false);
+  });
+
+  test('repairs when answer contains option content', () => {
+    const result = validateMultipleChoice({
+      type: 'multiple-choice',
+      options: ['A) Nitrogen', 'B) Oxygen', 'C) Argon', 'D) Carbon'],
+      correctAnswer: 'B) Oxyge', // Close enough (6/6 chars match)
+    });
+    expect(result.isValid).toBe(true);
+    expect(result.repairedAnswer).toBe('B) Oxygen');
+  });
+});
+
+describe('validateAndRepairQuestion', () => {
+  test('normalizes question type', () => {
+    const { repaired } = validateAndRepairQuestion({
+      type: 'mc',
+      question: 'What is the chemical symbol for gold?',
+      correctAnswer: 'A) Au',
+      options: ['A) Au', 'B) Ag', 'C) Fe', 'D) Cu'],
+      points: 1,
+    });
+    expect(repaired.type).toBe('multiple-choice');
+  });
+
+  test('repairs MC options with double prefixes', () => {
+    const { repaired, wasRepaired } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is the most abundant gas in Earth\'s atmosphere?',
+      correctAnswer: 'A) Nitrogen',
+      options: ['A. a. Nitrogen', 'B. b. Oxygen', 'C. c. Argon', 'D. d. Water vapor'],
+      points: 1,
+    });
+    expect(wasRepaired).toBe(true);
+    expect(repaired.options).toEqual([
+      'A) Nitrogen',
+      'B) Oxygen',
+      'C) Argon',
+      'D) Water vapor',
+    ]);
+  });
+
+  test('rejects MC with less than 4 options', () => {
+    const { rejected, issues } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is 2 + 2?',
+      correctAnswer: 'A) 4',
+      options: ['A) 4', 'B) 5'],
+      points: 1,
+    });
+    expect(rejected).toBe(true);
+    expect(issues.some(i => i.includes('exactly 4 options'))).toBe(true);
+  });
+
+  test('rejects MC with more than 4 options', () => {
+    const { rejected, issues } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is 2 + 2?',
+      correctAnswer: 'A) 4',
+      options: ['A) 4', 'B) 5', 'C) 6', 'D) 7', 'E) 8'],
+      points: 1,
+    });
+    expect(rejected).toBe(true);
+    expect(issues.some(i => i.includes('exactly 4 options'))).toBe(true);
+  });
+
+  test('rejects MC with empty options after normalization', () => {
+    const { rejected, issues } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is the answer?',
+      correctAnswer: 'A) Test',
+      options: ['A) Test', 'B)', 'C) Valid', 'D) Also valid'],
+      points: 1,
+    });
+    expect(rejected).toBe(true);
+    expect(issues.some(i => i.includes('empty option'))).toBe(true);
+  });
+
+  test('rejects MC with duplicate options', () => {
+    const { rejected, issues } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is the answer?',
+      correctAnswer: 'A) Same',
+      options: ['A) Same', 'B) Same', 'C) Different', 'D) Another'],
+      points: 1,
+    });
+    expect(rejected).toBe(true);
+    expect(issues.some(i => i.includes('duplicate'))).toBe(true);
+  });
+
+  test('rejects questions with too short text', () => {
+    const { rejected, issues } = validateAndRepairQuestion({
+      type: 'short-answer',
+      question: 'What?',
+      correctAnswer: 'Answer',
+      points: 1,
+    });
+    expect(rejected).toBe(true);
+    expect(issues.some(i => i.includes('too short'))).toBe(true);
+  });
+
+  test('rejects questions with missing correctAnswer', () => {
+    const { rejected, issues } = validateAndRepairQuestion({
+      type: 'short-answer',
+      question: 'What is the capital of France?',
+      correctAnswer: '',
+      points: 1,
+    });
+    expect(rejected).toBe(true);
+    expect(issues.some(i => i.includes('Missing correctAnswer'))).toBe(true);
+  });
+
+  test('repairs missing points for MC', () => {
+    const { repaired, wasRepaired } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is the chemical symbol for gold?',
+      correctAnswer: 'A) Au',
+      options: ['A) Au', 'B) Ag', 'C) Fe', 'D) Cu'],
+      points: 0,
+    });
+    expect(wasRepaired).toBe(true);
+    expect(repaired.points).toBe(1);
+  });
+
+  test('repairs missing points for short-answer', () => {
+    const { repaired, wasRepaired } = validateAndRepairQuestion({
+      type: 'short-answer',
+      question: 'What is the capital of France?',
+      correctAnswer: 'Paris',
+      points: 0,
+    });
+    expect(wasRepaired).toBe(true);
+    expect(repaired.points).toBe(2);
+  });
+});
+
+describe('validateAndRepairQuestions', () => {
+  test('separates valid and rejected questions', () => {
+    const questions = [
+      {
+        type: 'multiple-choice',
+        question: 'What is 2 + 2?',
+        correctAnswer: 'A) 4',
+        options: ['A) 4', 'B) 5', 'C) 6', 'D) 7'],
+        points: 1,
+      },
+      {
+        type: 'short-answer',
+        question: 'Short',
+        correctAnswer: 'Answer',
+        points: 1,
+      },
+    ];
+    const result = validateAndRepairQuestions(questions);
+    expect(result.validQuestions.length).toBe(1);
+    expect(result.rejectedQuestions.length).toBe(1);
+  });
+
+  test('counts total repairs', () => {
+    const questions = [
+      {
+        type: 'mc',
+        question: 'What is the chemical symbol for gold?',
+        correctAnswer: 'A) Au',
+        options: ['A. a. Au', 'B. b. Ag', 'C. c. Fe', 'D. d. Cu'],
+        points: 0,
+      },
+    ];
+    const result = validateAndRepairQuestions(questions);
+    expect(result.totalRepairs).toBeGreaterThan(0);
+  });
+
+  test('collects all issues', () => {
+    const questions = [
+      {
+        type: 'multiple-choice',
+        question: 'What?',
+        correctAnswer: '',
+        options: ['A) 4', 'B) 5'],
+        points: 0,
+      },
+    ];
+    const result = validateAndRepairQuestions(questions);
+    expect(result.allIssues.length).toBeGreaterThan(0);
+  });
+
+  test('handles empty array', () => {
+    const result = validateAndRepairQuestions([]);
+    expect(result.validQuestions).toEqual([]);
+    expect(result.rejectedQuestions).toEqual([]);
+    expect(result.totalRepairs).toBe(0);
   });
 });
