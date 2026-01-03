@@ -344,7 +344,8 @@ export async function POST(request: NextRequest) {
             difficulty,
             process.env.OPENAI_API_KEY!,
             test.year,
-            test.tournament
+            test.tournament,
+            test.division as 'B' | 'C' | undefined
           );
 
           if (result.success && result.questions.length > 0) {

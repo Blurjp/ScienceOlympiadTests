@@ -200,6 +200,21 @@ export function normalizeQuestionType(type: string): ValidQuestionType {
   return typeMap[normalized] || 'short-answer';
 }
 
+// Strip ALL option prefixes (handles double prefixes like "A. a. Nitrogen")
+function stripAllPrefixes(text: string): string {
+  let result = text.trim();
+  let prev = '';
+  // Loop until no more prefixes are stripped
+  while (result !== prev) {
+    prev = result;
+    result = result
+      .replace(/^\(?[A-Da-d][).:\]]\)?\s*/, '') // Handles A) A. A: (A) [A]
+      .replace(/^\d+[).:\]]\s*/, '')            // Handles 1) 1. 1: for numbered options
+      .trim();
+  }
+  return result;
+}
+
 // Validate MC question has correctAnswer in options
 export function validateMultipleChoice(question: {
   type: string;
@@ -221,10 +236,12 @@ export function validateMultipleChoice(question: {
     return { isValid: true };
   }
 
-  // Try to find a match by stripping letter prefix (e.g., "A) " or "A. ")
-  const answerWithoutPrefix = correctAnswer.replace(/^[A-Da-d][.)]\s*/, '').trim();
+  // Strip ALL prefixes from answer (handles "A. a. Nitrogen" etc.)
+  const answerWithoutPrefix = stripAllPrefixes(correctAnswer);
+
+  // Try to find a match by comparing stripped content
   for (const option of question.options) {
-    const optionContent = option.replace(/^[A-Da-d][.)]\s*/, '').trim();
+    const optionContent = stripAllPrefixes(option);
     if (optionContent.toLowerCase() === answerWithoutPrefix.toLowerCase()) {
       return { isValid: true, repairedAnswer: option };
     }
@@ -232,7 +249,7 @@ export function validateMultipleChoice(question: {
 
   // Try partial match (answer contained in option or vice versa)
   for (const option of question.options) {
-    const optionContent = option.replace(/^[A-Da-d][.)]\s*/, '').trim().toLowerCase();
+    const optionContent = stripAllPrefixes(option).toLowerCase();
     const answerContent = answerWithoutPrefix.toLowerCase();
     if (optionContent.includes(answerContent) || answerContent.includes(optionContent)) {
       // Only repair if it's a close enough match (at least 80% overlap)
@@ -323,14 +340,8 @@ export function validateAndRepairQuestion(question: QuestionForValidation): Ques
       issues.push(`Multiple choice must have exactly 4 options, got ${repaired.options.length}`);
       rejected = true;
     } else {
-      // Normalize options by stripping common prefixes: A) A. A: (A) etc.
-      const stripOptionPrefix = (opt: string): string => {
-        return opt
-          .replace(/^\(?[A-Da-d][).:\]]\)?\s*/, '') // Handles A) A. A: (A) [A]
-          .replace(/^\d+[).:\]]\s*/, '')            // Handles 1) 1. 1: for numbered options
-          .trim();
-      };
-      const normalizedOptions = repaired.options.map(stripOptionPrefix);
+      // Strip ALL option prefixes (handles double prefixes like "A. a. Nitrogen")
+      const normalizedOptions = repaired.options.map(stripAllPrefixes);
 
       // Check for empty options AFTER normalization (catches "A)" with no content)
       const emptyIndices = normalizedOptions
@@ -346,6 +357,13 @@ export function validateAndRepairQuestion(question: QuestionForValidation): Ques
       if (uniqueOptions.size !== 4) {
         issues.push('Multiple choice options must all be unique (found duplicates)');
         rejected = true;
+      }
+
+      // REPAIR: Re-add clean prefixes to options (fixes "A. a. Nitrogen" → "A) Nitrogen")
+      if (!rejected) {
+        const prefixes = ['A) ', 'B) ', 'C) ', 'D) '];
+        repaired.options = normalizedOptions.map((opt, idx) => prefixes[idx] + opt);
+        wasRepaired = true;
       }
     }
   }

@@ -230,6 +230,7 @@ export async function POST(request: NextRequest) {
       const dbQuestions = await getReferenceQuestions({
         topic: pdfSource.topic,
         difficulty: pdfSource.level,
+        division: 'C', // Science Olympiad Division C only
         limit: 3,
         minQuality: 7,
         requireAnswer: true, // Filter out placeholder answers for few-shot examples

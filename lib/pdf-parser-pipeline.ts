@@ -301,13 +301,15 @@ export function convertToReferenceQuestions(
   difficulty: string,
   sourceUrl: string,
   sourceYear?: number,
-  sourceTournament?: string
+  sourceTournament?: string,
+  division?: 'B' | 'C'
 ): ReferenceQuestion[] {
   const normalizedTopic = normalizeTopic(topic);
 
   return parsed.map((q) => ({
     topic: normalizedTopic,
     subtopic: q.subtopic,
+    division: division || 'C', // Default to Division C
     difficulty: difficulty as 'Invitational' | 'Regional' | 'State' | 'National',
     questionType: q.questionType,
     questionText: q.questionText,
@@ -329,7 +331,8 @@ export async function processPDF(
   difficulty: string,
   openaiApiKey: string,
   sourceYear?: number,
-  sourceTournament?: string
+  sourceTournament?: string,
+  division?: 'B' | 'C'
 ): Promise<{
   success: boolean;
   questions: ReferenceQuestion[];
@@ -375,7 +378,8 @@ export async function processPDF(
     difficulty,
     url,
     sourceYear,
-    sourceTournament
+    sourceTournament,
+    division
   );
 
   return {

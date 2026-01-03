@@ -720,7 +720,7 @@ export interface CachedGeneration {
 
 // Cache version - increment this when making quality improvements to prompts/validation
 // This ensures old cached generations are ignored after improvements
-export const GENERATION_CACHE_VERSION = 6; // v6: Multi-page PDF parsing, filter placeholder answers from few-shot
+export const GENERATION_CACHE_VERSION = 7; // v7: Fix double option prefixes (A. a. Nitrogen), division filtering
 
 // Generate a cache key based on source and parameters
 export function generateCacheKey(sourceId: string, questionCount: number): string {
@@ -1214,6 +1214,7 @@ async function initializeReferenceQuestionsTable() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       topic TEXT NOT NULL,
       subtopic TEXT,
+      division TEXT CHECK(division IN ('B', 'C')) DEFAULT 'C',
       difficulty TEXT CHECK(difficulty IN ('Invitational', 'Regional', 'State', 'National')),
       question_type TEXT CHECK(question_type IN ('multiple-choice', 'short-answer', 'calculation', 'diagram')),
       question_text TEXT NOT NULL,
@@ -1231,11 +1232,19 @@ async function initializeReferenceQuestionsTable() {
     )
   `);
 
+  // Add division column if it doesn't exist (migration for existing tables)
+  try {
+    await database.execute(`ALTER TABLE reference_questions ADD COLUMN division TEXT CHECK(division IN ('B', 'C')) DEFAULT 'C'`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   // Create indexes for fast lookup
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_topic ON reference_questions(topic)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_difficulty ON reference_questions(difficulty)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_type ON reference_questions(question_type)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_quality ON reference_questions(quality_score DESC)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_ref_questions_division ON reference_questions(division)`);
 }
 
 // Initialize scraped tests table (metadata for tests found but not yet parsed)
@@ -1394,6 +1403,7 @@ export interface ReferenceQuestion {
   id?: number;
   topic: string;
   subtopic?: string;
+  division?: 'B' | 'C'; // Science Olympiad division (default: C)
   difficulty: 'Invitational' | 'Regional' | 'State' | 'National';
   questionType: 'multiple-choice' | 'short-answer' | 'calculation' | 'diagram';
   questionText: string;
@@ -1418,11 +1428,12 @@ export async function saveReferenceQuestion(question: ReferenceQuestion): Promis
 
   const result = await database.execute({
     sql: `INSERT OR IGNORE INTO reference_questions
-      (topic, subtopic, difficulty, question_type, question_text, correct_answer, options, explanation, source_year, source_tournament, source_url, tags, quality_score)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (topic, subtopic, division, difficulty, question_type, question_text, correct_answer, options, explanation, source_year, source_tournament, source_url, tags, quality_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       normalizedTopic,
       question.subtopic || null,
+      question.division || 'C', // Default to Division C
       question.difficulty,
       question.questionType,
       question.questionText,
@@ -1478,6 +1489,7 @@ function isPlaceholderAnswer(answer: string | null | undefined): boolean {
 // Get reference questions for AI prompt generation
 export async function getReferenceQuestions(options: {
   topic: string;
+  division?: 'B' | 'C'; // Filter by Science Olympiad division (default: C)
   difficulty?: string;
   questionType?: string;
   limit?: number;
@@ -1492,6 +1504,11 @@ export async function getReferenceQuestions(options: {
 
   let sql = `SELECT * FROM reference_questions WHERE topic = ?`;
   const args: any[] = [normalizedTopic];
+
+  // Default to Division C to prevent Division B content from leaking
+  const division = options.division || 'C';
+  sql += ` AND (division = ? OR division IS NULL)`;
+  args.push(division);
 
   if (options.difficulty) {
     sql += ` AND difficulty = ?`;
@@ -1526,6 +1543,7 @@ export async function getReferenceQuestions(options: {
     id: r.id,
     topic: r.topic,
     subtopic: r.subtopic,
+    division: r.division,
     difficulty: r.difficulty,
     questionType: r.question_type,
     questionText: r.question_text,
