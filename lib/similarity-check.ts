@@ -362,7 +362,18 @@ export function validateAndRepairQuestion(question: QuestionForValidation): Ques
       // REPAIR: Re-add clean prefixes to options (fixes "A. a. Nitrogen" → "A) Nitrogen")
       if (!rejected) {
         const prefixes = ['A) ', 'B) ', 'C) ', 'D) '];
-        repaired.options = normalizedOptions.map((opt, idx) => prefixes[idx] + opt);
+        const newOptions = normalizedOptions.map((opt, idx) => prefixes[idx] + opt);
+
+        // Also update correctAnswer to match the new option format
+        const correctAnswerContent = stripAllPrefixes(repaired.correctAnswer);
+        const matchingIdx = normalizedOptions.findIndex(
+          opt => opt.toLowerCase() === correctAnswerContent.toLowerCase()
+        );
+        if (matchingIdx !== -1) {
+          repaired.correctAnswer = newOptions[matchingIdx];
+        }
+
+        repaired.options = newOptions;
         wasRepaired = true;
       }
     }

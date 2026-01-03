@@ -432,6 +432,26 @@ describe('validateAndRepairQuestion', () => {
     ]);
   });
 
+  test('repairs correctAnswer to match repaired options', () => {
+    const { repaired, wasRepaired, rejected } = validateAndRepairQuestion({
+      type: 'multiple-choice',
+      question: 'What is the most abundant gas in Earth\'s atmosphere?',
+      correctAnswer: 'A. a. Nitrogen',
+      options: ['A. a. Nitrogen', 'B. b. Oxygen', 'C. c. Argon', 'D. d. Water vapor'],
+      points: 1,
+    });
+    expect(rejected).toBe(false);
+    expect(wasRepaired).toBe(true);
+    // After repair, both options and correctAnswer should have clean prefixes
+    expect(repaired.options).toEqual([
+      'A) Nitrogen',
+      'B) Oxygen',
+      'C) Argon',
+      'D) Water vapor',
+    ]);
+    expect(repaired.correctAnswer).toBe('A) Nitrogen');
+  });
+
   test('rejects MC with less than 4 options', () => {
     const { rejected, issues } = validateAndRepairQuestion({
       type: 'multiple-choice',

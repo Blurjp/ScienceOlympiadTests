@@ -720,7 +720,7 @@ export interface CachedGeneration {
 
 // Cache version - increment this when making quality improvements to prompts/validation
 // This ensures old cached generations are ignored after improvements
-export const GENERATION_CACHE_VERSION = 7; // v7: Fix double option prefixes (A. a. Nitrogen), division filtering
+export const GENERATION_CACHE_VERSION = 8; // v8: Fix correctAnswer not updated after option prefix repair
 
 // Generate a cache key based on source and parameters
 export function generateCacheKey(sourceId: string, questionCount: number): string {
