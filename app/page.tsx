@@ -625,16 +625,6 @@ export default function HomePage() {
                   )}
                 </Button>
               </div>
-
-              {/* Transparency & Disclaimer */}
-              <div className="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
-                <p className="text-xs text-gray-600 font-medium mb-1">What we store vs. don&apos;t store:</p>
-                <ul className="text-xs text-gray-500 space-y-0.5">
-                  <li>✓ We store: Only AI-generated original questions (cached to reduce costs)</li>
-                  <li>✗ We do NOT store: Any PDF files or original exam content</li>
-                  <li>→ Links above point to third-party sites where exams are publicly shared</li>
-                </ul>
-              </div>
             </CardContent>
           </Card>
         )}
