@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta } from '@/lib/database';
+import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, DynamicExamSource } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
-import { getSourceById, PDFSource } from '@/lib/pdf-sources';
 import { validateOriginalContent, validateAndRepairQuestions, normalizeQuestionType, ValidQuestionType } from '@/lib/similarity-check';
 import { TOPIC_DESCRIPTIONS, DIFFICULTY_DESCRIPTIONS } from '@/lib/topic-descriptions';
 import { getSeedQuestionsForTopic } from '@/lib/seed-reference-questions';
@@ -39,6 +38,54 @@ function getOpenAI() {
 interface GenerateFromPDFRequest {
   sourceId: string;
   questionCount?: number;
+}
+
+// Simplified source interface for generation
+interface ExamSource {
+  id: string;
+  topic: string;
+  level: 'Invitational' | 'Regional' | 'State' | 'National';
+  name: string;
+}
+
+// Parse dynamic source ID (format: scraped-{topic-slug}-{level})
+// Returns null if not a valid dynamic source ID
+function parseDynamicSourceId(sourceId: string): ExamSource | null {
+  if (!sourceId.startsWith('scraped-')) {
+    return null;
+  }
+
+  // Format: scraped-{topic-slug}-{level}
+  // e.g., scraped-anatomy-and-physiology-invitational
+  const parts = sourceId.split('-');
+  if (parts.length < 3) return null;
+
+  const levelStr = parts[parts.length - 1];
+  const topicSlug = parts.slice(1, -1).join('-');
+
+  // Map level string to proper case
+  const levelMap: Record<string, 'Invitational' | 'Regional' | 'State' | 'National'> = {
+    'invitational': 'Invitational',
+    'regional': 'Regional',
+    'state': 'State',
+    'national': 'National',
+  };
+
+  const level = levelMap[levelStr.toLowerCase()];
+  if (!level) return null;
+
+  // Convert slug back to topic name (best effort)
+  const topic = topicSlug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  return {
+    id: sourceId,
+    topic,
+    level,
+    name: `${topic} - ${level}`,
+  };
 }
 
 // Meta-information structure (NO copyrightable content)
@@ -80,11 +127,11 @@ Every question must be:
 - Scientifically accurate for Division C (high school level)
 - Appropriate for the indicated difficulty level`;
 
-// Analyze PDF to extract ONLY meta-information (no question content)
+// Extract meta-information for generation
 // Uses real data from reference questions when available
-async function extractMetaInformation(pdfSource: PDFSource): Promise<ExamMetaInfo> {
-  const topic = pdfSource.topic;
-  const level = pdfSource.level;
+async function extractMetaInformation(source: ExamSource): Promise<ExamMetaInfo> {
+  const topic = source.topic;
+  const level = source.level;
 
   // Query real data from reference_questions table, filtered by difficulty
   let topicMeta: TopicMeta | null = null;
@@ -155,11 +202,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the PDF source configuration
-    const pdfSource = getSourceById(sourceId);
-    if (!pdfSource) {
+    // Parse the source ID (dynamic format: scraped-{topic}-{level})
+    const examSource = parseDynamicSourceId(sourceId);
+    if (!examSource) {
       return NextResponse.json(
-        { error: 'Invalid source ID' },
+        { error: 'Invalid source ID format. Expected: scraped-{topic}-{level}' },
         { status: 400 }
       );
     }
@@ -183,12 +230,12 @@ export async function POST(request: NextRequest) {
         const test: Test = {
           id: generateId(),
           year: new Date().getFullYear(),
-          title: `Original Practice: ${pdfSource.topic} (${pdfSource.level}-style)`,
-          description: `AI-generated original practice test inspired by ${pdfSource.level}-level exam structure. All questions are completely original and not copied from any source.`,
-          difficulty: mapDifficultyForDatabase(pdfSource.level) as any,
+          title: `Original Practice: ${examSource.topic} (${examSource.level}-style)`,
+          description: `AI-generated original practice test inspired by ${examSource.level}-level exam structure. All questions are completely original and not copied from any source.`,
+          difficulty: mapDifficultyForDatabase(examSource.level) as any,
           totalTime,
           totalPoints,
-          topic: pdfSource.topic,
+          topic: examSource.topic,
           questions,
         };
 
@@ -202,13 +249,11 @@ export async function POST(request: NextRequest) {
           totalTime,
           fromCache: true,
           inspiredBy: {
-            name: pdfSource.name,
-            level: pdfSource.level,
-            topic: pdfSource.topic,
-            source: pdfSource.source,
-            sourceUrl: pdfSource.url, // Expose URL for transparency
+            name: examSource.name,
+            level: examSource.level,
+            topic: examSource.topic,
           },
-          disclaimer: 'This test contains completely original questions generated by AI. No questions were copied from the referenced exam. The source URL is provided for transparency only.',
+          disclaimer: 'This test contains completely original questions generated by AI.',
         });
       } catch (e) {
         // Cache parse failed, continue to generate new
@@ -217,19 +262,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract ONLY meta-information (never question content)
-    const metaInfo = await extractMetaInformation(pdfSource);
+    const metaInfo = await extractMetaInformation(examSource);
 
     // Get topic and difficulty descriptions from shared module
-    const topicDescription = TOPIC_DESCRIPTIONS[pdfSource.topic] || pdfSource.topic;
-    const difficultyDescription = DIFFICULTY_DESCRIPTIONS[pdfSource.level] || pdfSource.level;
+    const topicDescription = TOPIC_DESCRIPTIONS[examSource.topic] || examSource.topic;
+    const difficultyDescription = DIFFICULTY_DESCRIPTIONS[examSource.level] || examSource.level;
 
     // Fetch reference questions for few-shot learning (same pattern as generate-ai-test)
     let referenceExamples = '';
     try {
       // First try database (for scraped/imported questions)
       const dbQuestions = await getReferenceQuestions({
-        topic: pdfSource.topic,
-        difficulty: pdfSource.level,
+        topic: examSource.topic,
+        difficulty: examSource.level,
         division: 'C', // Science Olympiad Division C only
         limit: 3,
         minQuality: 7,
@@ -240,9 +285,9 @@ export async function POST(request: NextRequest) {
         referenceExamples = formatReferenceQuestionsForPrompt(dbQuestions);
       } else {
         // Fall back to seed questions
-        const seedQuestions = getSeedQuestionsForTopic(pdfSource.topic);
+        const seedQuestions = getSeedQuestionsForTopic(examSource.topic);
         const filtered = seedQuestions
-          .filter(q => q.difficulty === pdfSource.level || seedQuestions.length < 5)
+          .filter(q => q.difficulty === examSource.level || seedQuestions.length < 5)
           .slice(0, 3);
         if (filtered.length > 0) {
           referenceExamples = formatReferenceQuestionsForPrompt(filtered);
@@ -264,9 +309,9 @@ export async function POST(request: NextRequest) {
       ? `\nSUBTOPICS TO COVER (based on ${metaInfo.subtopicCount} ${metaInfo.difficultyLevel}-level historical questions):\n${metaInfo.subtopics.map(s => `- ${s}`).join('\n')}\nDistribute questions across these subtopics for comprehensive coverage.\n`
       : '';
 
-    const userPrompt = `Generate ${questionCount} completely ORIGINAL questions for a ${pdfSource.topic} Science Olympiad test.
+    const userPrompt = `Generate ${questionCount} completely ORIGINAL questions for a ${examSource.topic} Science Olympiad test.
 
-TOPIC: ${pdfSource.topic}
+TOPIC: ${examSource.topic}
 FOCUS AREAS: ${topicDescription}
 ${subtopicGuidance}
 DIFFICULTY LEVEL: ${metaInfo.difficultyLevel}
@@ -293,7 +338,7 @@ OUTPUT FORMAT - Return a JSON object:
       "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
       "correctAnswer": "B) Option 2",
       "points": 1,
-      "category": "${pdfSource.topic}"
+      "category": "${examSource.topic}"
     }
   ]
 }
@@ -351,7 +396,7 @@ MATHEMATICAL ACCURACY:
         completionTokens,
         totalTokens,
         costUsd,
-        topic: pdfSource.topic,
+        topic: examSource.topic,
         difficulty: metaInfo.difficultyLevel,
         questionCount,
         success: false,
@@ -399,7 +444,7 @@ MATHEMATICAL ACCURACY:
         options: q.options,
         correctAnswer: q.correctAnswer,
         points: q.points || 1,
-        category: q.category || pdfSource.topic,
+        category: q.category || examSource.topic,
       }));
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
@@ -470,12 +515,12 @@ MATHEMATICAL ACCURACY:
     const test: Test = {
       id: generateId(),
       year: new Date().getFullYear(),
-      title: `Original Practice: ${pdfSource.topic} (${metaInfo.difficultyLevel}-style)`,
+      title: `Original Practice: ${examSource.topic} (${metaInfo.difficultyLevel}-style)`,
       description: `AI-generated original practice test inspired by ${metaInfo.difficultyLevel}-level exam structure. All questions are completely original and not copied from any source.`,
       difficulty: mapDifficultyForDatabase(metaInfo.difficultyLevel) as any,
       totalTime,
       totalPoints,
-      topic: pdfSource.topic,
+      topic: examSource.topic,
       questions,
     };
 
@@ -485,7 +530,7 @@ MATHEMATICAL ACCURACY:
     // Save to cache for future use (avoid repeated LLM calls)
     await saveCachedGeneration(
       sourceId,
-      pdfSource.url,
+      undefined, // No specific URL for dynamic sources
       questionCount,
       questions,
       metaInfo
@@ -500,7 +545,7 @@ MATHEMATICAL ACCURACY:
       completionTokens,
       totalTokens,
       costUsd,
-      topic: pdfSource.topic,
+      topic: examSource.topic,
       difficulty: metaInfo.difficultyLevel,
       questionCount: questions.length,
       success: true,
@@ -514,13 +559,11 @@ MATHEMATICAL ACCURACY:
       totalTime,
       fromCache: false,
       inspiredBy: {
-        name: pdfSource.name,
-        level: pdfSource.level,
-        topic: pdfSource.topic,
-        source: pdfSource.source,
-        sourceUrl: pdfSource.url, // Expose URL for transparency
+        name: examSource.name,
+        level: examSource.level,
+        topic: examSource.topic,
       },
-      disclaimer: 'This test contains completely original questions generated by AI. No questions were copied from the referenced exam. The source URL is provided for transparency only.',
+      disclaimer: 'This test contains completely original questions generated by AI.',
     });
 
   } catch (error: any) {
@@ -536,27 +579,27 @@ MATHEMATICAL ACCURACY:
   }
 }
 
-// GET endpoint to retrieve available PDF sources
+// GET endpoint to retrieve available exam sources (dynamically from scraped_tests)
 export async function GET() {
-  const { CURATED_PDF_SOURCES } = await import('@/lib/pdf-sources');
+  try {
+    const sources = await getAvailableExamSources();
 
-  return NextResponse.json({
-    sources: CURATED_PDF_SOURCES.map(s => ({
-      id: s.id,
-      name: s.name,
-      topic: s.topic,
-      year: s.year,
-      level: s.level,
-      source: s.source,
-      sourceUrl: s.url, // Expose URL for transparency - users can see where data comes from
-      description: s.description,
-    })),
-    transparency: {
-      whatWeStore: 'Only AI-generated original questions are stored in our database. We cache generated tests to reduce API costs.',
-      whatWeDontStore: 'We do NOT store, host, or cache any original PDF files or their content.',
-      howItWorks: 'When you select a source, we analyze the exam structure (topic distribution, question types) and generate 100% original questions inspired by that format.',
-      sourceLinks: 'Source URLs point to third-party sites where exams are publicly shared. We provide these for transparency so you can verify the source.',
-    },
-    disclaimer: 'SciOlyPrep does not host or redistribute any copyrighted PDFs. Links point to third-party sources where material is publicly posted. Generated tests contain only 100% original AI-generated content.',
-  });
+    return NextResponse.json({
+      sources: sources.map(s => ({
+        id: s.id,
+        name: `${s.topic} - ${s.level}`,
+        topic: s.topic,
+        level: s.level,
+        testCount: s.testCount,
+        years: s.years,
+        description: `${s.level}-level ${s.topic} (${s.testCount} test${s.testCount > 1 ? 's' : ''} available)`,
+      })),
+    });
+  } catch (error: any) {
+    console.error('Error fetching exam sources:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch exam sources', sources: [] },
+      { status: 500 }
+    );
+  }
 }

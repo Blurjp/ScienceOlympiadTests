@@ -1398,6 +1398,90 @@ export async function markScrapedTestAsParsed(id: number, questionCount: number)
   });
 }
 
+// Dynamic exam source for the Exam-Inspired Generator
+export interface DynamicExamSource {
+  id: string;
+  topic: string;
+  level: 'Invitational' | 'Regional' | 'State' | 'National';
+  testCount: number;
+  years: number[];
+  division?: string;
+}
+
+// Infer difficulty level from title/tournament name
+function inferDifficultyLevel(title: string, tournament: string): 'Invitational' | 'Regional' | 'State' | 'National' {
+  const lowerTitle = (title || '').toLowerCase();
+  const lowerTournament = (tournament || '').toLowerCase();
+  const combined = lowerTitle + ' ' + lowerTournament;
+
+  if (combined.includes('national')) return 'National';
+  if (combined.includes('state')) return 'State';
+  if (combined.includes('regional')) return 'Regional';
+  return 'Invitational';
+}
+
+// Get available exam sources dynamically from scraped_tests table
+export async function getAvailableExamSources(): Promise<DynamicExamSource[]> {
+  const database = await getDatabase();
+  await initializeScrapedTestsTable();
+
+  // Get all tests (not just parsed) grouped by topic
+  const result = await database.execute(`
+    SELECT topic, title, tournament, year, division
+    FROM scraped_tests
+    WHERE test_type IN ('test', 'unknown')
+    ORDER BY topic, year DESC
+  `);
+
+  // Group by topic + inferred level
+  const sourceMap = new Map<string, {
+    topic: string;
+    level: 'Invitational' | 'Regional' | 'State' | 'National';
+    testCount: number;
+    years: Set<number>;
+    division?: string;
+  }>();
+
+  for (const row of result.rows as any[]) {
+    const level = inferDifficultyLevel(row.title || '', row.tournament || '');
+    const key = `${row.topic}-${level}`;
+
+    if (!sourceMap.has(key)) {
+      sourceMap.set(key, {
+        topic: row.topic,
+        level,
+        testCount: 0,
+        years: new Set(),
+        division: row.division,
+      });
+    }
+
+    const source = sourceMap.get(key)!;
+    source.testCount++;
+    if (row.year) {
+      source.years.add(row.year);
+    }
+  }
+
+  // Convert to array and sort by topic, then level
+  const levelOrder = { 'National': 0, 'State': 1, 'Regional': 2, 'Invitational': 3 };
+
+  return Array.from(sourceMap.values())
+    .map(s => ({
+      id: `scraped-${s.topic.toLowerCase().replace(/\s+/g, '-')}-${s.level.toLowerCase()}`,
+      topic: s.topic,
+      level: s.level,
+      testCount: s.testCount,
+      years: Array.from(s.years).sort((a, b) => b - a),
+      division: s.division,
+    }))
+    .sort((a, b) => {
+      const topicCompare = a.topic.localeCompare(b.topic);
+      if (topicCompare !== 0) return topicCompare;
+      return levelOrder[a.level] - levelOrder[b.level];
+    });
+}
+
 // Reference Question interface
 export interface ReferenceQuestion {
   id?: number;
