@@ -4,6 +4,14 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["iad1"],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://sciolyprep.com/$1",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "www.sciolyprep.com" }]
+    }
+  ],
   "functions": {
     "app/api/parse-pdf/route.ts": {
       "maxDuration": 300
