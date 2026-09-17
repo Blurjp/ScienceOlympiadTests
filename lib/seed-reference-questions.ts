@@ -884,6 +884,110 @@ export const SEED_REFERENCE_QUESTIONS: ReferenceQuestion[] = [
     qualityScore: 9,
     tags: ['temperature inversion', 'atmosphere', 'weather']
   },
+
+  // ==================== THERMODYNAMICS ====================
+  {
+    topic: 'Thermodynamics',
+    subtopic: 'Heat Transfer',
+    difficulty: 'Invitational',
+    questionType: 'multiple-choice',
+    questionText: 'Which method of heat transfer requires no medium and can occur through a vacuum?',
+    correctAnswer: 'Radiation',
+    options: [
+      'A) Conduction',
+      'B) Convection',
+      'C) Radiation',
+      'D) Sublimation'
+    ],
+    explanation: 'Radiation transfers energy via electromagnetic waves and needs no matter, which is how the Sun\'s energy reaches Earth through the vacuum of space.',
+    sourceYear: 2023,
+    sourceTournament: 'Invitational',
+    qualityScore: 8,
+    tags: ['heat transfer', 'radiation', 'conduction', 'convection']
+  },
+  {
+    topic: 'Thermodynamics',
+    subtopic: 'Calorimetry',
+    difficulty: 'Regional',
+    questionType: 'calculation',
+    questionText: 'How much heat energy (in joules) is required to raise the temperature of 250 g of water from 20°C to 80°C?',
+    correctAnswer: '62,760 J',
+    explanation: 'q = mcΔT = (250 g)(4.184 J/g·°C)(60°C) = 62,760 J. Water\'s high specific heat makes it an excellent coolant and heat reservoir.',
+    sourceYear: 2023,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['calorimetry', 'specific heat', 'calculation']
+  },
+  {
+    topic: 'Thermodynamics',
+    subtopic: 'Laws of Thermodynamics',
+    difficulty: 'State',
+    questionType: 'multiple-choice',
+    questionText: 'A heat engine absorbs 800 J from a hot reservoir and exhausts 600 J to a cold reservoir. What is its efficiency, and why can it never reach 100%?',
+    correctAnswer: '25%; the Second Law requires some heat to be exhausted to a cold reservoir',
+    options: [
+      'A) 25%; the First Law forbids creating energy',
+      'B) 25%; the Second Law requires some heat to be exhausted to a cold reservoir',
+      'C) 75%; only the latent heat is lost',
+      'D) 75%; entropy must decrease in a cycle'
+    ],
+    explanation: 'e = 1 - Q_c/Q_h = 1 - 600/800 = 0.25. The Second Law (entropy) mandates that a cyclic engine discard some heat, so no heat engine is 100% efficient.',
+    sourceYear: 2022,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['heat engine', 'efficiency', 'second law']
+  },
+  {
+    topic: 'Thermodynamics',
+    subtopic: 'Phase Changes',
+    difficulty: 'State',
+    questionType: 'calculation',
+    questionText: 'How much total heat (in joules) is needed to completely melt 50 g of ice at 0°C into water at 0°C?',
+    correctAnswer: '16,700 J',
+    explanation: 'q = mL_fusion = (50 g)(334 J/g) = 16,700 J. During the phase change the temperature remains constant at 0°C; energy goes into breaking intermolecular bonds, not raising temperature.',
+    sourceYear: 2023,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['latent heat', 'phase change', 'fusion']
+  },
+  {
+    topic: 'Thermodynamics',
+    subtopic: 'Heat Engines',
+    difficulty: 'National',
+    questionType: 'multiple-choice',
+    questionText: 'A Carnot engine operates between a hot reservoir at 500 K and a cold reservoir at 300 K. If a real engine between the same reservoirs claims an efficiency of 45%, what is the maximum theoretical efficiency and is the claim plausible?',
+    correctAnswer: '40%; the claim is impossible because it exceeds the Carnot efficiency',
+    options: [
+      'A) 40%; the claim is impossible because it exceeds the Carnot efficiency',
+      'B) 60%; the claim is plausible with advanced materials',
+      'C) 40%; the claim is plausible because Carnot applies only to refrigerators',
+      'D) 45%; the claim exactly matches the theoretical maximum'
+    ],
+    explanation: 'Carnot: e_max = 1 - T_c/T_h = 1 - 300/500 = 0.40. No engine operating between these reservoirs can exceed 40%, so a 45% claim violates the Second Law. Temperatures must be in kelvin.',
+    sourceYear: 2023,
+    sourceTournament: 'National',
+    qualityScore: 10,
+    tags: ['Carnot', 'efficiency', 'Kelvin', 'second law']
+  },
+  {
+    topic: 'Thermodynamics',
+    subtopic: 'Device Build',
+    difficulty: 'Regional',
+    questionType: 'multiple-choice',
+    questionText: 'In designing an insulated device to retain heat, which design choice most effectively reduces heat loss by all three transfer mechanisms?',
+    correctAnswer: 'A sealed double-walled container with a vacuum between the walls and reflective coatings',
+    options: [
+      'A) A sealed double-walled container with a vacuum between the walls and reflective coatings',
+      'B) A single thick wall of solid aluminum',
+      'C) An open container surrounded by circulating water',
+      'D) A thin glass container painted black'
+    ],
+    explanation: 'A vacuum eliminates conduction and convection (no matter to conduct or circulate), while reflective coatings reduce radiative loss - the principle of a thermos. Aluminum conducts heat well, black surfaces radiate more (high emissivity).',
+    sourceYear: 2024,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['insulation', 'device', 'conduction', 'convection', 'radiation']
+  },
 ];
 
 // Function to get questions for a specific topic

@@ -16,6 +16,7 @@ export const DEFAULT_TOPICS = [
   'Ornithology',
   'Reach for the Stars',
   'Rocks and Minerals',
+  'Thermodynamics',
   'Tower',
   'Wind Power',
   'Write It Do It',

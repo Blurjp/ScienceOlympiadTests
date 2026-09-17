@@ -16,6 +16,7 @@ export const CANONICAL_TOPICS = [
   'Microbe Mission',
   'Optics',
   'Ornithology',
+  'Thermodynamics',
   'Write It Do It',
 ] as const;
 
@@ -41,7 +42,6 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
   'chemistry lab': 'Chemistry Lab',
   'chem lab': 'Chemistry Lab',
   'chemistry': 'Chemistry Lab',
-  'thermodynamics': 'Chemistry Lab',
 
   // Disease Detectives variations
   'disease detectives': 'Disease Detectives',
@@ -101,6 +101,12 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
   // Ornithology variations
   'ornithology': 'Ornithology',
   'birds': 'Ornithology',
+
+  // Thermodynamics variations
+  'thermodynamics': 'Thermodynamics',
+  'thermo': 'Thermodynamics',
+  'heat transfer': 'Thermodynamics',
+  'keep the heat': 'Thermodynamics',
 
   // Write It Do It variations
   'write it do it': 'Write It Do It',

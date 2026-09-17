@@ -21,6 +21,7 @@ const DEFAULT_TOPICS = [
   'Ornithology',
   'Reach for the Stars',
   'Rocks and Minerals',
+  'Thermodynamics',
   'Tower',
   'Wind Power',
   'Write It Do It',
@@ -44,6 +45,7 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Ornithology': 'bird identification, anatomy, behavior, and ecology',
   'Reach for the Stars': 'stellar astronomy, deep sky objects, and astrophysics',
   'Rocks and Minerals': 'rock types, mineral identification, and geological processes',
+  'Thermodynamics': 'heat transfer, thermodynamic laws, calorimetry, and heat engines',
   'Tower': 'structural engineering principles and physics of structures',
   'Wind Power': 'renewable energy, wind turbine design, and energy physics',
   'Write It Do It': 'technical writing and following written instructions',
@@ -157,6 +159,10 @@ describe('Science Olympiad Topics Configuration', () => {
 
     test('Rocks and Minerals covers rock types', () => {
       expect(TOPIC_DESCRIPTIONS['Rocks and Minerals']).toContain('rock');
+    });
+
+    test('Thermodynamics covers heat transfer and laws', () => {
+      expect(TOPIC_DESCRIPTIONS['Thermodynamics']).toMatch(/heat transfer|thermodynamic laws/);
     });
 
     test('Tower covers structural engineering', () => {

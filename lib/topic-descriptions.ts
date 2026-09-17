@@ -945,6 +945,60 @@ TURBINE TYPES:
 - Vertical Axis (VAWT): Blades perpendicular to ground, works in any wind direction
 
 COMMON MISTAKES: Forgetting power ∝ v³ (not v or v²). Exceeding Betz limit in efficiency calculations.`,
+  'Thermodynamics': `heat transfer, the laws of thermodynamics, calorimetry, thermal properties of matter, gas laws, and heat engine cycles.
+
+LAWS OF THERMODYNAMICS:
+- Zeroth Law: If A and B are each in thermal equilibrium with C, then A and B are in thermal equilibrium with each other (basis of temperature measurement)
+- First Law: Energy conservation - ΔU = Q - W (heat added minus work done BY the gas)
+- Second Law: Entropy of an isolated system never decreases; heat flows spontaneously from hot to cold
+- Third Law: As T approaches absolute zero (0 K), entropy of a perfect crystal approaches zero
+
+HEAT TRANSFER:
+- Conduction: Direct molecular collision (solids best); rate Q/t = kAΔT/L (k = thermal conductivity; metals high, styrofoam/aerogel low)
+- Convection: Bulk fluid movement (natural = density-driven, forced = fans/pumps)
+- Radiation: Electromagnetic waves, no medium needed; Stefan-Boltzmann law Q/t = σeAT⁴ (σ = 5.67×10⁻⁸ W/m²·K⁴)
+- Vacuum flask/thermos defeats all three: vacuum (no conduction/convection), reflective walls (radiation), tight stopper (convection)
+
+CALORIMETRY:
+- q = mcΔT (specific heat); water c = 4.184 J/g·°C = 1 cal/g·°C (very high - moderates climate)
+- Phase changes: q = mL, no temperature change (latent heat); water fusion L = 334 J/g, vaporization L = 2260 J/g
+- Calorimetry: Q_lost = Q_gained; mixtures reach equilibrium temperature
+- Internal energy of ideal gas depends only on temperature
+
+THERMAL EXPANSION:
+- Linear: ΔL = αL₀ΔT; Volume: ΔV = βV₀ΔT where β ≈ 3α
+- Water anomaly: maximum density at 4°C; ice floats (expands ~9% on freezing)
+- Applications: bimetallic strips (thermostats), expansion joints, liquid-in-glass thermometers
+
+KINETIC THEORY & GAS LAWS:
+- Ideal gas: PV = nRT; R = 8.314 J/mol·K; 1 mol at STP = 22.4 L
+- Average KE = (3/2)kT; speed ∝ √(T/m)
+- Boyle: P₁V₁ = P₂V₂ (T fixed); Charles: V/T constant (P fixed); Gay-Lussac: P/T constant (V fixed)
+- Processes: isothermal (ΔT=0), isobaric (ΔP=0), isochoric (ΔV=0), adiabatic (Q=0)
+
+PV DIAGRAMS & WORK:
+- W = PΔV for constant pressure; general W = area under PV curve
+- Cycle: net work = enclosed area (clockwise = engine, counterclockwise = refrigerator)
+- Isotherm curves (hyperbolas); adiabats steeper than isotherms
+
+HEAT ENGINES & EFFICIENCY:
+- e = W/Q_h = 1 - Q_c/Q_h; can never be 100% (Second Law)
+- Carnot efficiency (theoretical max): e_max = 1 - T_c/T_h (temperatures in KELVIN)
+- Refrigerators/heat pumps run cycles in reverse; COP = Q_c/W (fridge) or Q_h/W (heat pump)
+- Entropy: ΔS = Q_rev/T; Gibbs free energy ΔG = ΔH - TΔS (spontaneous if negative)
+
+DEVICE BUILD (INSULATION):
+- Goal: construct a device to retain heat; score based on temperature retention over time
+- Minimize conduction (low-k materials: styrofoam, fiberglass, aerogel), convection (eliminate air gaps/circulation), radiation (reflective barriers like foil)
+- R-value = thickness/k (higher = better insulator); phase-change materials absorb heat at constant temperature
+- Common designs: nested containers with insulating layers, sealed lids, small volume-to-surface ratio
+
+COMMON MISTAKES:
+- Using °C instead of K in gas-law ratios and Carnot efficiency
+- Forgetting that temperature stays constant during phase changes
+- Sign errors on W: work done BY gas vs work done ON gas
+- Confusing heat (energy transfer, q) with temperature (average KE)`,
+
   'Write It Do It': `technical writing clarity, precision, and following written instructions.
 
 KEY CONCEPTS:
