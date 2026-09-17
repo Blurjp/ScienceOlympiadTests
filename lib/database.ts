@@ -1398,14 +1398,13 @@ export async function markScrapedTestAsParsed(id: number, questionCount: number)
   });
 }
 
-// Dynamic exam source for the Exam-Inspired Generator
+// Dynamic exam source for the Exam-Inspired Generator (Division C only)
 export interface DynamicExamSource {
   id: string;
   topic: string;
   level: 'Invitational' | 'Regional' | 'State' | 'National';
   testCount: number;
   years: number[];
-  division?: string;
 }
 
 // Infer difficulty level from title/tournament name
@@ -1420,16 +1419,61 @@ function inferDifficultyLevel(title: string, tournament: string): 'Invitational'
   return 'Invitational';
 }
 
+// Generate a stable source ID from topic and level
+export function generateSourceId(topic: string, level: string): string {
+  // Use a simple, reversible format that preserves exact topic
+  // Base64 encode the topic to avoid slug parsing issues
+  const topicEncoded = Buffer.from(topic).toString('base64').replace(/=/g, '');
+  return `src-${topicEncoded}-${level.toLowerCase()}`;
+}
+
+// Parse a source ID back to topic and level (pure function, no database)
+// Returns null if the format is invalid
+export function parseSourceId(sourceId: string): { topic: string; level: 'Invitational' | 'Regional' | 'State' | 'National' } | null {
+  if (!sourceId.startsWith('src-')) {
+    return null;
+  }
+
+  const parts = sourceId.split('-');
+  if (parts.length < 3) return null;
+
+  const levelStr = parts[parts.length - 1];
+  const topicEncoded = parts.slice(1, -1).join('-');
+
+  // Decode the topic from base64
+  let topic: string;
+  try {
+    topic = Buffer.from(topicEncoded, 'base64').toString('utf-8');
+  } catch {
+    return null;
+  }
+
+  // Map level string to proper case
+  const levelMap: Record<string, 'Invitational' | 'Regional' | 'State' | 'National'> = {
+    'invitational': 'Invitational',
+    'regional': 'Regional',
+    'state': 'State',
+    'national': 'National',
+  };
+
+  const level = levelMap[levelStr.toLowerCase()];
+  if (!level) return null;
+
+  return { topic, level };
+}
+
 // Get available exam sources dynamically from scraped_tests table
+// Filtered to Division C only (or NULL for backwards compatibility)
 export async function getAvailableExamSources(): Promise<DynamicExamSource[]> {
   const database = await getDatabase();
   await initializeScrapedTestsTable();
 
-  // Get all tests (not just parsed) grouped by topic
+  // Get Division C tests only (or NULL for legacy data)
   const result = await database.execute(`
     SELECT topic, title, tournament, year, division
     FROM scraped_tests
     WHERE test_type IN ('test', 'unknown')
+      AND (division = 'C' OR division IS NULL)
     ORDER BY topic, year DESC
   `);
 
@@ -1439,7 +1483,6 @@ export async function getAvailableExamSources(): Promise<DynamicExamSource[]> {
     level: 'Invitational' | 'Regional' | 'State' | 'National';
     testCount: number;
     years: Set<number>;
-    division?: string;
   }>();
 
   for (const row of result.rows as any[]) {
@@ -1452,7 +1495,6 @@ export async function getAvailableExamSources(): Promise<DynamicExamSource[]> {
         level,
         testCount: 0,
         years: new Set(),
-        division: row.division,
       });
     }
 
@@ -1468,18 +1510,65 @@ export async function getAvailableExamSources(): Promise<DynamicExamSource[]> {
 
   return Array.from(sourceMap.values())
     .map(s => ({
-      id: `scraped-${s.topic.toLowerCase().replace(/\s+/g, '-')}-${s.level.toLowerCase()}`,
+      id: generateSourceId(s.topic, s.level),
       topic: s.topic,
       level: s.level,
       testCount: s.testCount,
       years: Array.from(s.years).sort((a, b) => b - a),
-      division: s.division,
     }))
     .sort((a, b) => {
       const topicCompare = a.topic.localeCompare(b.topic);
       if (topicCompare !== 0) return topicCompare;
       return levelOrder[a.level] - levelOrder[b.level];
     });
+}
+
+// Look up an exam source by ID - returns exact topic/level
+export async function getExamSourceById(sourceId: string): Promise<DynamicExamSource | null> {
+  // Use parseSourceId for the parsing logic
+  const parsed = parseSourceId(sourceId);
+  if (!parsed) return null;
+
+  const { topic, level } = parsed;
+
+  // Verify this source exists in the database
+  const database = await getDatabase();
+  await initializeScrapedTestsTable();
+
+  const result = await database.execute({
+    sql: `
+      SELECT title, tournament, year
+      FROM scraped_tests
+      WHERE topic = ?
+        AND test_type IN ('test', 'unknown')
+        AND (division = 'C' OR division IS NULL)
+    `,
+    args: [topic],
+  });
+
+  const rows = result.rows as any[];
+  const matching = rows.filter((r) => {
+    const inferred = inferDifficultyLevel(r.title || '', r.tournament || '');
+    return inferred === level;
+  });
+
+  if (matching.length === 0) return null;
+
+  const years = Array.from(
+    new Set(
+      matching
+        .map(r => r.year)
+        .filter((y: number | null | undefined) => typeof y === 'number')
+    )
+  ).sort((a, b) => b - a);
+
+  return {
+    id: sourceId,
+    topic,
+    level,
+    testCount: matching.length,
+    years,
+  };
 }
 
 // Reference Question interface

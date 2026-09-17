@@ -24,6 +24,7 @@ export function AdSense({
   style,
 }: AdSenseProps) {
   useEffect(() => {
+    if (!adSlot) return;
     try {
       if (typeof window !== 'undefined') {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
@@ -31,9 +32,15 @@ export function AdSense({
     } catch (error) {
       console.error('AdSense error:', error);
     }
-  }, []);
+  }, [adSlot]);
 
   const adClient = 'ca-pub-5272449326201280';
+
+  // Never render an ad unit without a valid slot (AdSense policy:
+  // no ads on screens without publisher-content)
+  if (!adSlot) {
+    return null;
+  }
 
   return (
     <div className={`ad-container ${className}`}>

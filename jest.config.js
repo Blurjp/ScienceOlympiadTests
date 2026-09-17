@@ -33,6 +33,9 @@ const config = {
     '!lib/topic-descriptions.ts',
     '!lib/seed-reference-questions.ts',
     '!lib/topic-utils.ts',
+    '!lib/default-topics.ts',
+    // Exclude site config (environment-dependent)
+    '!lib/site.ts',
     // Exclude PDF parsing pipeline (requires external integration testing)
     '!lib/pdf-parser-pipeline.ts',
     // Exclude external service integrations
@@ -58,6 +61,9 @@ const config = {
     '!components/scioly/question-display.tsx',
     // Exclude third-party integration components
     '!components/adsense.tsx',
+    '!components/adsense-script.tsx',
+    // Exclude complex marketing/home page component (requires integration testing)
+    '!components/home/home-page.tsx',
     // Exclude async server components
     '!components/header.tsx',
     // Exclude subscription components (require Stripe integration)

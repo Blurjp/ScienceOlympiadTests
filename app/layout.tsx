@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
+import { Analytics } from "@vercel/analytics/next";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Science Olympiad Tests",
-  description: "Practice Science Olympiad tests with PDF parsing and progress tracking",
+  title: {
+    default: "Science Olympiad Tests - AI Practice Test Generator",
+    template: "%s",
+  },
+  description:
+    "Generate and practice Science Olympiad tests for every event - Anatomy, Astronomy, Chemistry Lab, Forensics, and more. AI-generated questions, PDF import, and progress tracking.",
   icons: {
     icon: "/favicon.svg",
     apple: "/favicon.svg",
   },
+  metadataBase: new URL(getSiteUrl()),
 };
 
 export default function RootLayout({
@@ -22,12 +29,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        {/* Google AdSense */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5272449326201280"
-          crossOrigin="anonymous"
-        />
       </head>
       <body className="font-sans antialiased min-h-screen flex flex-col">
         <SessionProvider>
@@ -35,6 +36,7 @@ export default function RootLayout({
           <main className="flex-grow">{children}</main>
           <Footer />
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   );

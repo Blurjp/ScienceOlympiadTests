@@ -1,0 +1,22 @@
+// Static options for when database is empty
+export const DEFAULT_TOPICS = [
+  'Anatomy and Physiology',
+  'Astronomy',
+  'Chemistry Lab',
+  'Disease Detectives',
+  'Dynamic Planet',
+  'Ecology',
+  'Experimental Design',
+  'Fermi Questions',
+  'Forensics',
+  'Fossils',
+  'Machines',
+  'Microbe Mission',
+  'Optics',
+  'Ornithology',
+  'Reach for the Stars',
+  'Rocks and Minerals',
+  'Tower',
+  'Wind Power',
+  'Write It Do It',
+];

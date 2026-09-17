@@ -17,7 +17,7 @@ jest.mock('@/lib/database', () => ({
 import { auth } from '@/auth';
 import { saveTestResult } from '@/lib/database';
 
-const mockAuth = auth as jest.MockedFunction<typeof auth>;
+const mockAuth = auth as unknown as jest.MockedFunction<() => Promise<any>>;
 const mockSaveTestResult = saveTestResult as jest.MockedFunction<typeof saveTestResult>;
 
 function createMockRequest(body: object): NextRequest {

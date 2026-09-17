@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, DynamicExamSource } from '@/lib/database';
+import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, getExamSourceById, DynamicExamSource } from '@/lib/database';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
@@ -38,54 +38,6 @@ function getOpenAI() {
 interface GenerateFromPDFRequest {
   sourceId: string;
   questionCount?: number;
-}
-
-// Simplified source interface for generation
-interface ExamSource {
-  id: string;
-  topic: string;
-  level: 'Invitational' | 'Regional' | 'State' | 'National';
-  name: string;
-}
-
-// Parse dynamic source ID (format: scraped-{topic-slug}-{level})
-// Returns null if not a valid dynamic source ID
-function parseDynamicSourceId(sourceId: string): ExamSource | null {
-  if (!sourceId.startsWith('scraped-')) {
-    return null;
-  }
-
-  // Format: scraped-{topic-slug}-{level}
-  // e.g., scraped-anatomy-and-physiology-invitational
-  const parts = sourceId.split('-');
-  if (parts.length < 3) return null;
-
-  const levelStr = parts[parts.length - 1];
-  const topicSlug = parts.slice(1, -1).join('-');
-
-  // Map level string to proper case
-  const levelMap: Record<string, 'Invitational' | 'Regional' | 'State' | 'National'> = {
-    'invitational': 'Invitational',
-    'regional': 'Regional',
-    'state': 'State',
-    'national': 'National',
-  };
-
-  const level = levelMap[levelStr.toLowerCase()];
-  if (!level) return null;
-
-  // Convert slug back to topic name (best effort)
-  const topic = topicSlug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  return {
-    id: sourceId,
-    topic,
-    level,
-    name: `${topic} - ${level}`,
-  };
 }
 
 // Meta-information structure (NO copyrightable content)
@@ -129,7 +81,7 @@ Every question must be:
 
 // Extract meta-information for generation
 // Uses real data from reference questions when available
-async function extractMetaInformation(source: ExamSource): Promise<ExamMetaInfo> {
+async function extractMetaInformation(source: DynamicExamSource): Promise<ExamMetaInfo> {
   const topic = source.topic;
   const level = source.level;
 
@@ -202,14 +154,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse the source ID (dynamic format: scraped-{topic}-{level})
-    const examSource = parseDynamicSourceId(sourceId);
+    // Look up the source from database (preserves exact topic name via base64 encoding)
+    const examSource = await getExamSourceById(sourceId);
     if (!examSource) {
       return NextResponse.json(
-        { error: 'Invalid source ID format. Expected: scraped-{topic}-{level}' },
+        { error: 'Invalid source ID or source not found in database' },
         { status: 400 }
       );
     }
+
+    const examSourceName = `${examSource.topic} - ${examSource.level}`;
 
     // Check cache first - avoid LLM calls if we have cached questions
     const cached = await getCachedGeneration(sourceId, questionCount);
@@ -249,7 +203,7 @@ export async function POST(request: NextRequest) {
           totalTime,
           fromCache: true,
           inspiredBy: {
-            name: examSource.name,
+            name: examSourceName,
             level: examSource.level,
             topic: examSource.topic,
           },
@@ -559,7 +513,7 @@ MATHEMATICAL ACCURACY:
       totalTime,
       fromCache: false,
       inspiredBy: {
-        name: examSource.name,
+        name: examSourceName,
         level: examSource.level,
         topic: examSource.topic,
       },

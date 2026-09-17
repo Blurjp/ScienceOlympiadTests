@@ -1,10 +1,16 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
+import type { Metadata } from "next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { User, Mail, Calendar } from "lucide-react"
 import { getUserById, getUserStats } from "@/lib/database"
 import { SignOutButton } from "@/components/auth/sign-out-button"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
+
+export const metadata: Metadata = {
+  title: "Profile | Science Olympiad Tests",
+  robots: { index: false, follow: false },
+}
 
 export default async function ProfilePage() {
   const session = await auth()
