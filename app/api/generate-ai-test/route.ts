@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getReferenceQuestions, formatReferenceQuestionsForPrompt } from '@/lib/database';
+import { getOpenAI, computeCostUsd } from '@/lib/openai';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
@@ -10,19 +11,8 @@ import { TOPIC_DESCRIPTIONS, DIFFICULTY_DESCRIPTIONS } from '@/lib/topic-descrip
 
 export const dynamic = 'force-dynamic';
 
-// GPT-4o pricing (as of 2024) - using full model for better quality
-const PRICE_PER_1K_PROMPT_TOKENS = 0.0025;
-const PRICE_PER_1K_COMPLETION_TOKENS = 0.01;
-
 // Increase function timeout for serverless
 export const maxDuration = 60; // 60 seconds max
-
-// Lazy-load OpenAI client to avoid build errors
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-}
 
 interface GenerateRequest {
   topic: string;
@@ -35,6 +25,12 @@ interface GenerateRequest {
 const MAX_QUESTIONS_FOR_TIMEOUT = 10;
 
 export async function POST(request: NextRequest) {
+  // Cost-abuse protection: rate limit applies to everyone (including
+  // anonymous callers, who bypass the per-user free tier check below)
+  const rateIdentity = getClientIp(request);
+  const rateLimit = checkRateLimit('generate-ai-test', rateIdentity, 10, 60 * 1000);
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
   // Get user session for tracking (don't let auth failure crash the request)
   let userId: string | undefined;
   try {
@@ -238,8 +234,7 @@ Output valid JSON only.`,
     const totalTokens = usage?.total_tokens || 0;
 
     // Calculate cost
-    const costUsd = (promptTokens / 1000 * PRICE_PER_1K_PROMPT_TOKENS) +
-                    (completionTokens / 1000 * PRICE_PER_1K_COMPLETION_TOKENS);
+    const costUsd = computeCostUsd(usage, { model: 'gpt-4o' });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -297,8 +292,6 @@ Output valid JSON only.`,
       return NextResponse.json(
         {
           error: 'Failed to parse generated questions. Please try again.',
-          details: parseError?.message || 'JSON parse failed',
-          contentPreview: content?.substring(0, 200)
         },
         { status: 500 }
       );
@@ -323,7 +316,7 @@ Output valid JSON only.`,
 
     // Save to database (don't let DB failure crash the response)
     try {
-      await saveTest(test);
+      await saveTest(test, undefined, undefined, userId);
     } catch (dbError) {
       console.error('Database save error (non-fatal):', dbError);
       // Continue anyway - user still gets the test

@@ -4,25 +4,29 @@
 import {
   validateAdminCredentials,
   isAdminEmail,
-  generateAdminToken,
+  createAdminSessionCookieValue,
+  verifyAdminSessionCookie,
   ADMIN_COOKIE_NAME,
   SESSION_DURATION,
   AdminSession,
 } from '@/lib/admin-auth';
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL!; // set in jest.setup.js
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD!;
+
 describe('validateAdminCredentials', () => {
   test('returns true for valid admin credentials', () => {
-    const result = validateAdminCredentials('blurjp@gmail.com', '1qaz2wsx#E$R');
+    const result = validateAdminCredentials(ADMIN_EMAIL, ADMIN_PASSWORD);
     expect(result).toBe(true);
   });
 
   test('returns false for invalid email', () => {
-    const result = validateAdminCredentials('wrong@email.com', '1qaz2wsx#E$R');
+    const result = validateAdminCredentials('wrong@email.com', ADMIN_PASSWORD);
     expect(result).toBe(false);
   });
 
   test('returns false for invalid password', () => {
-    const result = validateAdminCredentials('blurjp@gmail.com', 'wrongpassword');
+    const result = validateAdminCredentials(ADMIN_EMAIL, 'wrongpassword');
     expect(result).toBe(false);
   });
 
@@ -32,29 +36,29 @@ describe('validateAdminCredentials', () => {
   });
 
   test('returns false for empty email', () => {
-    const result = validateAdminCredentials('', '1qaz2wsx#E$R');
+    const result = validateAdminCredentials('', ADMIN_PASSWORD);
     expect(result).toBe(false);
   });
 
   test('returns false for empty password', () => {
-    const result = validateAdminCredentials('blurjp@gmail.com', '');
+    const result = validateAdminCredentials(ADMIN_EMAIL, '');
     expect(result).toBe(false);
   });
 
   test('is case sensitive for email', () => {
-    const result = validateAdminCredentials('BLURJP@GMAIL.COM', '1qaz2wsx#E$R');
+    const result = validateAdminCredentials(ADMIN_EMAIL.toUpperCase(), ADMIN_PASSWORD);
     expect(result).toBe(false);
   });
 
   test('is case sensitive for password', () => {
-    const result = validateAdminCredentials('blurjp@gmail.com', '1QAZ2WSX#E$R');
+    const result = validateAdminCredentials(ADMIN_EMAIL, ADMIN_PASSWORD.toUpperCase());
     expect(result).toBe(false);
   });
 });
 
 describe('isAdminEmail', () => {
   test('returns true for admin email', () => {
-    expect(isAdminEmail('blurjp@gmail.com')).toBe(true);
+    expect(isAdminEmail(ADMIN_EMAIL)).toBe(true);
   });
 
   test('returns false for non-admin email', () => {
@@ -66,49 +70,82 @@ describe('isAdminEmail', () => {
   });
 
   test('is case sensitive', () => {
-    expect(isAdminEmail('BLURJP@GMAIL.COM')).toBe(false);
+    expect(isAdminEmail(ADMIN_EMAIL.toUpperCase())).toBe(false);
   });
 
   test('returns false for partial match', () => {
-    expect(isAdminEmail('blurjp@gmail')).toBe(false);
+    expect(isAdminEmail(ADMIN_EMAIL.split('@')[0])).toBe(false);
   });
 });
 
-describe('generateAdminToken', () => {
-  test('generates a string token', () => {
-    const token = generateAdminToken();
-    expect(typeof token).toBe('string');
+describe('admin session cookies', () => {
+  const validSession: AdminSession = {
+    email: ADMIN_EMAIL,
+    authenticated: true,
+    expiresAt: Date.now() + SESSION_DURATION,
+  };
+
+  test('round-trips a valid session', () => {
+    const cookie = createAdminSessionCookieValue(validSession);
+    const verified = verifyAdminSessionCookie(cookie);
+    expect(verified).not.toBeNull();
+    expect(verified!.email).toBe(ADMIN_EMAIL);
+    expect(verified!.authenticated).toBe(true);
   });
 
-  test('token starts with admin_ prefix', () => {
-    const token = generateAdminToken();
-    expect(token.startsWith('admin_')).toBe(true);
+  test('rejects a tampered payload', () => {
+    const cookie = createAdminSessionCookieValue(validSession);
+    const [payload, signature] = cookie.split('.');
+    const tampered = Buffer.from(
+      JSON.stringify({ ...validSession, expiresAt: Date.now() + 9999999999999 })
+    ).toString('base64url');
+    expect(verifyAdminSessionCookie(`${tampered}.${signature}`)).toBeNull();
+    expect(payload).not.toBe(tampered);
   });
 
-  test('generates unique tokens', () => {
-    const token1 = generateAdminToken();
-    const token2 = generateAdminToken();
-    expect(token1).not.toBe(token2);
+  test('rejects a cookie signed for a different payload', () => {
+    const cookieA = createAdminSessionCookieValue(validSession);
+    const otherSession: AdminSession = {
+      email: 'someone-else@test.com',
+      authenticated: true,
+      expiresAt: Date.now() + SESSION_DURATION,
+    };
+    const cookieB = createAdminSessionCookieValue(otherSession);
+    // Swapping signatures must fail
+    const sigA = cookieA.split('.')[1];
+    const payloadB = cookieB.split('.')[0];
+    expect(verifyAdminSessionCookie(`${payloadB}.${sigA}`)).toBeNull();
   });
 
-  test('token contains underscore separators', () => {
-    const token = generateAdminToken();
-    const parts = token.split('_');
-    expect(parts.length).toBe(3);
+  test('rejects a forged unsigned cookie (the old vulnerability)', () => {
+    const forged = JSON.stringify({
+      token: 'x',
+      email: ADMIN_EMAIL,
+      expiresAt: Date.now() + 9999999999999,
+    });
+    expect(verifyAdminSessionCookie(forged)).toBeNull();
   });
 
-  test('generates many unique tokens', () => {
-    const tokens = new Set<string>();
-    for (let i = 0; i < 100; i++) {
-      tokens.add(generateAdminToken());
-    }
-    expect(tokens.size).toBe(100);
+  test('rejects an expired session', () => {
+    const expired: AdminSession = {
+      email: ADMIN_EMAIL,
+      authenticated: true,
+      expiresAt: Date.now() - 1000,
+    };
+    const cookie = createAdminSessionCookieValue(expired);
+    expect(verifyAdminSessionCookie(cookie)).toBeNull();
   });
 
-  test('token has reasonable length', () => {
-    const token = generateAdminToken();
-    expect(token.length).toBeGreaterThan(15);
-    expect(token.length).toBeLessThan(50);
+  test('rejects garbage input', () => {
+    expect(verifyAdminSessionCookie(undefined)).toBeNull();
+    expect(verifyAdminSessionCookie('')).toBeNull();
+    expect(verifyAdminSessionCookie('not-a-cookie')).toBeNull();
+    expect(verifyAdminSessionCookie('a.b.c.d')).toBeNull();
+  });
+
+  test('cookie value is non-trivially long', () => {
+    const cookie = createAdminSessionCookieValue(validSession);
+    expect(cookie.length).toBeGreaterThan(50);
   });
 });
 

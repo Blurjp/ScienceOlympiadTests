@@ -51,8 +51,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get the origin for redirect URLs
-    const origin = request.headers.get('origin') || process.env.AUTH_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    // Determine the origin for redirect URLs. Prefer the configured site URL;
+    // only fall back to the request Origin if it is unset (dev environments).
+    // Trusting the client-supplied Origin blindly would allow open redirects
+    // from Stripe checkout to attacker-controlled hosts.
+    const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL
+      || process.env.AUTH_URL
+      || process.env.NEXTAUTH_URL;
+    let origin: string;
+    if (configuredOrigin) {
+      origin = configuredOrigin.replace(/\/$/, '');
+    } else {
+      const requestOrigin = request.headers.get('origin');
+      origin = requestOrigin?.startsWith('http') ? requestOrigin : 'http://localhost:3000';
+    }
 
     // Create checkout session
     const checkoutSession = await stripe.checkout.sessions.create({

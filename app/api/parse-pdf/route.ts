@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractText } from 'unpdf';
-import OpenAI from 'openai';
+import { getOpenAI } from '@/lib/openai';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { Question } from '@/lib/types';
 import { generateId } from '@/lib/utils';
 
@@ -25,18 +26,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
   ]);
 }
 
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    timeout: 300000, // 5 minute timeout
-  });
-}
-
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   log('START', { timestamp: startTime });
 
   try {
+    // Cost-abuse protection: 10 uploads per IP per 5 minutes
+    const rateLimit = checkRateLimit('parse-pdf', getClientIp(request), 10, 5 * 60 * 1000);
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
     log('Step 1: Reading form data');
     const formData = await request.formData();
     const file = formData.get('file') as File;

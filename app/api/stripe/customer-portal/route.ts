@@ -31,8 +31,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the origin for redirect URL
-    const origin = request.headers.get('origin') || process.env.AUTH_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    // Determine the origin for redirect URL (prefer configured site URL over
+    // the client-supplied Origin header to prevent open redirects)
+    const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL
+      || process.env.AUTH_URL
+      || process.env.NEXTAUTH_URL;
+    let origin: string;
+    if (configuredOrigin) {
+      origin = configuredOrigin.replace(/\/$/, '');
+    } else {
+      const requestOrigin = request.headers.get('origin');
+      origin = requestOrigin?.startsWith('http') ? requestOrigin : 'http://localhost:3000';
+    }
 
     // Create customer portal session
     const portalSession = await stripe.billingPortal.sessions.create({

@@ -3,6 +3,10 @@
  */
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/admin/login/route';
+import { clearRateLimits } from '@/lib/rate-limit';
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL!; // set in jest.setup.js
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD!;
 
 // Helper to create a mock NextRequest with JSON body
 function createMockRequest(body: object): NextRequest {
@@ -16,11 +20,16 @@ function createMockRequest(body: object): NextRequest {
 }
 
 describe('POST /api/admin/login', () => {
+  beforeEach(() => {
+    // Reset the in-memory rate limiter between tests
+    clearRateLimits();
+  });
+
   describe('successful login', () => {
     test('returns success for valid credentials', async () => {
       const request = createMockRequest({
-        email: 'blurjp@gmail.com',
-        password: '1qaz2wsx#E$R',
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
       });
 
       const response = await POST(request);
@@ -33,8 +42,8 @@ describe('POST /api/admin/login', () => {
 
     test('sets admin cookie on successful login', async () => {
       const request = createMockRequest({
-        email: 'blurjp@gmail.com',
-        password: '1qaz2wsx#E$R',
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
       });
 
       const response = await POST(request);
@@ -49,7 +58,7 @@ describe('POST /api/admin/login', () => {
   describe('validation errors', () => {
     test('returns 400 for missing email', async () => {
       const request = createMockRequest({
-        password: '1qaz2wsx#E$R',
+        password: ADMIN_PASSWORD,
       });
 
       const response = await POST(request);
@@ -61,7 +70,7 @@ describe('POST /api/admin/login', () => {
 
     test('returns 400 for missing password', async () => {
       const request = createMockRequest({
-        email: 'blurjp@gmail.com',
+        email: ADMIN_EMAIL,
       });
 
       const response = await POST(request);
@@ -86,7 +95,7 @@ describe('POST /api/admin/login', () => {
     test('returns 401 for invalid email', async () => {
       const request = createMockRequest({
         email: 'wrong@email.com',
-        password: '1qaz2wsx#E$R',
+        password: ADMIN_PASSWORD,
       });
 
       const response = await POST(request);
@@ -98,7 +107,7 @@ describe('POST /api/admin/login', () => {
 
     test('returns 401 for invalid password', async () => {
       const request = createMockRequest({
-        email: 'blurjp@gmail.com',
+        email: ADMIN_EMAIL,
         password: 'wrongpassword',
       });
 
@@ -107,6 +116,30 @@ describe('POST /api/admin/login', () => {
 
       expect(response.status).toBe(401);
       expect(data.error).toBe('Invalid credentials');
+    });
+  });
+
+  describe('rate limiting', () => {
+    test('returns 429 after too many failed attempts', async () => {
+      // Exhaust the 5-attempt window from a single IP
+      for (let i = 0; i < 5; i++) {
+        const request = createMockRequest({
+          email: 'wrong@email.com',
+          password: 'wrongpassword',
+        });
+        await POST(request);
+      }
+
+      const request = createMockRequest({
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(data.error).toContain('Too many login attempts');
     });
   });
 

@@ -130,12 +130,3 @@ export function isValidTopic(topic: string): boolean {
   const normalized = normalizeTopic(topic);
   return CANONICAL_TOPICS.includes(normalized as CanonicalTopic);
 }
-
-/**
- * Get all variations that map to a canonical topic
- */
-export function getTopicVariations(canonicalTopic: CanonicalTopic): string[] {
-  return Object.entries(TOPIC_NORMALIZATION_MAP)
-    .filter(([_, canonical]) => canonical === canonicalTopic)
-    .map(([variation, _]) => variation);
-}

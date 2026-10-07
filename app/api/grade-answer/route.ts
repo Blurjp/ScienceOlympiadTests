@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-// Lazy-load OpenAI client
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-}
+import { getOpenAI } from '@/lib/openai';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 interface GradeRequest {
   question: string;
@@ -22,10 +16,29 @@ interface GradeResponse {
 }
 
 export async function POST(request: NextRequest) {
+  let body: GradeRequest | undefined;
   try {
+    // Cost-abuse protection: 60 grading requests per IP per minute
+    const rateLimit = checkRateLimit('grade-answer', getClientIp(request), 60, 60 * 1000);
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    if (!body) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       // Fallback to exact matching if no API key
-      const body: GradeRequest = await request.json();
       const isCorrect = body.userAnswer.trim().toLowerCase() === body.correctAnswer.trim().toLowerCase();
       return NextResponse.json({
         isCorrect,
@@ -34,7 +47,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const body: GradeRequest = await request.json();
     const { question, correctAnswer, userAnswer, topic } = body;
 
     if (!question || !correctAnswer || userAnswer === undefined) {
@@ -137,14 +149,13 @@ Return JSON only:
   } catch (error: any) {
     console.error('Grading error:', error);
 
-    // Fallback to simple matching on error
+    // Fallback to simple matching on error (body was already parsed above)
     try {
-      const body: GradeRequest = await request.json();
-      const isCorrect = body.userAnswer?.trim().toLowerCase() === body.correctAnswer?.trim().toLowerCase();
+      const isCorrect = body!.userAnswer?.trim().toLowerCase() === body!.correctAnswer?.trim().toLowerCase();
       return NextResponse.json({
         isCorrect,
         score: isCorrect ? 1 : 0,
-        feedback: isCorrect ? 'Correct!' : `The correct answer is: ${body.correctAnswer}`,
+        feedback: isCorrect ? 'Correct!' : `The correct answer is: ${body!.correctAnswer}`,
       });
     } catch {
       return NextResponse.json(

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqualStr } from '@/lib/admin-auth';
 import { auth } from '@/auth';
 import {
   saveReferenceQuestionsBatch,
@@ -203,9 +204,9 @@ async function storeScrapedLinks(links: ScrapedTestLink[]): Promise<{
 }
 
 async function checkAdminAccess(request: NextRequest): Promise<{ authorized: boolean; error?: string }> {
-  // Option 1: Check for admin secret key in header
+  // Option 1: Check for admin secret key in header (constant-time compare)
   const adminKey = request.headers.get('x-admin-key');
-  if (adminKey && adminKey === process.env.ADMIN_SECRET_KEY) {
+  if (adminKey && process.env.ADMIN_SECRET_KEY && timingSafeEqualStr(adminKey, process.env.ADMIN_SECRET_KEY)) {
     return { authorized: true };
   }
 
@@ -216,7 +217,7 @@ async function checkAdminAccess(request: NextRequest): Promise<{ authorized: boo
   }
 
   const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-  if (!adminEmails.includes(session.user.email)) {
+  if (!adminEmails.some((email) => timingSafeEqualStr(session.user!.email!, email.trim()))) {
     return { authorized: false, error: 'Admin access required' };
   }
 

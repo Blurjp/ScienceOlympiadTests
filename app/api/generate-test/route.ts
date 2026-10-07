@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchQuestions, saveTest } from '@/lib/database';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
 import { Test, Question, Region, Difficulty } from '@/lib/types';
+import { auth } from '@/auth';
 
 interface GenerateTestRequest {
   topic?: string;
@@ -25,6 +27,19 @@ function shuffleArray<T>(array: T[]): T[] {
 
 export async function POST(request: NextRequest) {
   try {
+    // Cost-abuse protection: 20 generations per IP per minute
+    const rateLimit = checkRateLimit('generate-test', getClientIp(request), 20, 60 * 1000);
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
+    // Attribute saved tests to the signed-in user (if any)
+    let userId: string | undefined;
+    try {
+      const session = await auth();
+      userId = session?.user?.id;
+    } catch {
+      // Anonymous generation remains allowed
+    }
+
     const body: GenerateTestRequest = await request.json();
 
     const {
@@ -120,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     try {
-      await saveTest(test);
+      await saveTest(test, undefined, undefined, userId);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(

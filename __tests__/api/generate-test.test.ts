@@ -3,11 +3,17 @@
  */
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/generate-test/route';
+import { clearRateLimits } from '@/lib/rate-limit';
 
 // Mock the database module
 jest.mock('@/lib/database', () => ({
   searchQuestions: jest.fn(),
   saveTest: jest.fn(),
+}));
+
+// Mock auth (anonymous by default)
+jest.mock('@/auth', () => ({
+  auth: jest.fn().mockResolvedValue(null),
 }));
 
 // Mock generateId to have predictable IDs
@@ -33,6 +39,7 @@ function createMockRequest(body: object): NextRequest {
 describe('POST /api/generate-test', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearRateLimits();
   });
 
   const sampleQuestions = [
@@ -203,7 +210,10 @@ describe('POST /api/generate-test', () => {
         expect.objectContaining({
           topic: 'Anatomy',
           questions: expect.any(Array),
-        })
+        }),
+        undefined,
+        undefined,
+        undefined
       );
     });
   });

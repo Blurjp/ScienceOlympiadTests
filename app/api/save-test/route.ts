@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveTest } from '@/lib/database';
-import { Test, Difficulty } from '@/lib/types';
-
-// Map competition level values to database-compatible difficulty values
-// The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
-function mapDifficultyForDatabase(difficulty: string): string {
-  const competitionLevelMap: Record<string, string> = {
-    'Invitational': 'Easy',
-    'Regional': 'Medium',
-    'State': 'Medium',
-    'National': 'Hard',
-  };
-  return competitionLevelMap[difficulty] || difficulty;
-}
+import { saveTest, getTestOwner } from '@/lib/database';
+import { Test } from '@/lib/types';
+import { mapDifficultyForDatabase } from '@/lib/difficulty';
+import { isAdminEmail } from '@/lib/admin-auth';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { auth } from '@/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Basic abuse protection
+    const identity = getClientIp(request);
+    const rateLimit = checkRateLimit('save-test', identity, 30, 60 * 1000);
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
     const body = await request.json();
     const { test } = body;
 
@@ -34,15 +31,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ownership check: an existing test can only be overwritten by its
+    // owner or an admin
+    const session = await auth();
+    const userId = session?.user?.id;
+    const existing = await getTestOwner(test.id);
+    if (
+      existing &&
+      existing.userId &&
+      existing.userId !== userId &&
+      !(session?.user?.email && isAdminEmail(session.user.email))
+    ) {
+      return NextResponse.json(
+        { error: 'You do not have permission to modify this test' },
+        { status: 403 }
+      );
+    }
+
     // Map competition level to database-compatible difficulty
     const testToSave = {
       ...test,
       difficulty: mapDifficultyForDatabase(test.difficulty),
     } as Test;
 
-    // Save test to database
+    // Save test to database, attributing it to the signed-in user
     try {
-      await saveTest(testToSave);
+      await saveTest(testToSave, undefined, undefined, userId);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(

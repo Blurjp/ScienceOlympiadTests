@@ -3,7 +3,7 @@
  */
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/admin/stats/route';
-import { ADMIN_COOKIE_NAME, SESSION_DURATION } from '@/lib/admin-auth';
+import { ADMIN_COOKIE_NAME, SESSION_DURATION, createAdminSessionCookieValue } from '@/lib/admin-auth';
 
 // Mock the database module
 jest.mock('@/lib/database', () => ({
@@ -29,14 +29,14 @@ const mockGetRecentUsers = getRecentUsers as jest.MockedFunction<typeof getRecen
 const mockGetRecentApiCalls = getRecentApiCalls as jest.MockedFunction<typeof getRecentApiCalls>;
 
 function createAuthenticatedRequest(url: string): NextRequest {
-  const validSession = JSON.stringify({
-    email: 'blurjp@gmail.com',
-    token: 'test-token',
+  const validCookie = createAdminSessionCookieValue({
+    email: process.env.ADMIN_EMAIL!,
+    authenticated: true,
     expiresAt: Date.now() + SESSION_DURATION,
   });
 
   const request = new NextRequest(url);
-  request.cookies.set(ADMIN_COOKIE_NAME, validSession);
+  request.cookies.set(ADMIN_COOKIE_NAME, validCookie);
   return request;
 }
 
@@ -84,14 +84,14 @@ describe('GET /api/admin/stats', () => {
     });
 
     test('returns 401 for expired session', async () => {
-      const expiredSession = JSON.stringify({
-        email: 'blurjp@gmail.com',
-        token: 'test-token',
+      const expiredCookie = createAdminSessionCookieValue({
+        email: process.env.ADMIN_EMAIL!,
+        authenticated: true,
         expiresAt: Date.now() - 1000, // expired
       });
 
       const request = new NextRequest('http://localhost:3000/api/admin/stats');
-      request.cookies.set(ADMIN_COOKIE_NAME, expiredSession);
+      request.cookies.set(ADMIN_COOKIE_NAME, expiredCookie);
 
       const response = await GET(request);
       const data = await response.json();
@@ -101,14 +101,14 @@ describe('GET /api/admin/stats', () => {
     });
 
     test('returns 401 for non-admin email', async () => {
-      const nonAdminSession = JSON.stringify({
+      const nonAdminCookie = createAdminSessionCookieValue({
         email: 'notadmin@test.com',
-        token: 'test-token',
+        authenticated: true,
         expiresAt: Date.now() + SESSION_DURATION,
       });
 
       const request = new NextRequest('http://localhost:3000/api/admin/stats');
-      request.cookies.set(ADMIN_COOKIE_NAME, nonAdminSession);
+      request.cookies.set(ADMIN_COOKIE_NAME, nonAdminCookie);
 
       const response = await GET(request);
       const data = await response.json();
@@ -129,31 +129,34 @@ describe('GET /api/admin/stats', () => {
     });
 
     test('returns 401 for missing email in session', async () => {
-      const invalidSession = JSON.stringify({
-        token: 'test-token',
-        expiresAt: Date.now() + SESSION_DURATION,
-      });
-
       const request = new NextRequest('http://localhost:3000/api/admin/stats');
-      request.cookies.set(ADMIN_COOKIE_NAME, invalidSession);
+      request.cookies.set(
+        ADMIN_COOKIE_NAME,
+        createAdminSessionCookieValue({
+          email: '',
+          authenticated: true,
+          expiresAt: Date.now() + SESSION_DURATION,
+        })
+      );
 
       const response = await GET(request);
-      const data = await response.json();
 
       expect(response.status).toBe(401);
     });
 
     test('returns 401 for missing expiresAt in session', async () => {
-      const invalidSession = JSON.stringify({
-        email: 'blurjp@gmail.com',
-        token: 'test-token',
-      });
-
+      // Signed cookie missing expiresAt fails verification
       const request = new NextRequest('http://localhost:3000/api/admin/stats');
-      request.cookies.set(ADMIN_COOKIE_NAME, invalidSession);
+      request.cookies.set(
+        ADMIN_COOKIE_NAME,
+        createAdminSessionCookieValue({
+          email: process.env.ADMIN_EMAIL!,
+          authenticated: true,
+          expiresAt: 0,
+        })
+      );
 
       const response = await GET(request);
-      const data = await response.json();
 
       expect(response.status).toBe(401);
     });

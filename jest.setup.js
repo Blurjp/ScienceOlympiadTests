@@ -28,6 +28,9 @@ jest.mock('next-auth/react', () => ({
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';
 process.env.OPENAI_API_KEY = 'test-api-key';
+process.env.ADMIN_EMAIL = 'admin@test.com';
+process.env.ADMIN_PASSWORD = 'test-admin-password';
+process.env.ADMIN_SESSION_SECRET = 'test-session-secret';
 
 // Global test timeout
 jest.setTimeout(10000);

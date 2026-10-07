@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, getExamSourceById, DynamicExamSource } from '@/lib/database';
+import { getOpenAI, computeCostUsd } from '@/lib/openai';
+import { mapDifficultyForDatabase } from '@/lib/difficulty';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
@@ -10,30 +12,7 @@ import { getSeedQuestionsForTopic } from '@/lib/seed-reference-questions';
 
 export const dynamic = 'force-dynamic';
 
-// GPT-4o pricing (upgraded from gpt-4o-mini for better quality)
-const PRICE_PER_1K_PROMPT_TOKENS = 0.0025;
-const PRICE_PER_1K_COMPLETION_TOKENS = 0.01;
-
-// Map competition level values to database-compatible difficulty values
-// The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
-function mapDifficultyForDatabase(difficulty: string | undefined | null): string {
-  const competitionLevelMap: Record<string, string> = {
-    'Invitational': 'Easy',
-    'Regional': 'Medium',
-    'State': 'Medium',
-    'National': 'Hard',
-  };
-  // Always return a valid difficulty value, default to 'Medium'
-  return competitionLevelMap[difficulty || ''] || 'Medium';
-}
-
 export const maxDuration = 120; // 2 minutes for PDF processing
-
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-}
 
 interface GenerateFromPDFRequest {
   sourceId: string;
@@ -120,6 +99,10 @@ async function extractMetaInformation(source: DynamicExamSource): Promise<ExamMe
 }
 
 export async function POST(request: NextRequest) {
+  // Cost-abuse protection: 8 generations per IP per 5 minutes
+  const rateLimit = checkRateLimit('generate-from-pdf', getClientIp(request), 8, 5 * 60 * 1000);
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
   const session = await auth();
   const userId = session?.user?.id;
 
@@ -193,7 +176,7 @@ export async function POST(request: NextRequest) {
           questions,
         };
 
-        await saveTest(test);
+        await saveTest(test, undefined, undefined, userId);
 
         return NextResponse.json({
           success: true,
@@ -337,8 +320,7 @@ MATHEMATICAL ACCURACY:
     const promptTokens = usage?.prompt_tokens || 0;
     const completionTokens = usage?.completion_tokens || 0;
     const totalTokens = usage?.total_tokens || 0;
-    const costUsd = (promptTokens / 1000 * PRICE_PER_1K_PROMPT_TOKENS) +
-                    (completionTokens / 1000 * PRICE_PER_1K_COMPLETION_TOKENS);
+    const costUsd = computeCostUsd(usage, { model: 'gpt-4o' });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -479,7 +461,7 @@ MATHEMATICAL ACCURACY:
     };
 
     // Save to database
-    await saveTest(test);
+    await saveTest(test, undefined, undefined, userId);
 
     // Save to cache for future use (avoid repeated LLM calls)
     await saveCachedGeneration(

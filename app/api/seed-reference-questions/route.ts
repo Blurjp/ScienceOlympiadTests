@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { timingSafeEqualStr } from '@/lib/admin-auth';
 import {
   saveReferenceQuestionsBatch,
   getReferenceQuestionStats,
@@ -12,9 +13,9 @@ export const dynamic = 'force-dynamic';
 // with high-quality example questions for few-shot learning
 
 async function checkAdminAccess(request: NextRequest): Promise<boolean> {
-  // Check for admin secret key
+  // Check for admin secret key (constant-time compare)
   const adminKey = request.headers.get('x-admin-key');
-  if (adminKey && adminKey === process.env.ADMIN_SECRET_KEY) {
+  if (adminKey && process.env.ADMIN_SECRET_KEY && timingSafeEqualStr(adminKey, process.env.ADMIN_SECRET_KEY)) {
     return true;
   }
 
@@ -23,7 +24,7 @@ async function checkAdminAccess(request: NextRequest): Promise<boolean> {
   if (!session?.user?.email) return false;
 
   const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-  return adminEmails.includes(session.user.email);
+  return adminEmails.some((email) => timingSafeEqualStr(session.user!.email!, email.trim()));
 }
 
 export async function POST(request: NextRequest) {

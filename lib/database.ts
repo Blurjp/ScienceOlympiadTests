@@ -1,9 +1,11 @@
 import { createClient, Client } from '@libsql/client';
+import crypto from 'crypto';
 import { Test, Question } from './types';
 import { normalizeTopic } from './topic-utils';
 
 let db: Client | null = null;
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
 function getClient(): Client {
   if (!db) {
@@ -24,6 +26,17 @@ function getClient(): Client {
 }
 
 async function initializeDatabase() {
+  if (initialized) return;
+  // Memoize the in-flight initialization so concurrent cold-start requests
+  // don't re-run the DDL in parallel
+  if (initPromise) return initPromise;
+  initPromise = doInitializeDatabase().then(() => {
+    initialized = true;
+  });
+  return initPromise;
+}
+
+async function doInitializeDatabase() {
   if (initialized) return;
 
   const database = getClient();
@@ -144,9 +157,13 @@ async function initializeDatabase() {
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_topic ON tests(topic)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_difficulty ON tests(difficulty)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_user_id ON tests(user_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_topic_year ON tests(topic, year)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_tests_region ON tests(region)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_questions_test_id ON questions(test_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_questions_category ON questions(category)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_question_options_question_id ON question_options(question_id)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_test_results_user_id ON test_results(user_id)`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_test_results_test_id ON test_results(test_id)`);
 
   initialized = true;
 }
@@ -158,38 +175,40 @@ async function getDatabase(): Promise<Client> {
 }
 
 // Test operations
-export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string) {
+export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string, userId?: string) {
   const database = await getDatabase();
 
-  await database.execute({
-    sql: `INSERT OR REPLACE INTO tests
-      (id, year, title, description, difficulty, total_time, total_points, topic, region, source_url, pdf_path)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      test.id,
-      test.year,
-      test.title,
-      test.description,
-      test.difficulty,
-      test.totalTime,
-      test.totalPoints,
-      test.topic,
-      test.region || null,
-      sourceUrl || null,
-      pdfPath || null
-    ]
-  });
+  // Build all statements and execute them in a single atomic batch so a
+  // mid-save failure can't leave a test with partial questions.
+  const statements: { sql: string; args: any[] }[] = [
+    {
+      sql: `INSERT OR REPLACE INTO tests
+        (id, user_id, year, title, description, difficulty, total_time, total_points, topic, region, source_url, pdf_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        test.id,
+        userId || null,
+        test.year,
+        test.title,
+        test.description,
+        test.difficulty,
+        test.totalTime,
+        test.totalPoints,
+        test.topic,
+        test.region || null,
+        sourceUrl || null,
+        pdfPath || null
+      ]
+    },
+    {
+      sql: 'DELETE FROM questions WHERE test_id = ?',
+      args: [test.id]
+    },
+  ];
 
-  // Delete existing questions for this test
-  await database.execute({
-    sql: 'DELETE FROM questions WHERE test_id = ?',
-    args: [test.id]
-  });
-
-  // Insert questions
   for (let index = 0; index < test.questions.length; index++) {
     const question = test.questions[index];
-    await database.execute({
+    statements.push({
       sql: `INSERT INTO questions
         (id, test_id, type, question, correct_answer, points, category, question_order)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -207,13 +226,45 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string)
 
     if (question.options) {
       for (let optIndex = 0; optIndex < question.options.length; optIndex++) {
-        await database.execute({
-          sql: `INSERT INTO question_options (question_id, option_text, option_order) VALUES (?, ?, ?)`,
+        statements.push({
+          sql: 'INSERT INTO question_options (question_id, option_text, option_order) VALUES (?, ?, ?)',
           args: [question.id, question.options[optIndex], optIndex]
         });
       }
     }
   }
+
+  await database.batch(statements, 'write');
+}
+
+// Lightweight ownership lookup used for auth checks
+export async function getTestOwner(testId: string): Promise<{ userId: string | null } | null> {
+  const database = await getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT user_id FROM tests WHERE id = ?',
+    args: [testId]
+  });
+  if (result.rows.length === 0) return null;
+  return { userId: ((result.rows[0] as any).user_id ?? null) as string | null };
+}
+
+// Batched lightweight summaries (title/topic) for many tests in one query
+export async function getTestSummaries(testIds: string[]): Promise<Map<string, { title: string; topic: string }>> {
+  const map = new Map<string, { title: string; topic: string }>();
+  if (testIds.length === 0) return map;
+
+  const database = await getDatabase();
+  for (const idChunk of chunk(testIds, 500)) {
+    const placeholders = idChunk.map(() => '?').join(',');
+    const result = await database.execute({
+      sql: `SELECT id, title, topic FROM tests WHERE id IN (${placeholders})`,
+      args: idChunk,
+    });
+    for (const row of result.rows as any[]) {
+      map.set(row.id, { title: row.title, topic: row.topic });
+    }
+  }
+  return map;
 }
 
 export async function getTest(testId: string): Promise<Test | null> {
@@ -232,26 +283,32 @@ export async function getTest(testId: string): Promise<Test | null> {
     args: [testId]
   });
 
-  const questionWithOptions: Question[] = await Promise.all(
-    questionsResult.rows.map(async (q: any) => {
-      const optionsResult = await database.execute({
-        sql: 'SELECT option_text FROM question_options WHERE question_id = ? ORDER BY option_order',
-        args: [q.id]
-      });
+  // Single query for all options of this test's questions (avoids N+1)
+  const optionsResult = questionsResult.rows.length > 0
+    ? await database.execute({
+        sql: `SELECT question_id, option_text FROM question_options
+              WHERE question_id IN (SELECT id FROM questions WHERE test_id = ?)
+              ORDER BY option_order`,
+        args: [testId]
+      })
+    : { rows: [] as any[] };
 
-      return {
-        id: q.id,
-        type: q.type,
-        question: q.question,
-        correctAnswer: q.correct_answer,
-        points: q.points,
-        category: q.category,
-        options: optionsResult.rows.length > 0
-          ? optionsResult.rows.map((o: any) => o.option_text)
-          : undefined,
-      };
-    })
-  );
+  const optionsByQuestion = new Map<string, string[]>();
+  for (const o of optionsResult.rows as any[]) {
+    const list = optionsByQuestion.get(o.question_id) || [];
+    list.push(o.option_text);
+    optionsByQuestion.set(o.question_id, list);
+  }
+
+  const questionWithOptions: Question[] = (questionsResult.rows as any[]).map((q) => ({
+    id: q.id,
+    type: q.type,
+    question: q.question,
+    correctAnswer: q.correct_answer,
+    points: q.points,
+    category: q.category,
+    options: optionsByQuestion.has(q.id) ? optionsByQuestion.get(q.id)! : undefined,
+  }));
 
   return {
     id: test.id,
@@ -267,41 +324,101 @@ export async function getTest(testId: string): Promise<Test | null> {
   };
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
+}
+
+// Load tests (with questions and options) using a fixed number of queries
+// instead of one query per question (avoids severe N+1 fan-out)
+async function loadTestsBulk(
+  database: Client,
+  whereClause: string,
+  args: any[]
+): Promise<Test[]> {
+  const testRows = (await database.execute({
+    sql: `SELECT * FROM tests ${whereClause}`,
+    args,
+  })).rows;
+  if (testRows.length === 0) return [];
+
+  const testIds = (testRows as any[]).map((t) => t.id);
+
+  const questionsByTest = new Map<string, any[]>();
+  for (const idChunk of chunk(testIds, 500)) {
+    const placeholders = idChunk.map(() => '?').join(',');
+    const qResult = await database.execute({
+      sql: `SELECT * FROM questions WHERE test_id IN (${placeholders}) ORDER BY question_order`,
+      args: idChunk,
+    });
+    for (const q of qResult.rows as any[]) {
+      const list = questionsByTest.get(q.test_id) || [];
+      list.push(q);
+      questionsByTest.set(q.test_id, list);
+    }
+  }
+
+  const allQuestionIds = Array.from(questionsByTest.values())
+    .flat()
+    .map((q: any) => q.id);
+
+  const optionsByQuestion = new Map<string, string[]>();
+  for (const idChunk of chunk(allQuestionIds, 500)) {
+    const placeholders = idChunk.map(() => '?').join(',');
+    const oResult = await database.execute({
+      sql: `SELECT question_id, option_text FROM question_options WHERE question_id IN (${placeholders}) ORDER BY option_order`,
+      args: idChunk,
+    });
+    for (const o of oResult.rows as any[]) {
+      const list = optionsByQuestion.get(o.question_id) || [];
+      list.push(o.option_text);
+      optionsByQuestion.set(o.question_id, list);
+    }
+  }
+
+  return (testRows as any[]).map((test) => ({
+    id: test.id,
+    year: test.year,
+    title: test.title,
+    description: test.description,
+    difficulty: test.difficulty,
+    totalTime: test.total_time,
+    totalPoints: test.total_points,
+    topic: test.topic,
+    region: test.region || undefined,
+    questions: (questionsByTest.get(test.id) || []).map((q: any) => ({
+      id: q.id,
+      type: q.type,
+      question: q.question,
+      correctAnswer: q.correct_answer,
+      points: q.points,
+      category: q.category,
+      options: optionsByQuestion.has(q.id) ? optionsByQuestion.get(q.id)! : undefined,
+    })),
+  }));
+}
+
 export async function getAllTests(): Promise<Test[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT id FROM tests ORDER BY year DESC, title');
-  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
-  return tests.filter((t): t is Test => t !== null);
+  return loadTestsBulk(database, 'ORDER BY year DESC, title', []);
 }
 
 export async function getTestsByYear(year: number): Promise<Test[]> {
   const database = await getDatabase();
-  const result = await database.execute({
-    sql: 'SELECT id FROM tests WHERE year = ? ORDER BY title',
-    args: [year]
-  });
-  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
-  return tests.filter((t): t is Test => t !== null);
+  return loadTestsBulk(database, 'WHERE year = ? ORDER BY title', [year]);
 }
 
 export async function getTestsByTopic(topic: string): Promise<Test[]> {
   const database = await getDatabase();
-  const result = await database.execute({
-    sql: 'SELECT id FROM tests WHERE topic = ? ORDER BY year DESC, title',
-    args: [topic]
-  });
-  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
-  return tests.filter((t): t is Test => t !== null);
+  return loadTestsBulk(database, 'WHERE topic = ? ORDER BY year DESC, title', [topic]);
 }
 
 export async function getTestsByYearAndTopic(year: number, topic: string): Promise<Test[]> {
   const database = await getDatabase();
-  const result = await database.execute({
-    sql: 'SELECT id FROM tests WHERE year = ? AND topic = ? ORDER BY title',
-    args: [year, topic]
-  });
-  const tests = await Promise.all(result.rows.map((t: any) => getTest(t.id)));
-  return tests.filter((t): t is Test => t !== null);
+  return loadTestsBulk(database, 'WHERE year = ? AND topic = ? ORDER BY title', [year, topic]);
 }
 
 export async function searchQuestions(filters: {
@@ -353,23 +470,30 @@ export async function searchQuestions(filters: {
 
   const result = await database.execute({ sql: query, args });
 
-  return Promise.all(result.rows.map(async (q: any) => {
+  // Batch-load options for all matched questions (avoids N+1)
+  const questionIds = (result.rows as any[]).map((q) => q.id);
+  const optionsByQuestion = new Map<string, string[]>();
+  for (const idChunk of chunk(questionIds, 500)) {
+    const placeholders = idChunk.map(() => '?').join(',');
     const optionsResult = await database.execute({
-      sql: 'SELECT option_text FROM question_options WHERE question_id = ? ORDER BY option_order',
-      args: [q.id]
+      sql: `SELECT question_id, option_text FROM question_options WHERE question_id IN (${placeholders}) ORDER BY option_order`,
+      args: idChunk,
     });
+    for (const o of optionsResult.rows as any[]) {
+      const list = optionsByQuestion.get(o.question_id) || [];
+      list.push(o.option_text);
+      optionsByQuestion.set(o.question_id, list);
+    }
+  }
 
-    return {
-      id: q.id,
-      type: q.type,
-      question: q.question,
-      correctAnswer: q.correct_answer,
-      points: q.points,
-      category: q.category,
-      options: optionsResult.rows.length > 0
-        ? optionsResult.rows.map((o: any) => o.option_text)
-        : undefined,
-    };
+  return (result.rows as any[]).map((q) => ({
+    id: q.id,
+    type: q.type,
+    question: q.question,
+    correctAnswer: q.correct_answer,
+    points: q.points,
+    category: q.category,
+    options: optionsByQuestion.has(q.id) ? optionsByQuestion.get(q.id)! : undefined,
   }));
 }
 
@@ -434,16 +558,7 @@ export async function createUser(user: User) {
   return user;
 }
 
-export async function getUserByEmail(email: string): Promise<User | null> {
-  const database = await getDatabase();
-  const result = await database.execute({
-    sql: 'SELECT * FROM users WHERE email = ?',
-    args: [email]
-  });
-
-  if (result.rows.length === 0) return null;
-  const user = result.rows[0] as any;
-
+function mapUserRow(user: any): User {
   return {
     id: user.id,
     email: user.email,
@@ -458,6 +573,17 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   };
 }
 
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const database = await getDatabase();
+  const result = await database.execute({
+    sql: 'SELECT * FROM users WHERE email = ?',
+    args: [email]
+  });
+
+  if (result.rows.length === 0) return null;
+  return mapUserRow(result.rows[0]);
+}
+
 export async function getUserById(id: string): Promise<User | null> {
   const database = await getDatabase();
   const result = await database.execute({
@@ -466,20 +592,7 @@ export async function getUserById(id: string): Promise<User | null> {
   });
 
   if (result.rows.length === 0) return null;
-  const user = result.rows[0] as any;
-
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    image: user.image,
-    provider: user.provider,
-    providerAccountId: user.provider_account_id,
-    stripeCustomerId: user.stripe_customer_id,
-    subscriptionStatus: user.subscription_status || 'free',
-    subscriptionId: user.subscription_id,
-    subscriptionCurrentPeriodEnd: user.subscription_current_period_end,
-  };
+  return mapUserRow(result.rows[0]);
 }
 
 export async function updateUser(userId: string, updates: Partial<User>) {
@@ -507,10 +620,10 @@ export async function updateUser(userId: string, updates: Partial<User>) {
 
 // Subscription operations
 export interface SubscriptionData {
-  stripeCustomerId?: string;
+  stripeCustomerId?: string | null;
   subscriptionStatus?: SubscriptionStatus;
-  subscriptionId?: string;
-  subscriptionCurrentPeriodEnd?: string;
+  subscriptionId?: string | null;
+  subscriptionCurrentPeriodEnd?: string | null;
 }
 
 export async function updateUserSubscription(userId: string, data: SubscriptionData) {
@@ -518,6 +631,7 @@ export async function updateUserSubscription(userId: string, data: SubscriptionD
   const fields: string[] = [];
   const values: any[] = [];
 
+  // Note: `null` explicitly clears a column; `undefined` leaves it unchanged.
   if (data.stripeCustomerId !== undefined) {
     fields.push('stripe_customer_id = ?');
     values.push(data.stripeCustomerId);
@@ -552,20 +666,7 @@ export async function getUserByStripeCustomerId(customerId: string): Promise<Use
   });
 
   if (result.rows.length === 0) return null;
-  const user = result.rows[0] as any;
-
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    image: user.image,
-    provider: user.provider,
-    providerAccountId: user.provider_account_id,
-    stripeCustomerId: user.stripe_customer_id,
-    subscriptionStatus: user.subscription_status || 'free',
-    subscriptionId: user.subscription_id,
-    subscriptionCurrentPeriodEnd: user.subscription_current_period_end,
-  };
+  return mapUserRow(result.rows[0]);
 }
 
 export async function getSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
@@ -737,6 +838,8 @@ export async function getCachedGeneration(sourceId: string, questionCount: numbe
 
   // Try to find a cached version with matching source, question count, AND current version
   // The cache_key starts with "gen_v{VERSION}_" so we filter by prefix to ignore old versions
+  // NOTE: ordering by last_used_at ASC intentionally rotates across the 5
+  // cached buckets (least-recently-used first) so users see variety
   const versionPrefix = `gen_v${GENERATION_CACHE_VERSION}_${sourceId}_${questionCount}_%`;
   const result = await database.execute({
     sql: `SELECT * FROM generation_cache
@@ -805,38 +908,16 @@ export async function saveCachedGeneration(
       throw e;
     }
   }
-}
 
-// Get cache stats for admin
-export async function getGenerationCacheStats(): Promise<{
-  totalCached: number;
-  totalUses: number;
-  bySource: { sourceId: string; count: number; uses: number }[];
-}> {
-  const database = await getDatabase();
-  await initializeGenerationCacheTable();
-
-  const totalResult = await database.execute(
-    'SELECT COUNT(*) as count, SUM(use_count) as uses FROM generation_cache'
-  );
-
-  const bySourceResult = await database.execute(`
-    SELECT source_id, COUNT(*) as count, SUM(use_count) as uses
-    FROM generation_cache
-    GROUP BY source_id
-    ORDER BY uses DESC
-  `);
-
-  const total = totalResult.rows[0] as any;
-  return {
-    totalCached: total?.count || 0,
-    totalUses: total?.uses || 0,
-    bySource: bySourceResult.rows.map((r: any) => ({
-      sourceId: r.source_id,
-      count: r.count || 0,
-      uses: r.uses || 0,
-    })),
-  };
+  // Opportunistically prune old cache entries so the table doesn't grow
+  // unbounded (runs ~5% of the time, keeping the 10 most recent per source)
+  if (Math.random() < 0.05) {
+    try {
+      await cleanupGenerationCache(10);
+    } catch {
+      // Pruning is best-effort
+    }
+  }
 }
 
 // Clear old cache entries (keep only recent ones per source)
@@ -880,15 +961,10 @@ async function initializePdfParseCacheTable() {
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_pdf_parse_cache_hash ON pdf_parse_cache(url_hash)`);
 }
 
-// Simple hash function for URL
+// Hash function for URL cache keys (SHA-256; collision-resistant unlike the
+// old 32-bit hash which could silently return the wrong cached PDF)
 function hashUrl(url: string): string {
-  let hash = 0;
-  for (let i = 0; i < url.length; i++) {
-    const char = url.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return Math.abs(hash).toString(36);
+  return crypto.createHash('sha256').update(url).digest('hex');
 }
 
 // Get cached PDF parse result
@@ -982,13 +1058,6 @@ async function initializeAnalyticsTables() {
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage(created_at)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_api_usage_user_id ON api_usage(user_id)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_api_usage_endpoint ON api_usage(endpoint)`);
-}
-
-// Call analytics init after main init
-const originalInitializeDatabase = initializeDatabase;
-async function initializeDatabaseWithAnalytics() {
-  await originalInitializeDatabase();
-  await initializeAnalyticsTables();
 }
 
 // API Usage tracking
@@ -1739,49 +1808,18 @@ export async function getReferenceQuestions(options: {
   // Apply the original limit after filtering
   questions = questions.slice(0, options.limit || 10);
 
-  // Update use count for returned questions
-  for (const q of questions) {
-    if (q.id) {
-      await database.execute({
-        sql: `UPDATE reference_questions SET use_count = use_count + 1 WHERE id = ?`,
-        args: [q.id]
-      });
-    }
+  // Update use count for returned questions (single batched statement)
+  const idsToUpdate = questions.filter(q => q.id).map(q => q.id!);
+  if (idsToUpdate.length > 0) {
+    await database.execute({
+      sql: `UPDATE reference_questions
+            SET use_count = use_count + 1
+            WHERE id IN (${idsToUpdate.map(() => '?').join(',')})`,
+      args: idsToUpdate
+    });
   }
 
   return questions;
-}
-
-// Get random reference questions for variety
-export async function getRandomReferenceQuestions(topic: string, count: number = 5): Promise<ReferenceQuestion[]> {
-  const database = await getDatabase();
-  await initializeReferenceQuestionsTable();
-
-  // Normalize topic name for query
-  const normalizedTopic = normalizeTopic(topic);
-
-  const result = await database.execute({
-    sql: `SELECT * FROM reference_questions WHERE topic = ? ORDER BY RANDOM() LIMIT ?`,
-    args: [normalizedTopic, count]
-  });
-
-  return result.rows.map((r: any) => ({
-    id: r.id,
-    topic: r.topic,
-    subtopic: r.subtopic,
-    difficulty: r.difficulty,
-    questionType: r.question_type,
-    questionText: r.question_text,
-    correctAnswer: r.correct_answer,
-    options: r.options ? JSON.parse(r.options) : undefined,
-    explanation: r.explanation,
-    sourceYear: r.source_year,
-    sourceTournament: r.source_tournament,
-    sourceUrl: r.source_url,
-    tags: r.tags ? JSON.parse(r.tags) : undefined,
-    qualityScore: r.quality_score,
-    useCount: r.use_count,
-  }));
 }
 
 // Get reference question stats

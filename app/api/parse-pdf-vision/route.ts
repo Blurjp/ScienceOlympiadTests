@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getOpenAI } from '@/lib/openai';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { Question } from '@/lib/types';
 import { generateId } from '@/lib/utils';
 
@@ -9,15 +11,12 @@ const MAX_PAGES = 30; // Increased to handle longer tests
 // Extend serverless function timeout
 export const maxDuration = 300; // 5 minutes (Vercel Pro max)
 
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    timeout: 300000, // 5 minute timeout for vision
-  });
-}
-
 export async function POST(request: NextRequest) {
   try {
+    // Cost-abuse protection: 10 uploads per IP per 5 minutes
+    const rateLimit = checkRateLimit('parse-pdf-vision', getClientIp(request), 10, 5 * 60 * 1000);
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use GPT-4o vision to extract questions from images
-    const openai = getOpenAI();
+    const openai = getOpenAI({ timeout: 300000 }); // 5 minute timeout for vision
 
     // Build the content array with images
     const imageContents: OpenAI.ChatCompletionContentPart[] = images.map((base64, index) => ({

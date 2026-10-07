@@ -118,8 +118,9 @@ export async function POST(request: NextRequest) {
         if (user) {
           await updateUserSubscription(user.id, {
             subscriptionStatus: 'free',
-            subscriptionId: undefined,
-            subscriptionCurrentPeriodEnd: undefined,
+            // null explicitly clears these columns (undefined would skip them)
+            subscriptionId: null,
+            subscriptionCurrentPeriodEnd: null,
           });
         }
         break;

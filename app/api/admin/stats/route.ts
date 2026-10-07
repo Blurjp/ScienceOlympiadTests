@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ADMIN_COOKIE_NAME, isAdminEmail } from '@/lib/admin-auth';
+import { ADMIN_COOKIE_NAME, verifyAdminSessionCookie } from '@/lib/admin-auth';
 import {
   getAdminStats,
   getApiUsageByDay,
@@ -8,20 +8,9 @@ import {
   getRecentApiCalls,
 } from '@/lib/database';
 
-// Verify admin session from cookie
+// Verify admin session from signed cookie
 function verifyAdminSession(request: NextRequest): boolean {
-  const cookie = request.cookies.get(ADMIN_COOKIE_NAME);
-  if (!cookie) return false;
-
-  try {
-    const session = JSON.parse(cookie.value);
-    if (!session.email || !session.expiresAt) return false;
-    if (!isAdminEmail(session.email)) return false;
-    if (Date.now() > session.expiresAt) return false;
-    return true;
-  } catch {
-    return false;
-  }
+  return verifyAdminSessionCookie(request.cookies.get(ADMIN_COOKIE_NAME)?.value) !== null;
 }
 
 export async function GET(request: NextRequest) {

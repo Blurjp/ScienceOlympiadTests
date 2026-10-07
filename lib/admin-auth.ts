@@ -1,8 +1,12 @@
 // Admin authentication configuration
-// Only these credentials can access the admin dashboard
+// Credentials and session secret are read from environment variables.
+// Generate a strong password: openssl rand -base64 24
+import crypto from 'crypto';
 
-const ADMIN_EMAIL = 'blurjp@gmail.com';
-const ADMIN_PASSWORD = '1qaz2wsx#E$R';
+export const ADMIN_COOKIE_NAME = 'admin_session';
+
+// Session duration: 24 hours
+export const SESSION_DURATION = 24 * 60 * 60 * 1000;
 
 export interface AdminSession {
   email: string;
@@ -10,34 +14,88 @@ export interface AdminSession {
   expiresAt: number;
 }
 
-// Simple password hashing for comparison (in production, use bcrypt)
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+function getAdminEmail(): string {
+  return process.env.ADMIN_EMAIL || '';
+}
+
+function getAdminPassword(): string {
+  return process.env.ADMIN_PASSWORD || '';
+}
+
+function getSessionSecret(): string {
+  return (
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    ''
+  );
+}
+
+// Constant-time string comparison to avoid timing attacks
+export function timingSafeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Burn the same time as a real comparison, then fail
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
   }
-  return hash.toString(36);
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 export function validateAdminCredentials(email: string, password: string): boolean {
-  return email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+  const adminEmail = getAdminEmail();
+  const adminPassword = getAdminPassword();
+  if (!adminEmail || !adminPassword) return false;
+  return timingSafeEqualStr(email, adminEmail) && timingSafeEqualStr(password, adminPassword);
 }
 
 export function isAdminEmail(email: string): boolean {
-  return email === ADMIN_EMAIL;
+  const adminEmail = getAdminEmail();
+  if (!adminEmail) return false;
+  return timingSafeEqualStr(email, adminEmail);
 }
 
-// Session token generation (simple implementation)
-export function generateAdminToken(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2);
-  return `admin_${timestamp}_${random}`;
+// Create an HMAC-signed session cookie value.
+// The signature makes the cookie unforgeable without the session secret.
+export function createAdminSessionCookieValue(session: AdminSession): string {
+  const secret = getSessionSecret();
+  if (!secret) {
+    throw new Error('Admin session secret is not configured (set ADMIN_SESSION_SECRET or AUTH_SECRET)');
+  }
+  const payload = Buffer.from(JSON.stringify(session)).toString('base64url');
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
 }
 
-// Cookie name for admin session
-export const ADMIN_COOKIE_NAME = 'admin_session';
+// Verify an admin session cookie value and return the session, or null if
+// invalid, tampered with, or expired.
+export function verifyAdminSessionCookie(value: string | undefined): AdminSession | null {
+  if (!value) return null;
 
-// Session duration: 24 hours
-export const SESSION_DURATION = 24 * 60 * 60 * 1000;
+  const secret = getSessionSecret();
+  if (!secret) return null;
+
+  const dotIndex = value.lastIndexOf('.');
+  if (dotIndex === -1) return null;
+
+  const payload = value.slice(0, dotIndex);
+  const signature = value.slice(dotIndex + 1);
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('base64url');
+
+  if (!timingSafeEqualStr(signature, expectedSignature)) return null;
+
+  try {
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString()) as AdminSession;
+    if (!session.email || !session.expiresAt) return null;
+    if (!isAdminEmail(session.email)) return null;
+    if (Date.now() > session.expiresAt) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}

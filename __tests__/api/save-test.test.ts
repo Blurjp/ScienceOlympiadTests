@@ -4,14 +4,21 @@
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/save-test/route';
 
+// Mock the auth module (anonymous by default)
+jest.mock('@/auth', () => ({
+  auth: jest.fn().mockResolvedValue(null),
+}));
+
 // Mock the database module
 jest.mock('@/lib/database', () => ({
   saveTest: jest.fn(),
+  getTestOwner: jest.fn(),
 }));
 
-import { saveTest } from '@/lib/database';
+import { saveTest, getTestOwner } from '@/lib/database';
 
 const mockSaveTest = saveTest as jest.MockedFunction<typeof saveTest>;
+const mockGetTestOwner = getTestOwner as jest.MockedFunction<typeof getTestOwner>;
 
 function createMockRequest(body: object): NextRequest {
   return new NextRequest('http://localhost:3000/api/save-test', {
@@ -26,6 +33,8 @@ function createMockRequest(body: object): NextRequest {
 describe('POST /api/save-test', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // New test IDs by default (no existing owner)
+    mockGetTestOwner.mockResolvedValue(null);
   });
 
   const validTest = {
@@ -65,7 +74,32 @@ describe('POST /api/save-test', () => {
       expect(mockSaveTest).toHaveBeenCalledWith({
         ...validTest,
         difficulty: 'Easy', // Mapped from 'Invitational'
-      });
+      }, undefined, undefined, undefined);
+    });
+  });
+
+  describe('ownership protection', () => {
+    test('returns 403 when overwriting a test owned by someone else', async () => {
+      mockGetTestOwner.mockResolvedValue({ userId: 'someone-else' });
+
+      const request = createMockRequest({ test: validTest });
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(data.error).toBe('You do not have permission to modify this test');
+      expect(mockSaveTest).not.toHaveBeenCalled();
+    });
+
+    test('allows overwriting an unowned (legacy) test', async () => {
+      mockGetTestOwner.mockResolvedValue({ userId: null });
+      mockSaveTest.mockResolvedValue(undefined);
+
+      const request = createMockRequest({ test: validTest });
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockSaveTest).toHaveBeenCalled();
     });
   });
 

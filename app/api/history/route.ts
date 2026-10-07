@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getUserTestResults, getTest } from '@/lib/database';
+import { getUserTestResults, getTestSummaries } from '@/lib/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,25 +17,25 @@ export async function GET(request: NextRequest) {
 
     const results = await getUserTestResults(session.user.id);
 
-    // Fetch test details for each result
-    const resultsWithTests = await Promise.all(
-      results.map(async (result) => {
-        const test = await getTest(result.testId);
-        return {
-          id: result.id,
-          testId: result.testId,
-          testTitle: test?.title || 'Unknown Test',
-          testTopic: test?.topic || 'Unknown',
-          score: result.score,
-          totalPoints: result.totalPoints,
-          percentage: result.percentage,
-          correctAnswers: result.correctAnswers,
-          totalQuestions: result.totalQuestions,
-          timeSpent: result.timeSpent,
-          completedAt: result.completedAt || new Date().toISOString(),
-        };
-      })
-    );
+    // Fetch test titles/topics for all results in one batched query
+    const summaries = await getTestSummaries(results.map((r) => r.testId));
+
+    const resultsWithTests = results.map((result) => {
+      const summary = summaries.get(result.testId);
+      return {
+        id: result.id,
+        testId: result.testId,
+        testTitle: summary?.title || 'Unknown Test',
+        testTopic: summary?.topic || 'Unknown',
+        score: result.score,
+        totalPoints: result.totalPoints,
+        percentage: result.percentage,
+        correctAnswers: result.correctAnswers,
+        totalQuestions: result.totalQuestions,
+        timeSpent: result.timeSpent,
+        completedAt: result.completedAt || new Date().toISOString(),
+      };
+    });
 
     return NextResponse.json({ results: resultsWithTests });
   } catch (error) {

@@ -4,6 +4,7 @@
 import OpenAI from 'openai';
 import { ReferenceQuestion } from './database';
 import { normalizeTopic } from './topic-utils';
+import { extractGoogleDriveFileId, toGoogleDriveDirectDownload } from './google-drive';
 
 const MAX_PAGES = 20; // Limit pages to control API costs
 
@@ -28,29 +29,8 @@ export interface PDFParseResult {
 
 // Convert Google Drive share link to direct download link
 export function convertGoogleDriveUrl(url: string): string | null {
-  // Handle various Google Drive URL formats
-  // Format 1: https://drive.google.com/file/d/FILE_ID/view
-  // Format 2: https://drive.google.com/open?id=FILE_ID
-  // Format 3: https://docs.google.com/document/d/FILE_ID/...
-
-  let fileId: string | null = null;
-
-  if (url.includes('/file/d/')) {
-    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    fileId = match?.[1] || null;
-  } else if (url.includes('id=')) {
-    const match = url.match(/id=([a-zA-Z0-9_-]+)/);
-    fileId = match?.[1] || null;
-  } else if (url.includes('/document/d/')) {
-    const match = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    fileId = match?.[1] || null;
-  }
-
-  if (fileId) {
-    return `https://drive.google.com/uc?export=download&id=${fileId}`;
-  }
-
-  return null;
+  const fileId = extractGoogleDriveFileId(url);
+  return fileId ? toGoogleDriveDirectDownload(fileId) : null;
 }
 
 // Convert Dropbox share link to direct download

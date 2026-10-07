@@ -12,15 +12,15 @@ jest.mock('@/auth', () => ({
 // Mock the database module
 jest.mock('@/lib/database', () => ({
   getUserTestResults: jest.fn(),
-  getTest: jest.fn(),
+  getTestSummaries: jest.fn(),
 }));
 
 import { auth } from '@/auth';
-import { getUserTestResults, getTest } from '@/lib/database';
+import { getUserTestResults, getTestSummaries } from '@/lib/database';
 
 const mockAuth = auth as unknown as jest.MockedFunction<() => Promise<any>>;
 const mockGetUserTestResults = getUserTestResults as jest.MockedFunction<typeof getUserTestResults>;
-const mockGetTest = getTest as jest.MockedFunction<typeof getTest>;
+const mockGetTestSummaries = getTestSummaries as jest.MockedFunction<typeof getTestSummaries>;
 
 describe('GET /api/history', () => {
   beforeEach(() => {
@@ -41,17 +41,13 @@ describe('GET /api/history', () => {
     },
   ];
 
-  const sampleTest = {
-    id: 'test-1',
-    title: 'Anatomy Test',
-    topic: 'Anatomy and Physiology',
-  };
-
   describe('authenticated user', () => {
     test('returns test history with test details', async () => {
       mockAuth.mockResolvedValue({ user: { id: 'user-1' } } as any);
       mockGetUserTestResults.mockResolvedValue(sampleResults as any);
-      mockGetTest.mockResolvedValue(sampleTest as any);
+      mockGetTestSummaries.mockResolvedValue(
+        new Map([['test-1', { title: 'Anatomy Test', topic: 'Anatomy and Physiology' }]])
+      );
 
       const request = new NextRequest('http://localhost:3000/api/history');
       const response = await GET(request);
@@ -66,7 +62,7 @@ describe('GET /api/history', () => {
     test('handles missing test gracefully', async () => {
       mockAuth.mockResolvedValue({ user: { id: 'user-1' } } as any);
       mockGetUserTestResults.mockResolvedValue(sampleResults as any);
-      mockGetTest.mockResolvedValue(null);
+      mockGetTestSummaries.mockResolvedValue(new Map());
 
       const request = new NextRequest('http://localhost:3000/api/history');
       const response = await GET(request);

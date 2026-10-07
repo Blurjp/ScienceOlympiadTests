@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractText } from 'unpdf';
-import OpenAI from 'openai';
 import { saveTest, getCachedPdfParse, savePdfParseCache, logApiUsage } from '@/lib/database';
+import { getOpenAI, computeCostUsd } from '@/lib/openai';
+import { mapDifficultyForDatabase } from '@/lib/difficulty';
+import { safeFetch, UnsafeUrlError } from '@/lib/url-guard';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { extractGoogleDriveFileId, toGoogleDriveDirectDownload } from '@/lib/google-drive';
 import { generateId } from '@/lib/utils';
 import { Test, Question, Region } from '@/lib/types';
 import { auth } from '@/auth';
@@ -10,51 +14,7 @@ export const dynamic = 'force-dynamic';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
 
-// Map competition level values to database-compatible difficulty values
-// The database CHECK constraint only allows: 'Easy', 'Medium', 'Hard'
-function mapDifficultyForDatabase(difficulty: string | undefined | null): string {
-  const competitionLevelMap: Record<string, string> = {
-    'Invitational': 'Easy',
-    'Regional': 'Medium',
-    'State': 'Medium',
-    'National': 'Hard',
-  };
-  // Always return a valid difficulty value, default to 'Medium'
-  return competitionLevelMap[difficulty || ''] || 'Medium';
-}
-
-// Extract Google Drive file ID from various URL formats
-function extractGoogleDriveFileId(url: string): string | null {
-  // Pattern 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-  // Pattern 2: https://drive.google.com/file/d/FILE_ID/view
-  // Pattern 3: https://drive.google.com/open?id=FILE_ID
-  // Pattern 4: https://drive.google.com/uc?id=FILE_ID&export=download
-
-  const patterns = [
-    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
-    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
-    /drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
-
-// GPT-4o-mini pricing
-const PRICE_PER_1K_PROMPT_TOKENS = 0.00015;
-const PRICE_PER_1K_COMPLETION_TOKENS = 0.0006;
-
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-}
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 export const maxDuration = 300; // 5 minutes for PDF processing (Vercel Pro max)
 
@@ -70,6 +30,10 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // Cost-abuse protection: 10 imports per IP per 5 minutes
+  const rateLimit = checkRateLimit('download-pdf', getClientIp(request), 10, 5 * 60 * 1000);
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
 
   try {
     const body = await request.json();
@@ -97,7 +61,7 @@ export async function POST(request: NextRequest) {
     let downloadUrl = pdfUrl.toString();
     const googleDriveFileId = extractGoogleDriveFileId(downloadUrl);
     if (googleDriveFileId) {
-      downloadUrl = `https://drive.google.com/uc?export=download&id=${googleDriveFileId}`;
+      downloadUrl = toGoogleDriveDirectDownload(googleDriveFileId);
       console.log(`Converted Google Drive URL to direct download: ${downloadUrl}`);
     }
 
@@ -126,7 +90,7 @@ export async function POST(request: NextRequest) {
         questions,
       };
 
-      await saveTest(test, url);
+      await saveTest(test, url, undefined, userId);
 
       return NextResponse.json({
         success: true,
@@ -138,20 +102,34 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Download PDF
-    let response: Response;
+    // Download PDF with SSRF protection and a hard body-size cap
+    let pdfBytes: Uint8Array;
     try {
-      response = await fetch(downloadUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-        redirect: 'follow',
+      const { response, body } = await safeFetch(downloadUrl, MAX_FILE_SIZE, {
+        headers: { 'User-Agent': BROWSER_UA },
       });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      // Check content type
+      const contentType = response.headers.get('content-type');
+      if (contentType && !contentType.includes('pdf') && !contentType.includes('octet-stream')) {
+        return NextResponse.json(
+          { error: 'URL does not point to a PDF file' },
+          { status: 400 }
+        );
+      }
+
+      pdfBytes = body;
     } catch (error) {
+      if (error instanceof UnsafeUrlError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         {
           error: 'Failed to download PDF',
@@ -161,60 +139,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check content type
-    const contentType = response.headers.get('content-type');
-    if (contentType && !contentType.includes('pdf') && !contentType.includes('octet-stream')) {
-      return NextResponse.json(
-        { error: 'URL does not point to a PDF file' },
-        { status: 400 }
-      );
-    }
-
-    // Get file size
-    const contentLength = response.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'PDF file is too large (max 50MB)' },
-        { status: 400 }
-      );
-    }
-
-    // Download and extract text from PDF
-    const buffer = await response.arrayBuffer();
-    const uint8Array = new Uint8Array(buffer);
-
-    // Check if it looks like a PDF (should start with %PDF)
-    const headerBytes = new TextDecoder().decode(uint8Array.slice(0, 100));
-
     // Check if we got HTML instead of PDF (common with login pages, error pages, or Google Drive virus scan warning)
-    let pdfBytes = uint8Array;
+    const headerBytes = new TextDecoder().decode(pdfBytes.slice(0, 100));
     if (headerBytes.toLowerCase().includes('<html') || headerBytes.toLowerCase().includes('<!doctype')) {
       // Check if this is a Google Drive virus scan warning page
-      const htmlContent = new TextDecoder().decode(uint8Array);
+      const htmlContent = new TextDecoder().decode(pdfBytes);
 
       if (googleDriveFileId && (htmlContent.includes('virus scan') || htmlContent.includes('confirm='))) {
         // Try to extract the confirm token and retry with it
         const confirmMatch = htmlContent.match(/confirm=([a-zA-Z0-9_-]+)/);
         if (confirmMatch) {
           const confirmToken = confirmMatch[1];
-          const retryUrl = `https://drive.google.com/uc?export=download&id=${googleDriveFileId}&confirm=${confirmToken}`;
+          const retryUrl = `${toGoogleDriveDirectDownload(googleDriveFileId)}&confirm=${confirmToken}`;
 
           try {
-            const retryResponse = await fetch(retryUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              },
-              redirect: 'follow',
+            const { response: retryResponse, body: retryBytes } = await safeFetch(retryUrl, MAX_FILE_SIZE, {
+              headers: { 'User-Agent': BROWSER_UA },
             });
 
             if (retryResponse.ok) {
-              const retryBuffer = await retryResponse.arrayBuffer();
-              const retryUint8Array = new Uint8Array(retryBuffer);
-              const retryHeader = new TextDecoder().decode(retryUint8Array.slice(0, 100));
+              const retryHeader = new TextDecoder().decode(retryBytes.slice(0, 100));
 
               if (retryHeader.startsWith('%PDF')) {
                 // Successfully got the PDF on retry - use this data
-                pdfBytes = retryUint8Array;
+                pdfBytes = retryBytes;
               } else {
                 // Still not a PDF after retry
                 return NextResponse.json(
@@ -227,6 +175,12 @@ export async function POST(request: NextRequest) {
               }
             }
           } catch (retryError) {
+            if (retryError instanceof UnsafeUrlError) {
+              return NextResponse.json(
+                { error: retryError.message },
+                { status: 400 }
+              );
+            }
             console.error('Google Drive retry failed:', retryError);
             return NextResponse.json(
               {
@@ -385,8 +339,7 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
     const promptTokens = usage?.prompt_tokens || 0;
     const completionTokens = usage?.completion_tokens || 0;
     const totalTokens = usage?.total_tokens || 0;
-    const costUsd = (promptTokens / 1000 * PRICE_PER_1K_PROMPT_TOKENS) +
-                    (completionTokens / 1000 * PRICE_PER_1K_COMPLETION_TOKENS);
+    const costUsd = computeCostUsd(usage);
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -459,7 +412,7 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
     };
 
     // Save to database
-    await saveTest(test, url);
+    await saveTest(test, url, undefined, userId);
 
     // Log successful usage
     await logApiUsage({

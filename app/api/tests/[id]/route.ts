@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTest, deleteTest } from '@/lib/database';
+import { getTest, getTestOwner, deleteTest } from '@/lib/database';
+import { isAdminEmail } from '@/lib/admin-auth';
+import { auth } from '@/auth';
 
 export async function GET(
   request: NextRequest,
@@ -30,6 +32,33 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Require an authenticated session
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const existing = await getTestOwner(params.id);
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Test not found' },
+        { status: 404 }
+      );
+    }
+
+    // Only the owner or an admin may delete a test
+    const isAdmin = Boolean(session.user?.email && isAdminEmail(session.user.email));
+    if (existing.userId !== userId && !isAdmin) {
+      return NextResponse.json(
+        { error: 'You do not have permission to delete this test' },
+        { status: 403 }
+      );
+    }
+
     await deleteTest(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
