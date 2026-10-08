@@ -25,6 +25,14 @@ const PRO_FEATURES = [
   'Cancel anytime',
 ];
 
+const SEASON_FEATURES = [
+  'Everything in Pro for the full season',
+  'Covers Sep 1 – May 31',
+  'One-time payment — nothing to cancel',
+  'Saves over 55% vs paying monthly',
+  'Priority support',
+];
+
 export default function PricingPage() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
@@ -71,7 +79,7 @@ export default function PricingPage() {
         )}
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {/* Free Tier */}
           <PricingCard
             name="Free"
@@ -126,6 +134,33 @@ export default function PricingPage() {
               </Link>
             )}
           </PricingCard>
+
+          {/* Season Pass Tier */}
+          <PricingCard
+            name="Season Pass"
+            price="$19.99"
+            period="/season"
+            description="One payment. The whole competition season."
+            features={SEASON_FEATURES}
+            currentPlan={isPro && isLoggedIn /* season holders show as Pro-level */}
+          >
+            {isLoading ? (
+              <Button disabled className="w-full">
+                Loading...
+              </Button>
+            ) : isPro ? (
+              <ManageSubscriptionButton variant="outline" className="w-full" />
+            ) : isLoggedIn ? (
+              <UpgradeButton plan="season" variant="secondary" className="w-full" />
+            ) : (
+              <Link href="/login" className="w-full">
+                <Button variant="secondary" className="w-full">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Sign up for the Season Pass
+                </Button>
+              </Link>
+            )}
+          </PricingCard>
         </div>
 
         {/* FAQ Section */}
@@ -145,6 +180,14 @@ export default function PricingPage() {
               <h3 className="font-semibold mb-2">When does my monthly limit reset?</h3>
               <p className="text-muted-foreground">
                 Your free tier limit resets on the 1st of each month.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">What&apos;s the difference between Pro and the Season Pass?</h3>
+              <p className="text-muted-foreground">
+                Same access, different shape. Pro is $4.99/month and renews until you cancel. The
+                Season Pass is $19.99 once and covers the whole competition season (September 1 –
+                May 31) — saving over 55% with nothing to remember to cancel.
               </p>
             </div>
             <div>

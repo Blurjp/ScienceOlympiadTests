@@ -672,24 +672,49 @@ export async function getUserByStripeCustomerId(customerId: string): Promise<Use
 export async function getSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
   const database = await getDatabase();
   const result = await database.execute({
-    sql: 'SELECT subscription_status FROM users WHERE id = ?',
+    sql: 'SELECT subscription_status, subscription_id, subscription_current_period_end FROM users WHERE id = ?',
     args: [userId]
   });
 
   if (result.rows.length === 0) return 'free';
-  const user = result.rows[0] as any;
-  return (user.subscription_status as SubscriptionStatus) || 'free';
+  const row = result.rows[0] as any;
+  const status = (row.subscription_status as SubscriptionStatus) || 'free';
+
+  // Season Pass expiry: active with no Stripe subscription object (subscription_id
+  // is null) whose period has ended. Monthly Pro always has a subscription_id and
+  // is kept in sync by subscription webhooks instead.
+  if (
+    status === 'active' &&
+    !row.subscription_id &&
+    row.subscription_current_period_end &&
+    new Date(row.subscription_current_period_end) < new Date()
+  ) {
+    // Persist the downgrade so session tokens and other readers stay accurate
+    try {
+      await updateUserSubscription(userId, {
+        subscriptionStatus: 'free',
+        subscriptionCurrentPeriodEnd: null,
+      });
+    } catch (error) {
+      console.error('Failed to persist expired Season Pass downgrade:', error);
+    }
+    return 'free';
+  }
+
+  return status;
 }
 
 export async function getUserMonthlyAIGenerations(userId: string): Promise<number> {
   const database = await getDatabase();
   await initializeAnalyticsTables();
 
-  // Count successful AI test generations for this user in the current calendar month
+  // Count successful AI generations for this user in the current calendar month.
+  // Covers both free-tier features: the topic-based AI Test Generator and the
+  // Exam-Inspired Generator (generate-from-pdf). Keep in sync with the pricing FAQ.
   const result = await database.execute({
     sql: `SELECT COUNT(*) as count FROM api_usage
           WHERE user_id = ?
-          AND endpoint = 'generate-ai-test'
+          AND endpoint IN ('generate-ai-test', 'generate-from-pdf')
           AND success = 1
           AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`,
     args: [userId]

@@ -8,9 +8,15 @@ interface UpgradeButtonProps {
   className?: string;
   variant?: 'default' | 'outline' | 'secondary';
   size?: 'default' | 'sm' | 'lg';
+  plan?: 'pro' | 'season';
 }
 
-export function UpgradeButton({ className, variant = 'default', size = 'default' }: UpgradeButtonProps) {
+export function UpgradeButton({
+  className,
+  variant = 'default',
+  size = 'default',
+  plan = 'pro',
+}: UpgradeButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleUpgrade = async () => {
@@ -18,6 +24,8 @@ export function UpgradeButton({ className, variant = 'default', size = 'default'
     try {
       const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
       });
 
       const data = await response.json();
@@ -51,7 +59,7 @@ export function UpgradeButton({ className, variant = 'default', size = 'default'
       ) : (
         <>
           <Sparkles className="mr-2 h-4 w-4" />
-          Upgrade to Pro
+          {plan === 'season' ? 'Get the Season Pass' : 'Upgrade to Pro'}
         </>
       )}
     </Button>

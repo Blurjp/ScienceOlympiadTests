@@ -25,19 +25,28 @@ interface GenerateRequest {
 const MAX_QUESTIONS_FOR_TIMEOUT = 10;
 
 export async function POST(request: NextRequest) {
-  // Cost-abuse protection: rate limit applies to everyone (including
-  // anonymous callers, who bypass the per-user free tier check below)
+  // Cost-abuse protection: rate limit applies to everyone as defense-in-depth
+  // on top of the per-user free tier check below
   const rateIdentity = getClientIp(request);
   const rateLimit = checkRateLimit('generate-ai-test', rateIdentity, 10, 60 * 1000);
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
 
-  // Get user session for tracking (don't let auth failure crash the request)
-  let userId: string | undefined;
-  try {
-    const session = await auth();
-    userId = session?.user?.id;
-  } catch (authError) {
-    console.error('Auth error (non-fatal):', authError);
+  // Require authentication for AI generation (mirrors generate-from-pdf).
+  // Anonymous callers previously bypassed the per-user free tier entirely,
+  // which leaked unlimited OpenAI usage and undercut the free-to-paid funnel.
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Bypass for local development and admin tooling (same pattern as generate-from-pdf)
+  const adminKey = request.headers.get('x-admin-key');
+  const isAdminBypass = adminKey && adminKey === process.env.ADMIN_SECRET_KEY;
+  const isDev = process.env.NODE_ENV === 'development';
+
+  if (!session && !isDev && !isAdminBypass) {
+    return NextResponse.json(
+      { error: 'Please sign in to generate AI tests.', signInRequired: true },
+      { status: 401 }
+    );
   }
 
   // Check usage limits for free users

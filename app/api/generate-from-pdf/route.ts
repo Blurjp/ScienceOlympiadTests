@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveTest, logApiUsage, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, getExamSourceById, DynamicExamSource } from '@/lib/database';
+import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, getExamSourceById, DynamicExamSource } from '@/lib/database';
 import { getOpenAI, computeCostUsd } from '@/lib/openai';
 import { mapDifficultyForDatabase } from '@/lib/difficulty';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
 import { auth } from '@/auth';
+import { FREE_TIER_MONTHLY_LIMIT } from '@/lib/stripe';
 import { validateOriginalContent, validateAndRepairQuestions, normalizeQuestionType, ValidQuestionType } from '@/lib/similarity-check';
 import { TOPIC_DESCRIPTIONS, DIFFICULTY_DESCRIPTIONS } from '@/lib/topic-descriptions';
 import { getSeedQuestionsForTopic } from '@/lib/seed-reference-questions';
@@ -147,6 +148,35 @@ export async function POST(request: NextRequest) {
     }
 
     const examSourceName = `${examSource.topic} - ${examSource.level}`;
+
+    // Enforce the free-tier monthly limit for non-Pro users (applies to both
+    // fresh and cached generations). This endpoint was previously unmetered,
+    // letting free users generate unlimited AI tests via exam sources.
+    if (userId && !isAdminBypass) {
+      try {
+        const subscriptionStatus = await getSubscriptionStatus(userId);
+
+        if (subscriptionStatus !== 'active') {
+          const monthlyUsage = await getUserMonthlyAIGenerations(userId);
+
+          if (monthlyUsage >= FREE_TIER_MONTHLY_LIMIT) {
+            return NextResponse.json(
+              {
+                error: 'Monthly limit reached',
+                limitReached: true,
+                used: monthlyUsage,
+                limit: FREE_TIER_MONTHLY_LIMIT,
+                message: `You've used all ${FREE_TIER_MONTHLY_LIMIT} free AI test generations this month. Upgrade to Pro for unlimited access.`,
+              },
+              { status: 403 }
+            );
+          }
+        }
+      } catch (limitError) {
+        console.error('Usage limit check error (non-fatal):', limitError);
+        // Continue anyway - don't block on limit check failure
+      }
+    }
 
     // Check cache first - avoid LLM calls if we have cached questions
     const cached = await getCachedGeneration(sourceId, questionCount);

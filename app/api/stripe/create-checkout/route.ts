@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { stripe, PRO_PRICE_ID } from '@/lib/stripe';
+import { stripe, PRO_PRICE_ID, SEASON_PASS_PRICE_ID } from '@/lib/stripe';
 import { getUserByEmail, updateUserSubscription } from '@/lib/database';
+
+type Plan = 'pro' | 'season';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +16,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine which plan is being purchased (default: pro subscription)
+    let plan: Plan = 'pro';
+    try {
+      const body = await request.json();
+      if (body?.plan === 'season') plan = 'season';
+    } catch {
+      // No body or invalid JSON — default to pro
+    }
+
+    const priceId = plan === 'season' ? SEASON_PASS_PRICE_ID : PRO_PRICE_ID;
+    if (!priceId) {
+      return NextResponse.json(
+        { error: `Stripe price for "${plan}" plan is not configured` },
+        { status: 500 }
+      );
+    }
+
     // Get user from database
     const user = await getUserByEmail(session.user.email);
     if (!user) {
@@ -23,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already has an active subscription
+    // Check if user already has an active subscription or season pass
     if (user.subscriptionStatus === 'active') {
       return NextResponse.json(
         { error: 'You already have an active subscription' },
@@ -66,14 +85,14 @@ export async function POST(request: NextRequest) {
       origin = requestOrigin?.startsWith('http') ? requestOrigin : 'http://localhost:3000';
     }
 
-    // Create checkout session
+    // Create checkout session (subscription for Pro, one-time payment for Season Pass)
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'subscription',
+      mode: plan === 'season' ? 'payment' : 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
-          price: PRO_PRICE_ID,
+          price: priceId,
           quantity: 1,
         },
       ],
@@ -81,12 +100,18 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/pricing?canceled=true`,
       metadata: {
         userId: user.id,
+        plan,
       },
-      subscription_data: {
-        metadata: {
-          userId: user.id,
-        },
-      },
+      ...(plan === 'pro'
+        ? {
+            subscription_data: {
+              metadata: {
+                userId: user.id,
+                plan,
+              },
+            },
+          }
+        : {}),
     });
 
     return NextResponse.json({ url: checkoutSession.url });

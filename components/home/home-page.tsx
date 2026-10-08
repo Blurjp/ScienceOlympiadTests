@@ -7,6 +7,7 @@ import { Test, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
 import { Button } from '@/components/ui/button';
+import { UpgradeButton } from '@/components/subscription/upgrade-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -100,6 +101,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const [selectedPdfSource, setSelectedPdfSource] = useState<string>('');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [pdfQuestionCount, setPdfQuestionCount] = useState(20);
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   // Revalidate server-provided data on mount (initial data comes from SSR)
   useEffect(() => {
@@ -335,6 +337,10 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         await loadTests();
         await loadTopics();
         handleStartTest(result.test);
+      } else if (result.signInRequired) {
+        router.push('/api/auth/signin');
+      } else if (result.limitReached) {
+        setShowLimitModal(true);
       } else {
         alert(result.error || 'Failed to generate test. Please try again.');
       }
@@ -375,6 +381,10 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         await loadTests();
         await loadTopics();
         handleStartTest(result.test);
+      } else if (result.signInRequired) {
+        router.push('/api/auth/signin');
+      } else if (result.limitReached) {
+        setShowLimitModal(true);
       } else {
         alert(result.error || 'Failed to generate test. Please try again.');
       }
@@ -921,6 +931,45 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {/* Free-tier limit reached dialog - replaces the old raw alert() with an upgrade path */}
+        {showLimitModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="limit-modal-title"
+            onClick={() => setShowLimitModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="limit-modal-title" className="mb-2 text-lg font-semibold">
+                You&apos;ve used all 5 free tests this month
+              </h2>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Your free limit resets on the 1st of next month. Upgrade to Pro for unlimited AI test
+                generations — or compare the plans first.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1">
+                  <UpgradeButton className="w-full" />
+                </div>
+                <Link href="/pricing" className="flex-1">
+                  <Button variant="outline" className="w-full">View plans</Button>
+                </Link>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLimitModal(false)}
+                className="mt-3 text-xs text-muted-foreground hover:underline"
+              >
+                Maybe later
+              </button>
+            </div>
           </div>
         )}
 

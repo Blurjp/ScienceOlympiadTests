@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe, getStripe } from '@/lib/stripe';
+import { stripe, getStripe, getSeasonEnd } from '@/lib/stripe';
 import { getUserByStripeCustomerId, updateUserSubscription } from '@/lib/database';
 import Stripe from 'stripe';
 
@@ -35,7 +35,23 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        if (session.mode === 'subscription' && session.customer) {
+        if (session.mode === 'payment' && session.metadata?.plan === 'season' && session.customer) {
+          // Season Pass: one-time payment grants Pro-level access through May 31.
+          // No Stripe subscription object exists, so subscriptionId stays null —
+          // read-time expiry in getSubscriptionStatus() revokes access at season end.
+          const customerId = typeof session.customer === 'string'
+            ? session.customer
+            : session.customer.id;
+
+          const user = await getUserByStripeCustomerId(customerId);
+          if (user) {
+            await updateUserSubscription(user.id, {
+              subscriptionStatus: 'active',
+              subscriptionId: null,
+              subscriptionCurrentPeriodEnd: getSeasonEnd(new Date(session.created * 1000)).toISOString(),
+            });
+          }
+        } else if (session.mode === 'subscription' && session.customer) {
           const customerId = typeof session.customer === 'string'
             ? session.customer
             : session.customer.id;
