@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, getStripe, getSeasonEnd } from '@/lib/stripe';
-import { getUserByStripeCustomerId, updateUserSubscription } from '@/lib/database';
+import { getUserByStripeCustomerId, getUserById, updateUserSubscription } from '@/lib/database';
 import Stripe from 'stripe';
+
+/**
+ * Resolve the local user for an event: prefer the Stripe customer ID, fall back
+ * to the userId we stamp into checkout/subscription metadata. The fallback keeps
+ * entitlement updates working if the customer row is missing or the customer was
+ * created outside our checkout flow.
+ */
+async function resolveUserId(
+  customerId: string | undefined,
+  metadataUserId: string | undefined
+): Promise<string | undefined> {
+  if (customerId) {
+    const user = await getUserByStripeCustomerId(customerId);
+    if (user) return user.id;
+  }
+  if (metadataUserId) {
+    const user = await getUserById(metadataUserId);
+    if (user) return user.id;
+  }
+  return undefined;
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -41,11 +62,11 @@ export async function POST(request: NextRequest) {
           // read-time expiry in getSubscriptionStatus() revokes access at season end.
           const customerId = typeof session.customer === 'string'
             ? session.customer
-            : session.customer.id;
+            : session.customer?.id;
 
-          const user = await getUserByStripeCustomerId(customerId);
-          if (user) {
-            await updateUserSubscription(user.id, {
+          const userId = await resolveUserId(customerId, session.metadata?.userId);
+          if (userId) {
+            await updateUserSubscription(userId, {
               subscriptionStatus: 'active',
               subscriptionId: null,
               subscriptionCurrentPeriodEnd: getSeasonEnd(new Date(session.created * 1000)).toISOString(),
@@ -56,8 +77,8 @@ export async function POST(request: NextRequest) {
             ? session.customer
             : session.customer.id;
 
-          const user = await getUserByStripeCustomerId(customerId);
-          if (user) {
+          const userId = await resolveUserId(customerId, session.metadata?.userId);
+          if (userId) {
             // Get the subscription details
             const subscriptionId = typeof session.subscription === 'string'
               ? session.subscription
@@ -71,7 +92,7 @@ export async function POST(request: NextRequest) {
               // Get current_period_end from the first subscription item
               const currentPeriodEnd = subscription.items?.data?.[0]?.current_period_end;
 
-              await updateUserSubscription(user.id, {
+              await updateUserSubscription(userId, {
                 subscriptionStatus: 'active',
                 subscriptionId: subscription.id,
                 subscriptionCurrentPeriodEnd: currentPeriodEnd
@@ -90,8 +111,8 @@ export async function POST(request: NextRequest) {
           ? subscription.customer
           : subscription.customer.id;
 
-        const user = await getUserByStripeCustomerId(customerId);
-        if (user) {
+        const userId = await resolveUserId(customerId, subscription.metadata?.userId);
+        if (userId) {
           let status: 'free' | 'active' | 'canceled' | 'past_due' = 'free';
 
           switch (subscription.status) {
@@ -113,7 +134,7 @@ export async function POST(request: NextRequest) {
           // Get current_period_end from the first subscription item
           const currentPeriodEnd = subscription.items?.data?.[0]?.current_period_end;
 
-          await updateUserSubscription(user.id, {
+          await updateUserSubscription(userId, {
             subscriptionStatus: status,
             subscriptionId: subscription.id,
             subscriptionCurrentPeriodEnd: currentPeriodEnd
@@ -130,9 +151,9 @@ export async function POST(request: NextRequest) {
           ? subscription.customer
           : subscription.customer.id;
 
-        const user = await getUserByStripeCustomerId(customerId);
-        if (user) {
-          await updateUserSubscription(user.id, {
+        const userId = await resolveUserId(customerId, subscription.metadata?.userId);
+        if (userId) {
+          await updateUserSubscription(userId, {
             subscriptionStatus: 'free',
             // null explicitly clears these columns (undefined would skip them)
             subscriptionId: null,
@@ -149,9 +170,9 @@ export async function POST(request: NextRequest) {
           : invoice.customer?.id;
 
         if (customerId) {
-          const user = await getUserByStripeCustomerId(customerId);
-          if (user) {
-            await updateUserSubscription(user.id, {
+          const userId = await resolveUserId(customerId, undefined);
+          if (userId) {
+            await updateUserSubscription(userId, {
               subscriptionStatus: 'past_due',
             });
           }
@@ -172,8 +193,8 @@ export async function POST(request: NextRequest) {
           : subscriptionData?.id;
 
         if (customerId && subscriptionId) {
-          const user = await getUserByStripeCustomerId(customerId);
-          if (user) {
+          const userId = await resolveUserId(customerId, undefined);
+          if (userId) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
               expand: ['items.data'],
             }) as Stripe.Subscription;
@@ -181,7 +202,7 @@ export async function POST(request: NextRequest) {
             // Get current_period_end from the first subscription item
             const currentPeriodEnd = subscription.items?.data?.[0]?.current_period_end;
 
-            await updateUserSubscription(user.id, {
+            await updateUserSubscription(userId, {
               subscriptionStatus: 'active',
               subscriptionCurrentPeriodEnd: currentPeriodEnd
                 ? new Date(currentPeriodEnd * 1000).toISOString()

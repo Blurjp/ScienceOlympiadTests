@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { stripe, PRO_PRICE_ID, SEASON_PASS_PRICE_ID } from '@/lib/stripe';
 import { getUserByEmail, updateUserSubscription } from '@/lib/database';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 type Plan = 'pro' | 'season';
 
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cost-abuse protection: cap checkout session creation per user
+    const rateLimit = checkRateLimit('stripe-checkout', user.id, 5, 60 * 1000);
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
     // Get or create Stripe customer
     let customerId = user.stripeCustomerId;
 
@@ -85,34 +90,40 @@ export async function POST(request: NextRequest) {
       origin = requestOrigin?.startsWith('http') ? requestOrigin : 'http://localhost:3000';
     }
 
-    // Create checkout session (subscription for Pro, one-time payment for Season Pass)
-    const checkoutSession = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: plan === 'season' ? 'payment' : 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
+    // Create checkout session (subscription for Pro, one-time payment for Season Pass).
+    // The idempotency key buckets by user+plan+minute so double-clicks and network
+    // retries replay the same session instead of creating (and potentially charging) duplicates.
+    const idempotencyKey = `checkout:${user.id}:${plan}:${Math.floor(Date.now() / 60_000)}`;
+    const checkoutSession = await stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        mode: plan === 'season' ? 'payment' : 'subscription',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: `${origin}/profile?subscription=success`,
+        cancel_url: `${origin}/pricing?canceled=true`,
+        metadata: {
+          userId: user.id,
+          plan,
         },
-      ],
-      success_url: `${origin}/profile?subscription=success`,
-      cancel_url: `${origin}/pricing?canceled=true`,
-      metadata: {
-        userId: user.id,
-        plan,
-      },
-      ...(plan === 'pro'
-        ? {
-            subscription_data: {
-              metadata: {
-                userId: user.id,
-                plan,
+        ...(plan === 'pro'
+          ? {
+              subscription_data: {
+                metadata: {
+                  userId: user.id,
+                  plan,
+                },
               },
-            },
-          }
-        : {}),
-    });
+            }
+          : {}),
+      },
+      { idempotencyKey }
+    );
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error: any) {
