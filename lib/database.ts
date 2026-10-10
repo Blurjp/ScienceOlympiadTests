@@ -1294,6 +1294,74 @@ export async function getRecentApiCalls(limit: number = 50): Promise<{
   }));
 }
 
+export interface AdminUserWithActivity {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+  provider: string | null;
+  createdAt: string;
+  subscriptionStatus: string;
+  subscriptionCurrentPeriodEnd: string | null;
+  testsCompleted: number;
+  avgScore: number;
+  testsCreated: number;
+  aiGenerations: number;
+  apiCalls: number;
+  lastActive: string | null;
+}
+
+// All users with registration, subscription status, and activity aggregates
+// for the admin dashboard.
+export async function getAllUsersWithActivity(): Promise<AdminUserWithActivity[]> {
+  const database = await getDatabase();
+  await initializeAnalyticsTables();
+
+  const result = await database.execute(`
+    SELECT
+      u.id,
+      u.email,
+      u.name,
+      u.image,
+      u.provider,
+      u.created_at,
+      u.subscription_status,
+      u.subscription_current_period_end,
+      (SELECT COUNT(*) FROM test_results tr WHERE tr.user_id = u.id) AS tests_completed,
+      (SELECT AVG(tr.percentage) FROM test_results tr WHERE tr.user_id = u.id) AS avg_score,
+      (SELECT COUNT(*) FROM tests t WHERE t.user_id = u.id) AS tests_created,
+      (SELECT COUNT(*) FROM api_usage au
+        WHERE au.user_id = u.id
+          AND au.success = 1
+          AND au.endpoint IN ('generate-ai-test', 'generate-from-pdf')) AS ai_generations,
+      (SELECT COUNT(*) FROM api_usage au WHERE au.user_id = u.id) AS api_calls,
+      MAX(
+        (SELECT MAX(tr.completed_at) FROM test_results tr WHERE tr.user_id = u.id),
+        (SELECT MAX(au.created_at) FROM api_usage au WHERE au.user_id = u.id),
+        u.updated_at
+      ) AS last_active
+    FROM users u
+    ORDER BY u.created_at DESC
+  `);
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    image: r.image,
+    provider: r.provider,
+    createdAt: r.created_at,
+    subscriptionStatus: r.subscription_status || 'free',
+    subscriptionCurrentPeriodEnd: r.subscription_current_period_end,
+    testsCompleted: r.tests_completed || 0,
+    avgScore: Math.round(r.avg_score || 0),
+    testsCreated: r.tests_created || 0,
+    aiGenerations: r.ai_generations || 0,
+    apiCalls: r.api_calls || 0,
+    lastActive: r.last_active,
+  }));
+}
+
 // ============================================
 // Reference Questions Database (Historical Tests)
 // ============================================

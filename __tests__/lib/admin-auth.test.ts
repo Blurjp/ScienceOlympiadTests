@@ -45,9 +45,9 @@ describe('validateAdminCredentials', () => {
     expect(result).toBe(false);
   });
 
-  test('is case sensitive for email', () => {
+  test('is case insensitive for email', () => {
     const result = validateAdminCredentials(ADMIN_EMAIL.toUpperCase(), ADMIN_PASSWORD);
-    expect(result).toBe(false);
+    expect(result).toBe(true);
   });
 
   test('is case sensitive for password', () => {
@@ -69,8 +69,8 @@ describe('isAdminEmail', () => {
     expect(isAdminEmail('')).toBe(false);
   });
 
-  test('is case sensitive', () => {
-    expect(isAdminEmail(ADMIN_EMAIL.toUpperCase())).toBe(false);
+  test('is case insensitive', () => {
+    expect(isAdminEmail(ADMIN_EMAIL.toUpperCase())).toBe(true);
   });
 
   test('returns false for partial match', () => {

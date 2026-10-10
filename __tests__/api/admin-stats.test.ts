@@ -12,6 +12,12 @@ jest.mock('@/lib/database', () => ({
   getTopicUsageStats: jest.fn(),
   getRecentUsers: jest.fn(),
   getRecentApiCalls: jest.fn(),
+  getAllUsersWithActivity: jest.fn(),
+}));
+
+// Mock NextAuth so the route's session fallback can be tested in isolation
+jest.mock('@/auth', () => ({
+  auth: jest.fn().mockResolvedValue(null),
 }));
 
 import {
@@ -20,6 +26,7 @@ import {
   getTopicUsageStats,
   getRecentUsers,
   getRecentApiCalls,
+  getAllUsersWithActivity,
 } from '@/lib/database';
 
 const mockGetAdminStats = getAdminStats as jest.MockedFunction<typeof getAdminStats>;
@@ -27,6 +34,7 @@ const mockGetApiUsageByDay = getApiUsageByDay as jest.MockedFunction<typeof getA
 const mockGetTopicUsageStats = getTopicUsageStats as jest.MockedFunction<typeof getTopicUsageStats>;
 const mockGetRecentUsers = getRecentUsers as jest.MockedFunction<typeof getRecentUsers>;
 const mockGetRecentApiCalls = getRecentApiCalls as jest.MockedFunction<typeof getRecentApiCalls>;
+const mockGetAllUsersWithActivity = getAllUsersWithActivity as jest.MockedFunction<typeof getAllUsersWithActivity>;
 
 function createAuthenticatedRequest(url: string): NextRequest {
   const validCookie = createAdminSessionCookieValue({
@@ -71,6 +79,25 @@ describe('GET /api/admin/stats', () => {
 
   const sampleRecentApiCalls = [
     { id: 'call-1', endpoint: '/api/test', timestamp: new Date().toISOString() },
+  ];
+
+  const sampleUsers = [
+    {
+      id: 'user-1',
+      email: 'user1@test.com',
+      name: 'User One',
+      image: null,
+      provider: 'google',
+      createdAt: '2024-01-01 00:00:00',
+      subscriptionStatus: 'free',
+      subscriptionCurrentPeriodEnd: null,
+      testsCompleted: 5,
+      avgScore: 80,
+      testsCreated: 1,
+      aiGenerations: 2,
+      apiCalls: 10,
+      lastActive: '2024-01-15 00:00:00',
+    },
   ];
 
   describe('authentication', () => {
@@ -156,6 +183,27 @@ describe('GET /api/admin/stats', () => {
         })
       );
 
+      const response = await GET(request);
+
+      expect(response.status).toBe(401);
+    });
+
+    test('grants access via NextAuth session for admin email', async () => {
+      const { auth } = jest.requireMock('@/auth') as { auth: jest.Mock };
+      auth.mockResolvedValueOnce({ user: { email: process.env.ADMIN_EMAIL! } });
+      mockGetAdminStats.mockResolvedValue(sampleStats as any);
+
+      const request = createUnauthenticatedRequest('http://localhost:3000/api/admin/stats');
+      const response = await GET(request);
+
+      expect(response.status).toBe(200);
+    });
+
+    test('returns 401 via NextAuth session for non-admin email', async () => {
+      const { auth } = jest.requireMock('@/auth') as { auth: jest.Mock };
+      auth.mockResolvedValueOnce({ user: { email: 'regular.user@test.com' } });
+
+      const request = createUnauthenticatedRequest('http://localhost:3000/api/admin/stats');
       const response = await GET(request);
 
       expect(response.status).toBe(401);
@@ -268,12 +316,25 @@ describe('GET /api/admin/stats', () => {
     });
   });
 
+  describe('action=users', () => {
+    test('returns all users with activity', async () => {
+      mockGetAllUsersWithActivity.mockResolvedValue(sampleUsers as any);
+
+      const request = createAuthenticatedRequest('http://localhost:3000/api/admin/stats?action=users');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.users).toEqual(sampleUsers);
+    });
+  });
+
   describe('action=all', () => {
     test('returns all stats combined', async () => {
       mockGetAdminStats.mockResolvedValue(sampleStats as any);
       mockGetApiUsageByDay.mockResolvedValue(sampleUsageByDay as any);
       mockGetTopicUsageStats.mockResolvedValue(sampleTopicStats as any);
-      mockGetRecentUsers.mockResolvedValue(sampleRecentUsers as any);
+      mockGetAllUsersWithActivity.mockResolvedValue(sampleUsers as any);
       mockGetRecentApiCalls.mockResolvedValue(sampleRecentApiCalls as any);
 
       const request = createAuthenticatedRequest('http://localhost:3000/api/admin/stats?action=all');
@@ -284,7 +345,7 @@ describe('GET /api/admin/stats', () => {
       expect(data.stats).toEqual(sampleStats);
       expect(data.usageByDay).toEqual(sampleUsageByDay);
       expect(data.topicStats).toEqual(sampleTopicStats);
-      expect(data.recentUsers).toEqual(sampleRecentUsers);
+      expect(data.users).toEqual(sampleUsers);
       expect(data.recentApiCalls).toEqual(sampleRecentApiCalls);
     });
   });

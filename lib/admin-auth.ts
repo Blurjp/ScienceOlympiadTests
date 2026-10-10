@@ -5,6 +5,10 @@ import crypto from 'crypto';
 
 export const ADMIN_COOKIE_NAME = 'admin_session';
 
+// The single account allowed to access the admin dashboard.
+// Can be overridden with the ADMIN_EMAIL env var.
+export const ADMIN_EMAIL_DEFAULT = 'blurjp@gmail.com';
+
 // Session duration: 24 hours
 export const SESSION_DURATION = 24 * 60 * 60 * 1000;
 
@@ -15,7 +19,7 @@ export interface AdminSession {
 }
 
 function getAdminEmail(): string {
-  return process.env.ADMIN_EMAIL || '';
+  return process.env.ADMIN_EMAIL || ADMIN_EMAIL_DEFAULT;
 }
 
 function getAdminPassword(): string {
@@ -47,13 +51,16 @@ export function validateAdminCredentials(email: string, password: string): boole
   const adminEmail = getAdminEmail();
   const adminPassword = getAdminPassword();
   if (!adminEmail || !adminPassword) return false;
-  return timingSafeEqualStr(email, adminEmail) && timingSafeEqualStr(password, adminPassword);
+  return (
+    timingSafeEqualStr(email.trim().toLowerCase(), adminEmail.trim().toLowerCase()) &&
+    timingSafeEqualStr(password, adminPassword)
+  );
 }
 
 export function isAdminEmail(email: string): boolean {
   const adminEmail = getAdminEmail();
   if (!adminEmail) return false;
-  return timingSafeEqualStr(email, adminEmail);
+  return timingSafeEqualStr(email.trim().toLowerCase(), adminEmail.trim().toLowerCase());
 }
 
 // Create an HMAC-signed session cookie value.
