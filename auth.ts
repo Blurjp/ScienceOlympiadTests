@@ -58,8 +58,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const dbUser = await getUserByEmail(user.email!)
           if (dbUser) {
             token.id = dbUser.id
-            token.subscriptionStatus = dbUser.subscriptionStatus || 'free'
-            token.isPro = dbUser.subscriptionStatus === 'active'
+            // Apply read-time Season Pass expiry so an expired season never
+            // grants Pro, even immediately after sign-in.
+            const status = await getSubscriptionStatus(dbUser.id)
+            token.subscriptionStatus = status
+            token.isPro = status === 'active'
             // Active with no Stripe subscription object = Season Pass
             token.subscriptionIsSeason = token.isPro && !dbUser.subscriptionId
           }

@@ -36,11 +36,18 @@ export function SubscriptionSection({
       setShowSuccess(true);
       // Pull the fresh subscription status (set by the webhook) into the session
       updateSession();
+      // The webhook may not have arrived when the user first landed here —
+      // retry once shortly after so the upgrade is picked up without waiting
+      // out the JWT subscription refresh throttle.
+      const retry = setTimeout(() => updateSession(), 3000);
       // Remove the param from URL after showing
       const timeout = setTimeout(() => {
         window.history.replaceState({}, '', '/profile');
       }, 100);
-      return () => clearTimeout(timeout);
+      return () => {
+        clearTimeout(retry);
+        clearTimeout(timeout);
+      };
     }
   }, [searchParams, updateSession]);
 
