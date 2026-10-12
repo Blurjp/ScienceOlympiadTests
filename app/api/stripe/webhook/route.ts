@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
               await updateUserSubscription(userId, {
                 subscriptionStatus: 'active',
                 subscriptionId: subscription.id,
+                subscriptionCancelAtPeriodEnd: !!subscription.cancel_at_period_end,
                 subscriptionCurrentPeriodEnd: currentPeriodEnd
                   ? new Date(currentPeriodEnd * 1000).toISOString()
                   : undefined,
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
           await updateUserSubscription(userId, {
             subscriptionStatus: status,
             subscriptionId: subscription.id,
+            subscriptionCancelAtPeriodEnd: !!subscription.cancel_at_period_end,
             subscriptionCurrentPeriodEnd: currentPeriodEnd
               ? new Date(currentPeriodEnd * 1000).toISOString()
               : undefined,
@@ -158,6 +160,7 @@ export async function POST(request: NextRequest) {
             // null explicitly clears these columns (undefined would skip them)
             subscriptionId: null,
             subscriptionCurrentPeriodEnd: null,
+            subscriptionCancelAtPeriodEnd: null,
           });
         }
         break;

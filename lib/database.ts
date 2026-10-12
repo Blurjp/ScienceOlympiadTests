@@ -105,6 +105,11 @@ async function doInitializeDatabase() {
   } catch (e) {
     // Column already exists, ignore
   }
+  try {
+    await database.execute(`ALTER TABLE users ADD COLUMN subscription_cancel_at_period_end BOOLEAN`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Create questions table
   await database.execute(`
@@ -538,6 +543,7 @@ export interface User {
   subscriptionStatus?: SubscriptionStatus;
   subscriptionId?: string;
   subscriptionCurrentPeriodEnd?: string;
+  subscriptionCancelAtPeriodEnd?: boolean;
 }
 
 export async function createUser(user: User) {
@@ -570,6 +576,7 @@ function mapUserRow(user: any): User {
     subscriptionStatus: user.subscription_status || 'free',
     subscriptionId: user.subscription_id,
     subscriptionCurrentPeriodEnd: user.subscription_current_period_end,
+    subscriptionCancelAtPeriodEnd: !!user.subscription_cancel_at_period_end,
   };
 }
 
@@ -624,6 +631,7 @@ export interface SubscriptionData {
   subscriptionStatus?: SubscriptionStatus;
   subscriptionId?: string | null;
   subscriptionCurrentPeriodEnd?: string | null;
+  subscriptionCancelAtPeriodEnd?: boolean | null;
 }
 
 export async function updateUserSubscription(userId: string, data: SubscriptionData) {
@@ -647,6 +655,10 @@ export async function updateUserSubscription(userId: string, data: SubscriptionD
   if (data.subscriptionCurrentPeriodEnd !== undefined) {
     fields.push('subscription_current_period_end = ?');
     values.push(data.subscriptionCurrentPeriodEnd);
+  }
+  if (data.subscriptionCancelAtPeriodEnd !== undefined) {
+    fields.push('subscription_cancel_at_period_end = ?');
+    values.push(data.subscriptionCancelAtPeriodEnd === null ? null : data.subscriptionCancelAtPeriodEnd ? 1 : 0);
   }
 
   if (fields.length === 0) return;

@@ -105,6 +105,7 @@ export default async function ProfilePage() {
           subscriptionStatus={dbUser?.subscriptionStatus || 'free'}
           isPro={dbUser?.subscriptionStatus === 'active'}
           subscriptionCurrentPeriodEnd={dbUser?.subscriptionCurrentPeriodEnd}
+          subscriptionCancelAtPeriodEnd={dbUser?.subscriptionCancelAtPeriodEnd}
         />
 
         {/* Actions */}

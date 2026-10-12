@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PricingCard } from '@/components/subscription/pricing-card';
 import { UpgradeButton } from '@/components/subscription/upgrade-button';
 import { ManageSubscriptionButton } from '@/components/subscription/manage-subscription-button';
-import { Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Sparkles, AlertCircle } from 'lucide-react';
 
 const FREE_FEATURES = [
   '5 AI-generated tests per month',
@@ -40,6 +40,7 @@ export default function PricingPage() {
 
   const isLoading = status === 'loading';
   const isPro = session?.user?.isPro;
+  const isSeason = session?.user?.subscriptionIsSeason;
   const isLoggedIn = !!session?.user;
 
   return (
@@ -65,19 +66,6 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* Already Pro notice */}
-        {isPro && (
-          <div className="mb-8 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <div className="flex-1">
-              <p className="text-emerald-800">
-                You&apos;re on the Pro plan! Enjoy unlimited AI test generation.
-              </p>
-            </div>
-            <ManageSubscriptionButton variant="outline" size="sm" />
-          </div>
-        )}
-
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {/* Free Tier */}
@@ -91,7 +79,7 @@ export default function PricingPage() {
             {isLoggedIn ? (
               isPro ? (
                 <Button variant="outline" disabled className="w-full">
-                  Current: Pro Plan
+                  Included with {isSeason ? 'Season Pass' : 'Pro'}
                 </Button>
               ) : (
                 <Button variant="outline" disabled className="w-full">
@@ -115,7 +103,7 @@ export default function PricingPage() {
             description="For serious competitors"
             features={PRO_FEATURES}
             highlighted={!isPro}
-            currentPlan={isPro}
+            currentPlan={isPro && !isSeason}
           >
             {isLoading ? (
               <Button disabled className="w-full">
@@ -142,7 +130,7 @@ export default function PricingPage() {
             period="/season"
             description="One payment. The whole competition season."
             features={SEASON_FEATURES}
-            currentPlan={isPro && isLoggedIn /* season holders show as Pro-level */}
+            currentPlan={isSeason}
           >
             {isLoading ? (
               <Button disabled className="w-full">

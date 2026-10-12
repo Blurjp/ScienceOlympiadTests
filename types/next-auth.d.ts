@@ -7,6 +7,7 @@ declare module "next-auth" {
       id: string
       subscriptionStatus: SubscriptionStatus
       isPro: boolean
+      subscriptionIsSeason: boolean
     } & DefaultSession["user"]
   }
 
@@ -24,5 +25,7 @@ declare module "next-auth/jwt" {
     id: string
     subscriptionStatus: SubscriptionStatus
     isPro: boolean
+    subscriptionIsSeason: boolean
+    subscriptionCheckedAt?: number
   }
 }

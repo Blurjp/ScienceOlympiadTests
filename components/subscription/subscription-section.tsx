@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,14 +16,17 @@ interface SubscriptionSectionProps {
   subscriptionStatus: SubscriptionStatus;
   isPro: boolean;
   subscriptionCurrentPeriodEnd?: string;
+  subscriptionCancelAtPeriodEnd?: boolean;
 }
 
 export function SubscriptionSection({
   subscriptionStatus,
   isPro,
   subscriptionCurrentPeriodEnd,
+  subscriptionCancelAtPeriodEnd,
 }: SubscriptionSectionProps) {
   const searchParams = useSearchParams();
+  const { update: updateSession } = useSession();
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -30,13 +34,15 @@ export function SubscriptionSection({
   useEffect(() => {
     if (searchParams.get('subscription') === 'success') {
       setShowSuccess(true);
+      // Pull the fresh subscription status (set by the webhook) into the session
+      updateSession();
       // Remove the param from URL after showing
       const timeout = setTimeout(() => {
         window.history.replaceState({}, '', '/profile');
       }, 100);
       return () => clearTimeout(timeout);
     }
-  }, [searchParams]);
+  }, [searchParams, updateSession]);
 
   // Fetch usage for free users
   useEffect(() => {
@@ -101,7 +107,14 @@ export function SubscriptionSection({
             {subscriptionCurrentPeriodEnd && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>Renews on {formatDate(subscriptionCurrentPeriodEnd)}</span>
+                {subscriptionCancelAtPeriodEnd ? (
+                  <span>
+                    Cancels on {formatDate(subscriptionCurrentPeriodEnd)} — you keep Pro access until then.
+                    You can resume anytime from the subscription portal.
+                  </span>
+                ) : (
+                  <span>Renews on {formatDate(subscriptionCurrentPeriodEnd)}</span>
+                )}
               </div>
             )}
 
