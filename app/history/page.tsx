@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +14,11 @@ import {
   ArrowLeft,
   RefreshCw,
   Calendar,
+  Search,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
 
 interface TestResultWithTest {
   id: string;
@@ -37,6 +40,8 @@ export default function HistoryPage() {
   const [results, setResults] = useState<TestResultWithTest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('all');
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -100,6 +105,30 @@ export default function HistoryPage() {
     return 'bg-red-100 text-red-800';
   };
 
+  const availableTopics = useMemo(
+    () => Array.from(new Set(results.map((r) => r.testTopic))).sort(),
+    [results]
+  );
+
+  const filteredResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return results.filter((r) => {
+      if (selectedTopic !== 'all' && r.testTopic !== selectedTopic) return false;
+      if (!query) return true;
+      return (
+        r.testTitle.toLowerCase().includes(query) ||
+        r.testTopic.toLowerCase().includes(query)
+      );
+    });
+  }, [results, searchQuery, selectedTopic]);
+
+  const hasActiveFilters = searchQuery.trim() !== '' || selectedTopic !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedTopic('all');
+  };
+
   if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -144,7 +173,7 @@ export default function HistoryPage() {
                   <Trophy className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{results.length}</p>
+                  <p className="text-2xl font-bold">{filteredResults.length}</p>
                   <p className="text-sm text-gray-600">Tests Completed</p>
                 </div>
               </CardContent>
@@ -157,7 +186,12 @@ export default function HistoryPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {Math.round(results.reduce((sum, r) => sum + r.percentage, 0) / results.length)}%
+                    {filteredResults.length > 0
+                      ? `${Math.round(
+                          filteredResults.reduce((sum, r) => sum + r.percentage, 0) /
+                            filteredResults.length
+                        )}%`
+                      : '—'}
                   </p>
                   <p className="text-sm text-gray-600">Average Score</p>
                 </div>
@@ -171,7 +205,14 @@ export default function HistoryPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {formatTime(Math.round(results.reduce((sum, r) => sum + r.timeSpent, 0) / results.length))}
+                    {filteredResults.length > 0
+                      ? formatTime(
+                          Math.round(
+                            filteredResults.reduce((sum, r) => sum + r.timeSpent, 0) /
+                              filteredResults.length
+                          )
+                        )
+                      : '—'}
                   </p>
                   <p className="text-sm text-gray-600">Avg Time/Test</p>
                 </div>
@@ -192,6 +233,46 @@ export default function HistoryPage() {
           </Card>
         )}
 
+        {/* Search & Filter */}
+        {!error && results.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Search by test name or topic..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <select
+                  className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm"
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                >
+                  <option value="all">All Topics</option>
+                  {availableTopics.map((topic) => (
+                    <option key={topic} value={topic}>
+                      {topic}
+                    </option>
+                  ))}
+                </select>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
+                )}
+                <p className="text-sm whitespace-nowrap text-gray-500">
+                  {filteredResults.length} of {results.length} results
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results List */}
         {!error && results.length === 0 ? (
           <Card>
@@ -206,9 +287,22 @@ export default function HistoryPage() {
               </Link>
             </CardContent>
           </Card>
+        ) : !error && filteredResults.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Search className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-4 text-lg font-medium text-gray-900">No matching results</p>
+              <p className="mt-2 text-gray-600">
+                Try a different search term or topic filter
+              </p>
+              <Button variant="outline" onClick={clearFilters} className="mt-6">
+                Clear Filters
+              </Button>
+            </CardContent>
+          </Card>
         ) : !error && (
           <div className="space-y-4">
-            {results.map((result) => (
+            {filteredResults.map((result) => (
               <Card key={result.id} className="transition-all hover:shadow-md">
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
