@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getReferenceQuestions, formatReferenceQuestionsForPrompt } from '@/lib/database';
-import { getOpenAI, computeCostUsd } from '@/lib/openai';
+import { GENERATION_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
@@ -193,9 +193,8 @@ Return valid JSON:
 
 Generate exactly ${questionCount} multiple-choice questions.`;
 
-    const openai = getOpenAI();
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o', // Using GPT-4o for higher quality questions
+    const completion = await createChatCompletion({
+      model: GENERATION_MODEL,
       messages: [
         {
           role: 'system',
@@ -231,9 +230,9 @@ Output valid JSON only.`,
           content: prompt,
         },
       ],
-      temperature: 0.3, // Lower temperature for more accurate, consistent questions
-      max_tokens: 4000,
-      response_format: { type: 'json_object' },
+      maxCompletionTokens: 5000,
+      reasoningEffort: 'medium',
+      responseFormatJson: true,
     });
 
     // Extract token usage from completion
@@ -243,7 +242,7 @@ Output valid JSON only.`,
     const totalTokens = usage?.total_tokens || 0;
 
     // Calculate cost
-    const costUsd = computeCostUsd(usage, { model: 'gpt-4o' });
+    const costUsd = computeCostUsd(usage, { model: GENERATION_MODEL });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -253,7 +252,7 @@ Output valid JSON only.`,
         await logApiUsage({
           userId,
           endpoint: 'generate-ai-test',
-          model: 'gpt-4o',
+          model: GENERATION_MODEL,
           promptTokens,
           completionTokens,
           totalTokens,
@@ -336,7 +335,7 @@ Output valid JSON only.`,
       await logApiUsage({
         userId,
         endpoint: 'generate-ai-test',
-        model: 'gpt-4o',
+        model: GENERATION_MODEL,
         promptTokens,
         completionTokens,
         totalTokens,

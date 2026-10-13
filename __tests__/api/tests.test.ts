@@ -4,6 +4,11 @@
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/tests/route';
 
+// Mock the auth module
+jest.mock('@/auth', () => ({
+  auth: jest.fn(),
+}));
+
 // Mock the database module
 jest.mock('@/lib/database', () => ({
   getAllTests: jest.fn(),
@@ -13,8 +18,10 @@ jest.mock('@/lib/database', () => ({
   getAvailableYears: jest.fn(),
   getAvailableTopics: jest.fn(),
   getAvailableRegions: jest.fn(),
+  searchTests: jest.fn(),
 }));
 
+import { auth } from '@/auth';
 import {
   getAllTests,
   getTestsByYear,
@@ -23,8 +30,10 @@ import {
   getAvailableYears,
   getAvailableTopics,
   getAvailableRegions,
+  searchTests,
 } from '@/lib/database';
 
+const mockAuth = auth as unknown as jest.MockedFunction<() => Promise<any>>;
 const mockGetAllTests = getAllTests as jest.MockedFunction<typeof getAllTests>;
 const mockGetTestsByYear = getTestsByYear as jest.MockedFunction<typeof getTestsByYear>;
 const mockGetTestsByTopic = getTestsByTopic as jest.MockedFunction<typeof getTestsByTopic>;
@@ -32,6 +41,7 @@ const mockGetTestsByYearAndTopic = getTestsByYearAndTopic as jest.MockedFunction
 const mockGetAvailableYears = getAvailableYears as jest.MockedFunction<typeof getAvailableYears>;
 const mockGetAvailableTopics = getAvailableTopics as jest.MockedFunction<typeof getAvailableTopics>;
 const mockGetAvailableRegions = getAvailableRegions as jest.MockedFunction<typeof getAvailableRegions>;
+const mockSearchTests = searchTests as jest.MockedFunction<typeof searchTests>;
 
 describe('GET /api/tests', () => {
   beforeEach(() => {
@@ -103,6 +113,67 @@ describe('GET /api/tests', () => {
       expect(response.status).toBe(200);
       expect(data.tests).toEqual(sampleTests);
       expect(mockGetTestsByYearAndTopic).toHaveBeenCalledWith(2023, 'Anatomy');
+    });
+  });
+
+  describe('text search', () => {
+    test('routes search through searchTests with topic/year preserved', async () => {
+      mockSearchTests.mockResolvedValue(sampleTests as any);
+
+      const request = new NextRequest('http://localhost:3000/api/tests?search=anatomy&topic=Anatomy&year=2023');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.tests).toEqual(sampleTests);
+      expect(mockSearchTests).toHaveBeenCalledWith({
+        topic: 'Anatomy',
+        year: 2023,
+        search: 'anatomy',
+        userId: undefined,
+      });
+    });
+
+    test('trims and ignores empty search strings', async () => {
+      mockGetAllTests.mockResolvedValue(sampleTests as any);
+
+      const request = new NextRequest('http://localhost:3000/api/tests?search=%20%20');
+      await GET(request);
+
+      expect(mockGetAllTests).toHaveBeenCalledTimes(1);
+      expect(mockSearchTests).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mine=1 (own tests only)', () => {
+    test('returns 401 when not signed in', async () => {
+      mockAuth.mockResolvedValue(null as any);
+
+      const request = new NextRequest('http://localhost:3000/api/tests?mine=1');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.signInRequired).toBe(true);
+      expect(mockSearchTests).not.toHaveBeenCalled();
+    });
+
+    test('filters by session user id when signed in', async () => {
+      mockAuth.mockResolvedValue({ user: { id: 'user-1' } } as any);
+      mockSearchTests.mockResolvedValue(sampleTests as any);
+
+      const request = new NextRequest('http://localhost:3000/api/tests?mine=1&search=anatomy');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.tests).toEqual(sampleTests);
+      expect(mockSearchTests).toHaveBeenCalledWith({
+        topic: undefined,
+        year: undefined,
+        search: 'anatomy',
+        userId: 'user-1',
+      });
     });
   });
 

@@ -1,7 +1,53 @@
 /**
  * Tests for lib/question-parser.ts
  */
-import { parseQuestionsFromText, cleanPdfText, validateQuestion } from '@/lib/question-parser';
+import {
+  parseQuestionsFromText,
+  cleanPdfText,
+  normalizeParsedQuestions,
+  validateQuestion,
+} from '@/lib/question-parser';
+
+describe('normalizeParsedQuestions', () => {
+  test('applies stable defaults to incomplete LLM and cached questions', () => {
+    const questions = normalizeParsedQuestions([
+      {
+        question: 'What is the speed of light?',
+      },
+      {
+        type: 'MultipleChoice',
+        question: 'Which value is correct?',
+        options: ['A) 1', 'B) 2'],
+        points: '2',
+        category: 'Physics',
+      },
+    ], 'General');
+
+    expect(questions[0]).toMatchObject({
+      type: 'short-answer',
+      correctAnswer: '',
+      points: 1,
+      category: 'General',
+    });
+    expect(questions[1]).toMatchObject({
+      type: 'multiple-choice',
+      points: 2,
+      category: 'Physics',
+    });
+    expect(questions.every((question) => question.id.length > 0)).toBe(true);
+  });
+
+  test('replaces invalid point values instead of allowing NaN totals', () => {
+    const questions = normalizeParsedQuestions([
+      { question: 'Missing points', points: undefined },
+      { question: 'Invalid points', points: 'not-a-number' },
+      { question: 'Zero points', points: 0 },
+    ]);
+
+    expect(questions.map((question) => question.points)).toEqual([1, 1, 1]);
+    expect(questions.reduce((sum, question) => sum + question.points, 0)).toBe(3);
+  });
+});
 
 describe('parseQuestionsFromText', () => {
   describe('numbered questions with period', () => {
@@ -178,6 +224,18 @@ describe('parseQuestionsFromText', () => {
       `;
       const questions = parseQuestionsFromText(text);
       expect(questions[0].type).toBe('multiple-choice');
+    });
+
+    test('does not truncate options containing letters A through D', () => {
+      const text = '1. Which gas is produced? A) Carbon dioxide B) Methane C) Hydrogen D) Oxygen';
+      const questions = parseQuestionsFromText(text);
+
+      expect(questions[0].options).toEqual([
+        'Carbon dioxide',
+        'Methane',
+        'Hydrogen',
+        'Oxygen',
+      ]);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, getExamSourceById, DynamicExamSource } from '@/lib/database';
-import { getOpenAI, computeCostUsd } from '@/lib/openai';
+import { GENERATION_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { mapDifficultyForDatabase } from '@/lib/difficulty';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
@@ -327,9 +327,8 @@ MATHEMATICAL ACCURACY:
 - ALWAYS verify unit conversions
 - Double-check that your calculated answer is correct`;
 
-    const openai = getOpenAI();
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o', // Upgraded from gpt-4o-mini for better quality
+    const completion = await createChatCompletion({
+      model: GENERATION_MODEL,
       messages: [
         {
           role: 'system',
@@ -340,9 +339,9 @@ MATHEMATICAL ACCURACY:
           content: userPrompt,
         },
       ],
-      temperature: 0.3, // Lower temperature for accuracy (was 0.8)
-      max_tokens: 4000,
-      response_format: { type: 'json_object' },
+      maxCompletionTokens: 5000,
+      reasoningEffort: 'medium',
+      responseFormatJson: true,
     });
 
     // Extract token usage
@@ -350,14 +349,14 @@ MATHEMATICAL ACCURACY:
     const promptTokens = usage?.prompt_tokens || 0;
     const completionTokens = usage?.completion_tokens || 0;
     const totalTokens = usage?.total_tokens || 0;
-    const costUsd = computeCostUsd(usage, { model: 'gpt-4o' });
+    const costUsd = computeCostUsd(usage, { model: GENERATION_MODEL });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
       await logApiUsage({
         userId,
         endpoint: 'generate-from-pdf',
-        model: 'gpt-4o',
+        model: GENERATION_MODEL,
         promptTokens,
         completionTokens,
         totalTokens,
@@ -506,7 +505,7 @@ MATHEMATICAL ACCURACY:
     await logApiUsage({
       userId,
       endpoint: 'generate-from-pdf',
-      model: 'gpt-4o',
+      model: GENERATION_MODEL,
       promptTokens,
       completionTokens,
       totalTokens,

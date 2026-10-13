@@ -1,6 +1,42 @@
 import { Question } from './types';
 import { generateId } from './utils';
 
+type RawQuestion = Record<string, unknown>;
+
+function normalizeQuestionType(type: unknown): Question['type'] {
+  const normalized = typeof type === 'string'
+    ? type.toLowerCase().replace(/[\s_-]/g, '')
+    : '';
+
+  if (normalized === 'multiplechoice' || normalized === 'mc') return 'multiple-choice';
+  if (normalized === 'calculation' || normalized === 'calc') return 'calculation';
+  if (normalized === 'diagram' || normalized === 'diagramanalysis') return 'diagram';
+  return 'short-answer';
+}
+
+export function normalizeParsedQuestions(rawQuestions: unknown[], defaultCategory = 'General'): Question[] {
+  return rawQuestions.map((value) => {
+    const raw = (value && typeof value === 'object' ? value : {}) as RawQuestion;
+    const parsedPoints = Number(raw.points);
+    const points = Number.isFinite(parsedPoints) && parsedPoints > 0 ? parsedPoints : 1;
+    const options = Array.isArray(raw.options)
+      ? raw.options.filter((option): option is string => typeof option === 'string')
+      : undefined;
+
+    return {
+      id: generateId(),
+      type: normalizeQuestionType(raw.type),
+      question: typeof raw.question === 'string' ? raw.question : '',
+      options: options && options.length > 0 ? options : undefined,
+      correctAnswer: typeof raw.correctAnswer === 'string' ? raw.correctAnswer : '',
+      points,
+      category: typeof raw.category === 'string' && raw.category.trim()
+        ? raw.category
+        : defaultCategory,
+    };
+  });
+}
+
 export function parseQuestionsFromText(text: string): Question[] {
   const questions: Question[] = [];
 
@@ -115,10 +151,10 @@ function extractOptions(text: string): { mainQuestion: string; options: string[]
   let mainQuestion = text;
 
   // Pattern 1: A. B. C. D. or A) B) C) D)
-  const optionPattern1 = /\b([A-Da-d])\s*[.)]\s*([^A-Da-d\n]+?)(?=\s*[A-Da-d]\s*[.)]|$)/g;
+  const optionPattern1 = /\b([A-Da-d])\s*[.)]\s*([\s\S]*?)(?=\s+\b[A-Da-d]\s*[.)]\s*|$)/g;
 
   // Pattern 2: (A) (B) (C) (D)
-  const optionPattern2 = /\(([A-Da-d])\)\s*([^()]+?)(?=\s*\([A-Da-d]\)|$)/g;
+  const optionPattern2 = /\(([A-Da-d])\)\s*([\s\S]*?)(?=\s*\([A-Da-d]\)\s*|$)/g;
 
   let match;
   let optionsStart = -1;

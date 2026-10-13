@@ -2,6 +2,7 @@
 // Extracts structured questions from real exam PDFs
 
 import OpenAI from 'openai';
+import { PARSING_MODEL, createChatCompletion } from './openai';
 import { ReferenceQuestion } from './database';
 import { normalizeTopic } from './topic-utils';
 import { extractGoogleDriveFileId, toGoogleDriveDirectDownload } from './google-drive';
@@ -118,21 +119,26 @@ async function pdfToImages(pdfBuffer: Buffer): Promise<{
 
     const images: string[] = [];
     const document = await pdf(pdfBuffer, { scale: 1.5 });
+    const totalPages = document.length;
 
-    let totalPages = 0;
+    if (totalPages > MAX_PAGES) {
+      return {
+        images: [],
+        totalPages,
+        truncated: true,
+        error: `PDF has ${totalPages} pages; the parser limit is ${MAX_PAGES}. Split the PDF before importing it.`,
+      };
+    }
+
     for await (const image of document) {
-      totalPages++;
-      if (images.length < MAX_PAGES) {
-        const base64 = Buffer.from(image).toString('base64');
-        images.push(base64);
-      }
-      // Continue counting total pages even after we stop collecting images
+      const base64 = Buffer.from(image).toString('base64');
+      images.push(base64);
     }
 
     return {
       images,
       totalPages,
-      truncated: totalPages > MAX_PAGES,
+      truncated: false,
     };
   } catch (error: any) {
     return { images: [], totalPages: 0, truncated: false, error: error.message };
@@ -159,8 +165,6 @@ export async function parseQuestionsFromPDF(
       truncated,
     };
   }
-
-  const openai = new OpenAI({ apiKey: openaiApiKey });
 
   // Build image content array for all pages
   const imageContents: OpenAI.ChatCompletionContentPart[] = images.map((base64) => ({
@@ -204,8 +208,8 @@ Return a JSON object:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const response = await createChatCompletion({
+      model: PARSING_MODEL,
       messages: [
         {
           role: 'system',
@@ -222,12 +226,24 @@ Return a JSON object:
           ],
         },
       ],
-      max_tokens: 16000, // Increased for multi-page extraction
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
+      // Room for reasoning tokens (counted against the completion budget
+      // on gpt-5-family models) plus the long JSON extraction
+      maxCompletionTokens: 16000,
+      reasoningEffort: 'low',
+      responseFormatJson: true,
     });
 
     const content = response.choices[0]?.message?.content;
+
+    if (response.choices[0]?.finish_reason === 'length') {
+      return {
+        success: false,
+        questions: [],
+        error: 'AI response exceeded the output token limit; split the PDF before importing it',
+        totalPages,
+        truncated,
+      };
+    }
 
     if (!content) {
       return { success: false, questions: [], error: 'Empty response from API' };

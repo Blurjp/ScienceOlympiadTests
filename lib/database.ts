@@ -394,6 +394,7 @@ async function loadTestsBulk(
     totalPoints: test.total_points,
     topic: test.topic,
     region: test.region || undefined,
+    userId: test.user_id ?? null,
     questions: (questionsByTest.get(test.id) || []).map((q: any) => ({
       id: q.id,
       type: q.type,
@@ -424,6 +425,51 @@ export async function getTestsByTopic(topic: string): Promise<Test[]> {
 export async function getTestsByYearAndTopic(year: number, topic: string): Promise<Test[]> {
   const database = await getDatabase();
   return loadTestsBulk(database, 'WHERE year = ? AND topic = ? ORDER BY title', [year, topic]);
+}
+
+/**
+ * Flexible test search used by /api/tests. All filters are optional and
+ * combined with AND. `search` matches (case-insensitively, ASCII) against
+ * title, description, and topic; `userId` restricts to tests the user
+ * generated or imported themselves.
+ */
+export async function searchTests(filters: {
+  topic?: string;
+  year?: number;
+  search?: string;
+  userId?: string;
+}): Promise<Test[]> {
+  const database = await getDatabase();
+
+  const conditions: string[] = [];
+  const args: any[] = [];
+
+  if (filters.topic) {
+    conditions.push('topic = ?');
+    args.push(filters.topic);
+  }
+  if (filters.year) {
+    conditions.push('year = ?');
+    args.push(filters.year);
+  }
+  if (filters.userId) {
+    conditions.push('user_id = ?');
+    args.push(filters.userId);
+  }
+  if (filters.search) {
+    // Escape LIKE wildcards in user input so "%"/"_" match literally
+    const pattern = `%${filters.search.replace(/([%_\\])/g, '\\$1')}%`;
+    conditions.push(
+      "(title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR topic LIKE ? ESCAPE '\\')"
+    );
+    args.push(pattern, pattern, pattern);
+  }
+
+  const whereClause = conditions.length
+    ? `WHERE ${conditions.join(' AND ')} ORDER BY year DESC, title`
+    : 'ORDER BY year DESC, title';
+
+  return loadTestsBulk(database, whereClause, args);
 }
 
 export async function searchQuestions(filters: {

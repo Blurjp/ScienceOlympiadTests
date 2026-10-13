@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { getOpenAI } from '@/lib/openai';
+import { PARSING_MODEL, createChatCompletion } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
-import { Question } from '@/lib/types';
-import { generateId } from '@/lib/utils';
+import { normalizeParsedQuestions } from '@/lib/question-parser';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_PAGES = 30; // Increased to handle longer tests
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    if (file.type !== 'application/pdf') {
+    if (file.type && file.type !== 'application/pdf' && file.type !== 'application/octet-stream') {
       return NextResponse.json(
         { error: 'Invalid file type. Please upload a PDF file.' },
         { status: 400 }
@@ -77,17 +76,30 @@ export async function POST(request: NextRequest) {
 
     // Convert PDF pages to images
     const images: string[] = [];
-    let pageCount = 0;
+    let totalPages = 0;
 
     try {
       const document = await pdf(Buffer.from(uint8Array), { scale: 1.5 });
+      totalPages = document.length;
+
+      if (totalPages > MAX_PAGES) {
+        return NextResponse.json(
+          {
+            error: `This PDF has ${totalPages} pages; Vision AI supports at most ${MAX_PAGES} pages per import.`,
+            details: 'No pages were dropped or parsed. Split the PDF into smaller sections and try again.',
+            pages: totalPages,
+            maxPages: MAX_PAGES,
+            truncated: true,
+            code: 'PDF_PAGE_LIMIT_EXCEEDED',
+          },
+          { status: 422 }
+        );
+      }
 
       for await (const image of document) {
-        if (pageCount >= MAX_PAGES) break;
         // Convert buffer to base64
         const base64 = Buffer.from(image).toString('base64');
         images.push(base64);
-        pageCount++;
       }
     } catch (pdfError: any) {
       console.error('PDF to image conversion error:', pdfError?.message || pdfError);
@@ -106,9 +118,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Use GPT-4o vision to extract questions from images
-    const openai = getOpenAI({ timeout: 300000 }); // 5 minute timeout for vision
 
     // Build the content array with images
     const imageContents: OpenAI.ChatCompletionContentPart[] = images.map((base64, index) => ({
@@ -159,8 +168,10 @@ Output ONLY valid JSON:
 
 IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), or question format. Include ALL of them.`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    // 5 minute timeout for vision parsing
+    const completion = await createChatCompletion({
+      model: PARSING_MODEL,
+      timeout: 300000,
       messages: [
         {
           role: 'system',
@@ -177,12 +188,25 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
           ],
         },
       ],
-      temperature: 0.2,
-      max_tokens: 16000, // Increased to handle more questions
-      response_format: { type: 'json_object' },
+      // Room for reasoning tokens (counted against the completion budget
+      // on gpt-5-family models) plus the long JSON extraction
+      maxCompletionTokens: 16000,
+      reasoningEffort: 'low',
+      responseFormatJson: true,
     });
 
     const content = completion.choices[0]?.message?.content;
+    if (completion.choices[0]?.finish_reason === 'length') {
+      return NextResponse.json(
+        {
+          error: 'The extracted test was too long for the AI response limit.',
+          details: 'No partial result was returned. Split the PDF into smaller sections and try again.',
+          code: 'AI_OUTPUT_TRUNCATED',
+        },
+        { status: 422 }
+      );
+    }
+
     if (!content) {
       return NextResponse.json(
         { error: 'Failed to parse questions - empty response from AI' },
@@ -191,7 +215,7 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
     }
 
     // Parse the JSON response
-    let questions: Question[];
+    let questions;
     let metadata: any = {};
 
     try {
@@ -211,15 +235,7 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
       }
 
       // Add IDs to questions
-      questions = questionArray.map((q: any) => ({
-        id: generateId(),
-        type: q.type || 'short-answer',
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer || '',
-        points: q.points || 1,
-        category: q.category || 'General',
-      }));
+      questions = normalizeParsedQuestions(questionArray);
     } catch (parseError: any) {
       console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
       return NextResponse.json(
@@ -235,6 +251,8 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
       success: true,
       questions,
       pages: images.length,
+      totalPages,
+      truncated: false,
       metadata: {
         fileName: file.name,
         fileSize: file.size,

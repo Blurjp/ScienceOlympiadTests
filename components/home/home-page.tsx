@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Test, UserAnswer, ViewType } from '@/lib/types';
@@ -34,6 +34,8 @@ import {
   Eye,
   RotateCcw,
   Calendar,
+  Search,
+  UserCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { HorizontalAd } from '@/components/adsense';
@@ -78,6 +80,12 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const [testHistory, setTestHistory] = useState<TestResultWithTest[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+  // Test library search / ownership filter state
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [onlyMyTests, setOnlyMyTests] = useState(false);
+  const testsFetchId = useRef(0);
+
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [genConfig, setGenConfig] = useState({
@@ -103,24 +111,37 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const [pdfQuestionCount, setPdfQuestionCount] = useState(20);
   const [showLimitModal, setShowLimitModal] = useState(false);
 
-  // Revalidate server-provided data on mount (initial data comes from SSR)
+  // Revalidate server-provided data on mount (initial data comes from SSR).
+  // Tests are loaded by the filter effect below (it also runs on mount).
   useEffect(() => {
-    if (initialTests.length === 0) loadTests();
     if (initialTopics.length === 0) loadTopics();
     loadPdfSources();
   }, []);
+
+  // Debounce the search box so we don't fire a request per keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchInput.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Load history when user is logged in
   useEffect(() => {
     if (session?.user) {
       loadHistory();
+    } else {
+      // Ownership filter needs a session - never leave it stuck on
+      setOnlyMyTests(false);
     }
   }, [session]);
 
-  // Reload when topic changes
+  // Reload when any library filter changes
   useEffect(() => {
-    loadTests(selectedTopic ?? undefined);
-  }, [selectedTopic]);
+    loadTests({
+      topic: selectedTopic ?? undefined,
+      search: debouncedSearch || undefined,
+      mine: onlyMyTests,
+    });
+  }, [selectedTopic, debouncedSearch, onlyMyTests]);
 
   // Reset view when navigating to home via header link
   useEffect(() => {
@@ -181,21 +202,28 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     }
   }, [searchParams, router]);
 
-  const loadTests = async (topic?: string) => {
+  const loadTests = useCallback(async (opts?: { topic?: string; search?: string; mine?: boolean }) => {
     setIsLoading(true);
+    const requestId = ++testsFetchId.current;
     try {
       const params = new URLSearchParams();
-      if (topic) params.append('topic', topic);
+      if (opts?.topic) params.append('topic', opts.topic);
+      if (opts?.search) params.append('search', opts.search);
+      if (opts?.mine) params.append('mine', '1');
       const url = params.toString() ? `/api/tests?${params}` : '/api/tests';
       const response = await fetch(url);
       const data = await response.json();
+      // Ignore stale responses that resolved out of order
+      if (requestId !== testsFetchId.current) return;
       setTests(data.tests || []);
     } catch (error) {
       console.error('Error loading tests:', error);
     } finally {
-      setIsLoading(false);
+      if (requestId === testsFetchId.current) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, []);
 
   const loadTopics = async () => {
     try {
@@ -334,7 +362,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
 
       if (response.ok && result.success) {
         // Reload tests and start the generated test
-        await loadTests();
+        await loadTests({
+          topic: selectedTopic ?? undefined,
+          search: debouncedSearch || undefined,
+          mine: onlyMyTests,
+        });
         await loadTopics();
         handleStartTest(result.test);
       } else if (result.signInRequired) {
@@ -378,7 +410,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       const result = await response.json();
 
       if (response.ok && result.success) {
-        await loadTests();
+        await loadTests({
+          topic: selectedTopic ?? undefined,
+          search: debouncedSearch || undefined,
+          mine: onlyMyTests,
+        });
         await loadTopics();
         handleStartTest(result.test);
       } else if (result.signInRequired) {
@@ -749,17 +785,48 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
               <History className="h-6 w-6 text-blue-600" />
               <h2 className="text-2xl font-bold text-gray-900">Browse Tests History</h2>
             </div>
-            {selectedTopic && (
+            {(selectedTopic || debouncedSearch || onlyMyTests) && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedTopic(null)}
+                onClick={() => {
+                  setSelectedTopic(null);
+                  setSearchInput('');
+                  setOnlyMyTests(false);
+                }}
               >
-                Clear Filter
+                Clear Filters
               </Button>
             )}
           </div>
           <p className="text-gray-600">View your test results or retake any test</p>
+
+          {/* Search + Ownership Filter */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                type="search"
+                placeholder="Search tests by title, description, or topic..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="pl-10"
+                aria-label="Search tests"
+              />
+            </div>
+            {session?.user && (
+              <Button
+                variant={onlyMyTests ? 'default' : 'outline'}
+                size="sm"
+                className="gap-2 shrink-0"
+                onClick={() => setOnlyMyTests(!onlyMyTests)}
+                aria-pressed={onlyMyTests}
+              >
+                <UserCircle2 className="h-4 w-4" />
+                My Tests Only
+              </Button>
+            )}
+          </div>
 
           {/* Topic Filter */}
           <div>
@@ -814,28 +881,49 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
             <CardContent className="py-12 text-center">
               <FileQuestion className="mx-auto h-12 w-12 text-gray-400" />
               <p className="mt-4 text-lg font-medium text-gray-900">
-                No tests available{selectedTopic ? ` for ${selectedTopic}` : ''}
+                {selectedTopic || debouncedSearch || onlyMyTests
+                  ? 'No tests match your filters'
+                  : 'No tests available'}
               </p>
               <p className="mt-2 text-gray-600">
-                Get started by generating tests or importing from URLs
+                {selectedTopic || debouncedSearch || onlyMyTests
+                  ? 'Try adjusting your search or filters'
+                  : 'Get started by generating tests or importing from URLs'}
               </p>
-              <div className="mt-6 flex gap-3 justify-center flex-wrap">
-                <Button
-                  className="gap-2"
-                  onClick={() => handleProtectedNavigation('/import')}
-                >
-                  <Download className="h-4 w-4" />
-                  Import from URL
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => handleProtectedNavigation('/pdf-parser')}
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload PDF
-                </Button>
-              </div>
+              {(selectedTopic || debouncedSearch || onlyMyTests) ? (
+                <div className="mt-6 flex justify-center">
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      setSelectedTopic(null);
+                      setSearchInput('');
+                      setOnlyMyTests(false);
+                    }}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Clear Filters
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-6 flex gap-3 justify-center flex-wrap">
+                  <Button
+                    className="gap-2"
+                    onClick={() => handleProtectedNavigation('/import')}
+                  >
+                    <Download className="h-4 w-4" />
+                    Import from URL
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => handleProtectedNavigation('/pdf-parser')}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload PDF
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (

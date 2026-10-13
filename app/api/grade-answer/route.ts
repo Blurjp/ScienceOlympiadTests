@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getOpenAI } from '@/lib/openai';
+import { GRADING_MODEL, createChatCompletion } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 interface GradeRequest {
@@ -78,7 +78,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Use AI for semantic grading
-    const openai = getOpenAI();
 
     const prompt = `You are grading a Science Olympiad ${topic || 'science'} short-answer question.
 
@@ -110,8 +109,8 @@ Return JSON only:
   "feedback": "Brief explanation"
 }`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const completion = await createChatCompletion({
+      model: GRADING_MODEL,
       messages: [
         {
           role: 'system',
@@ -122,9 +121,10 @@ Return JSON only:
           content: prompt,
         },
       ],
-      temperature: 0.1, // Very low for consistent grading
-      max_tokens: 200,
-      response_format: { type: 'json_object' },
+      // Low reasoning effort keeps grading fast, consistent, and cheap
+      maxCompletionTokens: 300,
+      reasoningEffort: 'low',
+      responseFormatJson: true,
     });
 
     const content = completion.choices[0]?.message?.content;

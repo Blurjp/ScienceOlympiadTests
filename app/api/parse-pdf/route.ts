@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractText } from 'unpdf';
-import { getOpenAI } from '@/lib/openai';
+import { PARSING_MODEL, createChatCompletion } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
-import { Question } from '@/lib/types';
-import { generateId } from '@/lib/utils';
+import { normalizeParsedQuestions } from '@/lib/question-parser';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const PDF_EXTRACT_TIMEOUT = 120000; // 2 minutes timeout for PDF extraction
+const MAX_LLM_TEXT_CHARS = 300_000;
 
 // Extend serverless function timeout
 export const maxDuration = 300; // 5 minutes (Vercel Pro max)
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate file type
-    if (file.type !== 'application/pdf') {
+    if (file.type && file.type !== 'application/pdf' && file.type !== 'application/octet-stream') {
       log('ERROR: Invalid file type', { type: file.type });
       return NextResponse.json(
         { error: 'Invalid file type. Please upload a PDF file.', step: 'type-check', receivedType: file.type },
@@ -194,11 +194,20 @@ export async function POST(request: NextRequest) {
 
     // Use LLM to extract questions
     log('Step 8: Calling OpenAI API');
-    const openai = getOpenAI();
 
-    // Allow up to 100000 characters (GPT-4o-mini has 128k context)
-    const truncatedText = text.length > 100000 ? text.substring(0, 100000) + '\n[truncated]' : text;
-    log('Step 8a: Text prepared', { originalLength: text.length, truncatedLength: truncatedText.length });
+    if (text.length > MAX_LLM_TEXT_CHARS) {
+      log('ERROR: PDF text exceeds safe single-request limit', { textLength: text.length });
+      return NextResponse.json(
+        {
+          error: 'This PDF contains too much text to parse safely in one pass.',
+          details: 'The document was not truncated. Split it into smaller PDFs and try again.',
+          step: 'text-size-check',
+          code: 'PDF_TEXT_TOO_LONG',
+        },
+        { status: 422 }
+      );
+    }
+    log('Step 8a: Text prepared', { textLength: text.length });
 
     const prompt = `You MUST extract EVERY SINGLE question from this Science Olympiad test. Do not skip any questions. Do not summarize. Extract ALL of them, even if there are many.
 
@@ -231,10 +240,10 @@ Return JSON: {
 CRITICAL: Science Olympiad tests typically have 30-100 questions/sub-questions. If you're finding fewer than 25, you're likely missing sub-questions. Go back and check for lettered sub-parts (a, b, c, etc.).
 
 PDF TEXT:
-${truncatedText}`;
+${text}`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const completion = await createChatCompletion({
+      model: PARSING_MODEL,
       messages: [
         {
           role: 'system',
@@ -245,15 +254,30 @@ ${truncatedText}`;
           content: prompt,
         },
       ],
-      temperature: 0.2,
-      max_tokens: 16000,
-      response_format: { type: 'json_object' },
+      // Room for reasoning tokens (counted against the completion budget
+      // on gpt-5-family models) plus the long JSON extraction
+      maxCompletionTokens: 16000,
+      reasoningEffort: 'low',
+      responseFormatJson: true,
     });
 
     log('Step 8 complete: OpenAI response received', {
       finishReason: completion.choices[0]?.finish_reason,
       contentLength: completion.choices[0]?.message?.content?.length || 0
     });
+
+    if (completion.choices[0]?.finish_reason === 'length') {
+      log('ERROR: AI response exceeded output token limit');
+      return NextResponse.json(
+        {
+          error: 'The extracted test was too long for the AI response limit.',
+          details: 'No partial result was returned. Split the PDF into smaller sections and try again.',
+          step: 'ai-response',
+          code: 'AI_OUTPUT_TRUNCATED',
+        },
+        { status: 422 }
+      );
+    }
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -266,7 +290,7 @@ ${truncatedText}`;
 
     // Parse the JSON response
     log('Step 9: Parsing AI response');
-    let questions: Question[];
+    let questions;
     let extractedMetadata: any = {};
     try {
       const parsed = JSON.parse(content);
@@ -290,15 +314,7 @@ ${truncatedText}`;
       }
 
       // Add IDs to questions
-      questions = questionArray.map((q: any) => ({
-        id: generateId(),
-        type: q.type || 'short-answer',
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer || '',
-        points: q.points || 1,
-        category: q.category || 'General',
-      }));
+      questions = normalizeParsedQuestions(questionArray, extractedMetadata.topic || 'General');
       log('Step 9 complete', { questionsProcessed: questions.length });
     } catch (parseError: any) {
       log('ERROR: JSON parse failed', {

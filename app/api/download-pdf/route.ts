@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractText } from 'unpdf';
 import { saveTest, getCachedPdfParse, savePdfParseCache, logApiUsage } from '@/lib/database';
-import { getOpenAI, computeCostUsd } from '@/lib/openai';
+import { PARSING_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { mapDifficultyForDatabase } from '@/lib/difficulty';
 import { safeFetch, UnsafeUrlError } from '@/lib/url-guard';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { extractGoogleDriveFileId, toGoogleDriveDirectDownload } from '@/lib/google-drive';
+import { normalizeParsedQuestions } from '@/lib/question-parser';
 import { generateId } from '@/lib/utils';
-import { Test, Question, Region } from '@/lib/types';
+import { Test, Region } from '@/lib/types';
 import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for downloads
+const MAX_LLM_TEXT_CHARS = 300_000;
+const PDF_PARSE_CACHE_VERSION = 2;
 
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -67,15 +70,16 @@ export async function POST(request: NextRequest) {
 
     // Check cache first
     const cached = await getCachedPdfParse(url);
-    if (cached && cached.questions.length > 0) {
+    if (
+      cached &&
+      cached.questions.length > 0 &&
+      cached.metadata?.parserVersion === PDF_PARSE_CACHE_VERSION
+    ) {
       // Create test from cached questions
-      const questions: Question[] = cached.questions.map((q: any) => ({
-        ...q,
-        id: generateId(), // New IDs for each test
-      }));
+      const metadata = cached.metadata || {};
+      const questions = normalizeParsedQuestions(cached.questions, metadata.topic || 'General');
 
       const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-      const metadata = cached.metadata || {};
 
       const test: Test = {
         id: generateId(),
@@ -157,22 +161,30 @@ export async function POST(request: NextRequest) {
               headers: { 'User-Agent': BROWSER_UA },
             });
 
-            if (retryResponse.ok) {
-              const retryHeader = new TextDecoder().decode(retryBytes.slice(0, 100));
+            if (!retryResponse.ok) {
+              return NextResponse.json(
+                {
+                  error: 'Google Drive rejected the confirmed download request.',
+                  details: `Google Drive returned HTTP ${retryResponse.status}. Try downloading the file manually and using the Upload PDF feature instead.`,
+                },
+                { status: 400 }
+              );
+            }
 
-              if (retryHeader.startsWith('%PDF')) {
-                // Successfully got the PDF on retry - use this data
-                pdfBytes = retryBytes;
-              } else {
-                // Still not a PDF after retry
-                return NextResponse.json(
-                  {
-                    error: 'Google Drive requires additional confirmation for this file.',
-                    details: 'Try downloading the file manually and using the Upload PDF feature instead.'
-                  },
-                  { status: 400 }
-                );
-              }
+            const retryHeader = new TextDecoder().decode(retryBytes.slice(0, 100));
+
+            if (retryHeader.startsWith('%PDF')) {
+              // Successfully got the PDF on retry - use this data
+              pdfBytes = retryBytes;
+            } else {
+              // Still not a PDF after retry
+              return NextResponse.json(
+                {
+                  error: 'Google Drive requires additional confirmation for this file.',
+                  details: 'Try downloading the file manually and using the Upload PDF feature instead.'
+                },
+                { status: 400 }
+              );
             }
           } catch (retryError) {
             if (retryError instanceof UnsafeUrlError) {
@@ -277,10 +289,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const openai = getOpenAI();
-
-    // Truncate text if too long (keep first ~100000 chars - GPT-4o-mini has 128k context)
-    const truncatedText = text.length > 100000 ? text.substring(0, 100000) + '\n...[truncated]' : text;
+    if (text.length > MAX_LLM_TEXT_CHARS) {
+      return NextResponse.json(
+        {
+          error: 'This PDF contains too much text to import safely in one pass.',
+          details: 'The document was not truncated or cached. Split it into smaller PDFs and try again.',
+          code: 'PDF_TEXT_TOO_LONG',
+        },
+        { status: 422 }
+      );
+    }
 
     const systemPrompt = `You are a meticulous Science Olympiad test parser. You MUST extract EVERY SINGLE question from the provided PDF text. Do not skip any questions. Do not summarize.
 
@@ -323,15 +341,17 @@ Return JSON:
 
 IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, b, c...), or any question format found.`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const completion = await createChatCompletion({
+      model: PARSING_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Parse this Science Olympiad test PDF:\n\n${truncatedText}` }
+        { role: 'user', content: `Parse this Science Olympiad test PDF:\n\n${text}` }
       ],
-      temperature: 0.3,
-      max_tokens: 16000, // Increased to handle more questions
-      response_format: { type: 'json_object' },
+      // Room for reasoning tokens (counted against the completion budget
+      // on gpt-5-family models) plus the long JSON extraction
+      maxCompletionTokens: 16000,
+      reasoningEffort: 'low',
+      responseFormatJson: true,
     });
 
     // Track usage
@@ -339,14 +359,37 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
     const promptTokens = usage?.prompt_tokens || 0;
     const completionTokens = usage?.completion_tokens || 0;
     const totalTokens = usage?.total_tokens || 0;
-    const costUsd = computeCostUsd(usage);
+    const costUsd = computeCostUsd(usage, { model: PARSING_MODEL });
+
+    if (completion.choices[0]?.finish_reason === 'length') {
+      await logApiUsage({
+        userId,
+        endpoint: 'download-pdf',
+        model: PARSING_MODEL,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        costUsd,
+        success: false,
+        errorMessage: 'LLM response exceeded the output token limit',
+      });
+
+      return NextResponse.json(
+        {
+          error: 'The extracted test was too long for the AI response limit.',
+          details: 'No partial result was saved or cached. Split the PDF into smaller sections and try again.',
+          code: 'AI_OUTPUT_TRUNCATED',
+        },
+        { status: 422 }
+      );
+    }
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
       await logApiUsage({
         userId,
         endpoint: 'download-pdf',
-        model: 'gpt-4o-mini',
+        model: PARSING_MODEL,
         promptTokens,
         completionTokens,
         totalTokens,
@@ -373,7 +416,10 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
     }
 
     const questionsData = parsed.questions || [];
-    const metadata = parsed.metadata || {};
+    const metadata = {
+      ...(parsed.metadata || {}),
+      parserVersion: PDF_PARSE_CACHE_VERSION,
+    };
 
     if (questionsData.length === 0) {
       return NextResponse.json(
@@ -383,18 +429,10 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
     }
 
     // Create question objects
-    const questions: Question[] = questionsData.map((q: any) => ({
-      id: generateId(),
-      type: q.type || 'short-answer',
-      question: q.question,
-      options: q.options || undefined,
-      correctAnswer: q.correctAnswer || '',
-      points: q.points || 1,
-      category: q.category || metadata.topic || 'General',
-    }));
+    const questions = normalizeParsedQuestions(questionsData, metadata.topic || 'General');
 
     // Save to cache for future use
-    await savePdfParseCache(url, questionsData, metadata, numPages);
+    await savePdfParseCache(url, questions, metadata, numPages);
 
     // Create test object
     const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
@@ -418,7 +456,7 @@ IMPORTANT: You MUST include every numbered item (1, 2, 3...), lettered item (a, 
     await logApiUsage({
       userId,
       endpoint: 'download-pdf',
-      model: 'gpt-4o-mini',
+      model: PARSING_MODEL,
       promptTokens,
       completionTokens,
       totalTokens,

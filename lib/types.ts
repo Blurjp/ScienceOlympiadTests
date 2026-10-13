@@ -23,6 +23,8 @@ export interface Test {
   totalPoints: number;
   topic: string;
   region?: Region;
+  /** Owner of the test (null for seeded/shared tests) */
+  userId?: string | null;
 }
 
 export interface UserAnswer {
