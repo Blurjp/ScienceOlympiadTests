@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractText } from 'unpdf';
-import { PARSING_MODEL, createChatCompletion } from '@/lib/openai';
+import { auth } from '@/auth';
+import { logApiUsage } from '@/lib/database';
+import { PARSING_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { normalizeParsedQuestions } from '@/lib/question-parser';
 
@@ -34,6 +36,10 @@ export async function POST(request: NextRequest) {
     // Cost-abuse protection: 10 uploads per IP per 5 minutes
     const rateLimit = checkRateLimit('parse-pdf', getClientIp(request), 10, 5 * 60 * 1000);
     if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
+    // Attribute usage to the signed-in user when available (best-effort)
+    const session = await auth();
+    const userId = session?.user?.id;
 
     log('Step 1: Reading form data');
     const formData = await request.formData();
@@ -266,8 +272,42 @@ ${text}`;
       contentLength: completion.choices[0]?.message?.content?.length || 0
     });
 
+    // Usage/cost of the parse call (available for all outcomes below)
+    const usage = completion.usage;
+    const promptTokens = usage?.prompt_tokens || 0;
+    const completionTokens = usage?.completion_tokens || 0;
+    const totalTokens = usage?.total_tokens || 0;
+    const costUsd = computeCostUsd(usage, { model: PARSING_MODEL });
+
+    // Non-fatal usage logging helper (never blocks the response)
+    const logUsage = async (opts: {
+      success: boolean;
+      errorMessage?: string;
+      questionCount?: number;
+      topic?: string;
+    }) => {
+      try {
+        await logApiUsage({
+          userId,
+          endpoint: 'parse-pdf',
+          model: PARSING_MODEL,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          costUsd,
+          topic: opts.topic,
+          questionCount: opts.questionCount,
+          success: opts.success,
+          errorMessage: opts.errorMessage,
+        });
+      } catch (logError) {
+        console.error('Failed to log API usage:', logError);
+      }
+    };
+
     if (completion.choices[0]?.finish_reason === 'length') {
       log('ERROR: AI response exceeded output token limit');
+      await logUsage({ success: false, errorMessage: 'AI output truncated (finish_reason=length)' });
       return NextResponse.json(
         {
           error: 'The extracted test was too long for the AI response limit.',
@@ -282,6 +322,7 @@ ${text}`;
     const content = completion.choices[0]?.message?.content;
     if (!content) {
       log('ERROR: Empty AI response');
+      await logUsage({ success: false, errorMessage: 'Empty response from AI' });
       return NextResponse.json(
         { error: 'Failed to parse questions - empty response from AI', step: 'ai-response' },
         { status: 500 }
@@ -302,6 +343,7 @@ ${text}`;
 
       if (!Array.isArray(questionArray) || questionArray.length === 0) {
         log('WARN: No questions found in AI response');
+        await logUsage({ success: false, errorMessage: 'No questions found in AI response', questionCount: 0, topic: extractedMetadata.topic });
         return NextResponse.json(
           {
             error: 'No questions could be extracted from the PDF.',
@@ -321,6 +363,7 @@ ${text}`;
         error: parseError?.message,
         contentPreview: content?.substring(0, 500)
       });
+      await logUsage({ success: false, errorMessage: `JSON parse failed: ${parseError?.message || 'unknown'}`, topic: extractedMetadata?.topic });
       return NextResponse.json(
         {
           error: 'Failed to parse AI response. Please try again.',
@@ -337,6 +380,12 @@ ${text}`;
       questionsExtracted: questions.length,
       totalTimeMs: totalTime,
       pages: numPages
+    });
+
+    await logUsage({
+      success: true,
+      questionCount: questions.length,
+      topic: extractedMetadata.topic,
     });
 
     return NextResponse.json({
@@ -368,6 +417,18 @@ ${text}`;
       stack: error?.stack?.substring(0, 1000),
       totalTimeMs: totalTime
     });
+
+    // The LLM call either failed or threw before usage was available
+    try {
+      await logApiUsage({
+        endpoint: 'parse-pdf',
+        model: PARSING_MODEL,
+        success: false,
+        errorMessage: `${error?.code || error?.name || 'error'}: ${error?.message || 'unknown'}`.substring(0, 500),
+      });
+    } catch (logError) {
+      console.error('Failed to log API usage:', logError);
+    }
 
     // Handle OpenAI specific errors
     if (error?.status === 401 || error?.code === 'invalid_api_key') {

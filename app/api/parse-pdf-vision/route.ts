@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { PARSING_MODEL, createChatCompletion } from '@/lib/openai';
+import { auth } from '@/auth';
+import { logApiUsage } from '@/lib/database';
+import { PARSING_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { normalizeParsedQuestions } from '@/lib/question-parser';
 
@@ -15,6 +17,10 @@ export async function POST(request: NextRequest) {
     // Cost-abuse protection: 10 uploads per IP per 5 minutes
     const rateLimit = checkRateLimit('parse-pdf-vision', getClientIp(request), 10, 5 * 60 * 1000);
     if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
+    // Attribute usage to the signed-in user when available (best-effort)
+    const session = await auth();
+    const userId = session?.user?.id;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -196,7 +202,42 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
     });
 
     const content = completion.choices[0]?.message?.content;
+
+    // Usage/cost of the parse call (available for all outcomes below)
+    const usage = completion.usage;
+    const promptTokens = usage?.prompt_tokens || 0;
+    const completionTokens = usage?.completion_tokens || 0;
+    const totalTokens = usage?.total_tokens || 0;
+    const costUsd = computeCostUsd(usage, { model: PARSING_MODEL });
+
+    // Non-fatal usage logging helper (never blocks the response)
+    const logUsage = async (opts: {
+      success: boolean;
+      errorMessage?: string;
+      questionCount?: number;
+      topic?: string;
+    }) => {
+      try {
+        await logApiUsage({
+          userId,
+          endpoint: 'parse-pdf-vision',
+          model: PARSING_MODEL,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          costUsd,
+          topic: opts.topic,
+          questionCount: opts.questionCount,
+          success: opts.success,
+          errorMessage: opts.errorMessage,
+        });
+      } catch (logError) {
+        console.error('Failed to log API usage:', logError);
+      }
+    };
+
     if (completion.choices[0]?.finish_reason === 'length') {
+      await logUsage({ success: false, errorMessage: 'AI output truncated (finish_reason=length)' });
       return NextResponse.json(
         {
           error: 'The extracted test was too long for the AI response limit.',
@@ -208,6 +249,7 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
     }
 
     if (!content) {
+      await logUsage({ success: false, errorMessage: 'Empty response from AI' });
       return NextResponse.json(
         { error: 'Failed to parse questions - empty response from AI' },
         { status: 500 }
@@ -225,6 +267,7 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
       const questionArray = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
       if (!Array.isArray(questionArray) || questionArray.length === 0) {
+        await logUsage({ success: false, errorMessage: 'No questions found in AI response', questionCount: 0, topic: metadata?.topic });
         return NextResponse.json(
           {
             error: 'No questions could be extracted from the PDF.',
@@ -238,6 +281,7 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
       questions = normalizeParsedQuestions(questionArray);
     } catch (parseError: any) {
       console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
+      await logUsage({ success: false, errorMessage: `JSON parse failed: ${parseError?.message || 'unknown'}`, topic: metadata?.topic });
       return NextResponse.json(
         {
           error: 'Failed to parse AI response. Please try again.',
@@ -246,6 +290,12 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
         { status: 500 }
       );
     }
+
+    await logUsage({
+      success: true,
+      questionCount: questions.length,
+      topic: metadata?.topic,
+    });
 
     return NextResponse.json({
       success: true,
@@ -264,6 +314,18 @@ IMPORTANT: Count every numbered item (1, 2, 3...), lettered item (a, b, c...), o
     });
   } catch (error: any) {
     console.error('Server error:', error);
+
+    // The LLM call either failed or threw before usage was available
+    try {
+      await logApiUsage({
+        endpoint: 'parse-pdf-vision',
+        model: PARSING_MODEL,
+        success: false,
+        errorMessage: `${error?.code || error?.name || 'error'}: ${error?.message || 'unknown'}`.substring(0, 500),
+      });
+    } catch (logError) {
+      console.error('Failed to log API usage:', logError);
+    }
 
     if (error?.status === 401 || error?.code === 'invalid_api_key') {
       return NextResponse.json(

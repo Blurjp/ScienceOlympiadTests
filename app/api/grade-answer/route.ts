@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GRADING_MODEL, createChatCompletion } from '@/lib/openai';
+import { auth } from '@/auth';
+import { logApiUsage } from '@/lib/database';
+import { GRADING_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 interface GradeRequest {
@@ -21,6 +23,10 @@ export async function POST(request: NextRequest) {
     // Cost-abuse protection: 60 grading requests per IP per minute
     const rateLimit = checkRateLimit('grade-answer', getClientIp(request), 60, 60 * 1000);
     if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetAt);
+
+    // Attribute usage to the signed-in user when available (best-effort)
+    const session = await auth();
+    const userId = session?.user?.id;
 
     try {
       body = await request.json();
@@ -128,8 +134,32 @@ Return JSON only:
     });
 
     const content = completion.choices[0]?.message?.content;
+
+    // Usage/cost of the grading call (available regardless of outcome below)
+    const usage = completion.usage;
+    const promptTokens = usage?.prompt_tokens || 0;
+    const completionTokens = usage?.completion_tokens || 0;
+    const totalTokens = usage?.total_tokens || 0;
+    const costUsd = computeCostUsd(usage, { model: GRADING_MODEL });
+
     if (!content) {
       // Fallback to exact matching
+      try {
+        await logApiUsage({
+          userId,
+          endpoint: 'grade-answer',
+          model: GRADING_MODEL,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          costUsd,
+          topic,
+          success: false,
+          errorMessage: 'Empty response from AI',
+        });
+      } catch (logError) {
+        console.error('Failed to log grading usage:', logError);
+      }
       return NextResponse.json({
         isCorrect: false,
         score: 0,
@@ -144,10 +174,38 @@ Return JSON only:
       result.feedback = `${result.feedback} The correct answer is: ${correctAnswer}`;
     }
 
+    try {
+      await logApiUsage({
+        userId,
+        endpoint: 'grade-answer',
+        model: GRADING_MODEL,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        costUsd,
+        topic,
+        success: true,
+      });
+    } catch (logError) {
+      console.error('Failed to log grading usage:', logError);
+    }
+
     return NextResponse.json(result);
 
   } catch (error: any) {
     console.error('Grading error:', error);
+
+    try {
+      await logApiUsage({
+        userId: undefined,
+        endpoint: 'grade-answer',
+        model: GRADING_MODEL,
+        success: false,
+        errorMessage: error?.message || 'Unknown grading error',
+      });
+    } catch (logError) {
+      console.error('Failed to log grading usage:', logError);
+    }
 
     // Fallback to simple matching on error (body was already parsed above)
     try {
