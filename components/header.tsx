@@ -2,7 +2,7 @@ import { auth } from "@/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, LogOut, Upload, Crown } from "lucide-react"
+import { User, LogOut, Upload, Crown, MessageCircle } from "lucide-react"
 import { HomeNavLink, HomeLogo } from "./home-nav-link"
 
 export default async function Header() {
@@ -23,6 +23,12 @@ export default async function Header() {
               >
                 Pricing
               </Link>
+              <Link
+                href="/contact"
+                className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
+              >
+                Contact
+              </Link>
               {session && (
                 <Link
                   href="/import"
@@ -36,6 +42,14 @@ export default async function Header() {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Contact link for small screens (desktop uses the nav above) */}
+            <Link
+              href="/contact"
+              aria-label="Contact us"
+              className="md:hidden text-gray-700 hover:text-blue-600 transition-colors"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </Link>
             {session?.user ? (
               <>
                 <Link href="/profile">
