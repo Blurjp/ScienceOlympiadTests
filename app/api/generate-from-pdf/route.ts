@@ -339,8 +339,8 @@ MATHEMATICAL ACCURACY:
           content: userPrompt,
         },
       ],
-      maxCompletionTokens: 5000,
-      reasoningEffort: 'medium',
+      maxCompletionTokens: 16000,
+      reasoningEffort: 'low',
       responseFormatJson: true,
     });
 
@@ -353,6 +353,10 @@ MATHEMATICAL ACCURACY:
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+      // On reasoning models the completion budget includes reasoning tokens:
+      // an empty response with finish_reason=length means the model spent it
+      // all thinking. Distinguish that from a genuinely empty reply.
+      const truncated = completion.choices[0]?.finish_reason === 'length';
       await logApiUsage({
         userId,
         endpoint: 'generate-from-pdf',
@@ -365,12 +369,18 @@ MATHEMATICAL ACCURACY:
         difficulty: metaInfo.difficultyLevel,
         questionCount,
         success: false,
-        errorMessage: 'Empty response from API',
+        errorMessage: truncated
+          ? 'Generation hit the output token limit while reasoning (finish_reason=length)'
+          : 'Empty response from API',
       });
 
       return NextResponse.json(
-        { error: 'Failed to generate questions - empty response' },
-        { status: 500 }
+        {
+          error: truncated
+            ? 'The AI ran out of output space while composing this test. Please try again, or generate fewer questions.'
+            : 'Failed to generate questions - empty response',
+        },
+        { status: truncated ? 422 : 500 }
       );
     }
 

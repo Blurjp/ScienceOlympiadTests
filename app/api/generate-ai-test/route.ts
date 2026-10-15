@@ -195,8 +195,7 @@ Generate exactly ${questionCount} multiple-choice questions.`;
 
     const completion = await createChatCompletion({
       model: GENERATION_MODEL,
-      messages: [
-        {
+      messages: [        {
           role: 'system',
           content: `You are an expert Science Olympiad coach and test writer with 20+ years of experience. You have deep expertise in ${topic} and understand exactly what makes a good competition question.
 
@@ -230,8 +229,11 @@ Output valid JSON only.`,
           content: prompt,
         },
       ],
-      maxCompletionTokens: 5000,
-      reasoningEffort: 'medium',
+      // Cap includes reasoning tokens on gpt-5-family models, so it must
+      // comfortably exceed reasoning + the full JSON output (a cap that
+      // isn't hit costs nothing - billing is per token actually used)
+      maxCompletionTokens: 16000,
+      reasoningEffort: 'low',
       responseFormatJson: true,
     });
 
@@ -246,7 +248,17 @@ Output valid JSON only.`,
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
-      console.error('Empty response from OpenAI API');
+      // On reasoning models the completion budget includes reasoning tokens:
+      // an empty response with finish_reason=length means the model spent it
+      // all thinking. Distinguish that from a genuinely empty reply.
+      const truncated = completion.choices[0]?.finish_reason === 'length';
+      const errorMessage = truncated
+        ? 'Generation hit the output token limit while reasoning (finish_reason=length)'
+        : 'Empty response from API';
+      console.error(`Generation failed: ${errorMessage}`, {
+        finishReason: completion.choices[0]?.finish_reason,
+        completionTokens,
+      });
       // Log failed API call (don't let this crash)
       try {
         await logApiUsage({
@@ -261,15 +273,19 @@ Output valid JSON only.`,
           difficulty,
           questionCount,
           success: false,
-          errorMessage: 'Empty response from API',
+          errorMessage,
         });
       } catch (logError) {
         console.error('Failed to log API usage:', logError);
       }
 
       return NextResponse.json(
-        { error: 'Failed to generate questions - empty response' },
-        { status: 500 }
+        {
+          error: truncated
+            ? 'The AI ran out of output space while composing this test. Please try again, or generate fewer questions.'
+            : 'Failed to generate questions - empty response',
+        },
+        { status: truncated ? 422 : 500 }
       );
     }
 
@@ -296,12 +312,38 @@ Output valid JSON only.`,
         category: q.category || topic,
       }));
     } catch (parseError: any) {
+      const truncated = completion.choices[0]?.finish_reason === 'length';
+      const errorMessage = truncated
+        ? `JSON truncated by output token limit (finish_reason=length): ${parseError?.message || 'parse failed'}`
+        : `JSON parse failed: ${parseError?.message || 'parse failed'}`;
       console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
+
+      try {
+        await logApiUsage({
+          userId,
+          endpoint: 'generate-ai-test',
+          model: GENERATION_MODEL,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          costUsd,
+          topic,
+          difficulty,
+          questionCount,
+          success: false,
+          errorMessage: errorMessage.substring(0, 500),
+        });
+      } catch (logError) {
+        console.error('Failed to log API usage:', logError);
+      }
+
       return NextResponse.json(
         {
-          error: 'Failed to parse generated questions. Please try again.',
+          error: truncated
+            ? 'The generated test was too long for the AI output limit. Please try fewer questions.'
+            : 'Failed to parse generated questions. Please try again.',
         },
-        { status: 500 }
+        { status: truncated ? 422 : 500 }
       );
     }
 

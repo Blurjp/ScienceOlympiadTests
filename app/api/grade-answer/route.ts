@@ -127,8 +127,10 @@ Return JSON only:
           content: prompt,
         },
       ],
-      // Low reasoning effort keeps grading fast, consistent, and cheap
-      maxCompletionTokens: 300,
+      // Cap includes reasoning tokens; keep headroom above the tiny JSON
+      // verdict so reasoning can never exhaust the budget and silently
+      // degrade grading to exact-match
+      maxCompletionTokens: 600,
       reasoningEffort: 'low',
       responseFormatJson: true,
     });
