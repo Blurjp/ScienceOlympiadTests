@@ -463,9 +463,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8">
-        {/* Section Title */}
+        {/* Section Title - the page's single H1, keyword-rich for SEO */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Your Practice Tests</h2>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Create Your Science Olympiad Practice Tests
+          </h1>
         </div>
 
         {/* AI Test Generator Section */}

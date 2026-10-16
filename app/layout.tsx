@@ -18,6 +18,20 @@ export const metadata: Metadata = {
     apple: "/favicon.svg",
   },
   metadataBase: new URL(getSiteUrl()),
+  openGraph: {
+    title: "Science Olympiad Tests - AI Practice Test Generator",
+    description:
+      "Free AI-generated Science Olympiad practice tests for every Division C event. Import past exam PDFs, practice at any difficulty, and track your progress.",
+    url: getSiteUrl(),
+    siteName: "Science Olympiad Tests",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Science Olympiad Tests - AI Practice Test Generator",
+    description:
+      "Free AI-generated Science Olympiad practice tests for every Division C event.",
+  },
 };
 
 export default function RootLayout({

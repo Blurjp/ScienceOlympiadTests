@@ -18,6 +18,12 @@ export default function Footer() {
 
           <div className="flex items-center space-x-6">
             <Link
+              href="/events"
+              className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
+            >
+              Events
+            </Link>
+            <Link
               href="/about"
               className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
             >
