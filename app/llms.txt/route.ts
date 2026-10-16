@@ -4,6 +4,9 @@ import { slugifyTopic } from '@/lib/event-pages';
 
 // llms.txt (llmstxt.org convention): a markdown manifest that LLM agents and
 // answer engines can ingest to understand and cite the site accurately.
+// Bump LAST_UPDATED when facts below change so agents can trust recency.
+const LAST_UPDATED = '2026-10-16';
+
 export function GET() {
   const base = getSiteUrl();
   const eventLinks = DEFAULT_TOPICS.map(
@@ -24,9 +27,11 @@ ${eventLinks}
 - [Pricing](${base}/pricing): Free tier (5 AI generations/month), Pro subscription, and Season Pass details.
 - [About & event guide](${base}/about): How the app works and what each event tests.
 - [Contact](${base}/contact): Support, bug reports, feature requests, billing.
+- [Full site content](${base}/llms-full.txt): Complete text of every event study guide and FAQ, in one document.
 
 ## Facts
 
+- Last updated: ${LAST_UPDATED}
 - Product name: SciolyPrep (operated by Pathvana LLC)
 - Site: ${base}
 - Support email: support@aitrove.ai

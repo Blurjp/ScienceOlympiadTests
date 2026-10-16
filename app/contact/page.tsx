@@ -4,7 +4,7 @@ import { ContactForm } from '@/components/contact/contact-form';
 import { Mail, Clock, MessageCircle } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Contact Us | Science Olympiad Tests',
+  title: 'Contact Us',
   description:
     'Get in touch with the Science Olympiad Tests team. Questions, bug reports, feature requests, and billing support.',
 };

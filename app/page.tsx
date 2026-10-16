@@ -19,6 +19,51 @@ export default async function Page() {
 
   const base = getSiteUrl();
 
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'SciolyPrep',
+    legalName: 'Pathvana LLC',
+    url: base,
+    logo: `${base}/favicon.svg`,
+    email: 'support@aitrove.ai',
+    description:
+      'Maker of SciolyPrep, an AI-powered Science Olympiad practice test generator with PDF import and progress tracking.',
+  };
+
+  const homeFaq = [
+    {
+      q: 'Is SciolyPrep free?',
+      a: 'Yes. You get 5 free AI test generations every month, forever, with no credit card required. Paid plans unlock unlimited generations for competitors who need more volume during the season.',
+    },
+    {
+      q: 'How does the AI Science Olympiad test generator work?',
+      a: 'Pick an event, a difficulty (Invitational, Regional, State, or National), and the number of questions. SciolyPrep generates original multiple-choice questions with verified answers at that difficulty, then grades your answers with AI that accepts synonyms, abbreviations, and partial credit.',
+    },
+    {
+      q: 'Can I practice with real past Science Olympiad exams?',
+      a: 'Yes. Upload a past exam PDF from your computer or a Google Drive link and every question is parsed into an interactive, timed test. The Exam-Inspired Generator also analyzes real exam structures and writes 100% original new questions in the same style.',
+    },
+    {
+      q: 'Which Science Olympiad events are covered?',
+      a: `All ${DEFAULT_TOPICS.length} major Division C events, including Anatomy and Physiology, Astronomy, Chemistry Lab, Disease Detectives, Forensics, Fossils, Ornithology, and Thermodynamics. Each event has its own study guide and practice tests at four difficulty levels.`,
+    },
+    {
+      q: 'Is SciolyPrep affiliated with Science Olympiad, Inc.?',
+      a: 'No. SciolyPrep is an independent practice platform operated by Pathvana LLC and is not affiliated with, endorsed by, or sponsored by Science Olympiad, Inc.',
+    },
+  ];
+
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: homeFaq.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
+
   const websiteJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
@@ -57,10 +102,29 @@ export default async function Page() {
     <>
       <JsonLd data={websiteJsonLd} />
       <JsonLd data={appJsonLd} />
+      <JsonLd data={organizationJsonLd} />
+      <JsonLd data={faqJsonLd} />
       <HomePage
         initialTests={tests}
         initialTopics={topics.length > 0 ? topics : DEFAULT_TOPICS}
       />
+
+      {/* Visible FAQ mirrors the FAQPage structured data above. */}
+      <section className="bg-gray-50 py-12">
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Frequently Asked Questions
+          </h2>
+          <div className="mt-4 space-y-4">
+            {homeFaq.map((item) => (
+              <div key={item.q} className="rounded-lg border bg-white p-4">
+                <h3 className="font-semibold text-gray-900">{item.q}</h3>
+                <p className="mt-2 text-sm text-gray-600">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </>
   );
 }

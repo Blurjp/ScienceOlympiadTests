@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'About & Event Guide | Science Olympiad Tests',
+  title: 'About & Event Guide',
   description:
     'Learn how SciolyPrep helps you prepare for Science Olympiad with AI-generated practice tests, exam-structure analysis, and PDF import. Includes a study guide to all 23 events.',
 };

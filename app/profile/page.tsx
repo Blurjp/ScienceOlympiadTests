@@ -8,7 +8,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
 
 export const metadata: Metadata = {
-  title: "Profile | Science Olympiad Tests",
+  title: "Profile",
   robots: { index: false, follow: false },
 }
 

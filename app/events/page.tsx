@@ -6,10 +6,20 @@ import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { slugifyTopic } from '@/lib/event-pages';
 
 export const metadata: Metadata = {
-  title: 'Science Olympiad Event Practice Tests & Study Guides | All 20 Events',
+  title: 'Science Olympiad Event Practice Tests & Study Guides',
   description:
     'Free AI-generated practice tests for every Science Olympiad Division C event - Anatomy, Astronomy, Chemistry Lab, Forensics, Thermodynamics, and more. Difficulty from Invitational to National.',
   alternates: { canonical: `${getSiteUrl()}/events` },
+  openGraph: {
+    images: [
+      {
+        url: `${getSiteUrl()}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'Science Olympiad event practice tests on SciolyPrep',
+      },
+    ],
+  },
 };
 
 export default function EventsIndexPage() {

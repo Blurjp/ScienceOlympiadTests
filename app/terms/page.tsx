@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Mail } from 'lucide-react';
 
 export const metadata = {
-  title: 'Terms of Service - Science Olympiad Tests',
+  title: 'Terms of Service',
   description: 'Terms of Service for Science Olympiad Tests practice platform',
 };
 

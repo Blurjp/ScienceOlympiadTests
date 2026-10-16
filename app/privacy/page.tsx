@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Mail } from 'lucide-react';
 
 export const metadata = {
-  title: 'Privacy Policy - Science Olympiad Tests',
+  title: 'Privacy Policy',
   description: 'Privacy Policy for Science Olympiad Tests practice platform',
 };
 

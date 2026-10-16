@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
   const topic = unslugifyTopic(params.topic);
   if (!topic) return {};
   const base = getSiteUrl();
-  const title = `${topic} Practice Tests for Science Olympiad | Free AI Generator`;
+  const title = `${topic} Practice Tests - Free AI Generator`;
   const description = `Practice ${topic} for Science Olympiad with AI-generated tests at Invitational, Regional, State, and National difficulty. Import past exam PDFs and track your progress. Free to start.`;
   return {
     title,
@@ -34,7 +34,16 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
       url: `${base}/events/${params.topic}`,
       type: 'website',
       siteName: 'Science Olympiad Tests',
+      images: [
+        {
+          url: `${base}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `${topic} practice tests on SciolyPrep`,
+        },
+      ],
     },
+    twitter: { card: 'summary_large_image', title, description },
   };
 }
 

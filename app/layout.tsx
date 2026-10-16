@@ -9,7 +9,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: {
     default: "Science Olympiad Tests - AI Practice Test Generator",
-    template: "%s",
+    template: "%s | SciolyPrep",
   },
   description:
     "Generate and practice Science Olympiad tests for every event - Anatomy, Astronomy, Chemistry Lab, Forensics, and more. AI-generated questions, PDF import, and progress tracking.",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Science Olympiad Tests - AI Practice Test Generator",
     description:
       "Free AI-generated Science Olympiad practice tests for every Division C event.",
