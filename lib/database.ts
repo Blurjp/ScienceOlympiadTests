@@ -1,6 +1,6 @@
 import { createClient, Client } from '@libsql/client';
 import crypto from 'crypto';
-import { Test, Question } from './types';
+import { Test, Question, TestSummary } from './types';
 import { normalizeTopic } from './topic-utils';
 
 let db: Client | null = null;
@@ -337,6 +337,35 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+// Load lightweight test summaries (no questions/options) for listings.
+// Uses a question_count subquery so the browse grid gets everything it
+// needs without the heavy joins.
+async function loadTestSummaries(
+  database: Client,
+  whereClause: string,
+  args: any[]
+): Promise<TestSummary[]> {
+  const rows = (await database.execute({
+    sql: `SELECT tests.*,
+            (SELECT COUNT(*) FROM questions WHERE test_id = tests.id) AS question_count
+          FROM tests ${whereClause}`,
+    args,
+  })).rows;
+  return (rows as any[]).map((test) => ({
+    id: test.id,
+    year: test.year,
+    title: test.title,
+    description: test.description,
+    difficulty: test.difficulty,
+    totalTime: test.total_time,
+    totalPoints: test.total_points,
+    topic: test.topic,
+    region: test.region || undefined,
+    userId: test.user_id ?? null,
+    questionCount: test.question_count ?? 0,
+  }));
+}
+
 // Load tests (with questions and options) using a fixed number of queries
 // instead of one query per question (avoids severe N+1 fan-out)
 async function loadTestsBulk(
@@ -433,14 +462,14 @@ export async function getTestsByYearAndTopic(year: number, topic: string): Promi
  * title, description, and topic; `userId` restricts to tests the user
  * generated or imported themselves.
  */
-export async function searchTests(filters: {
+export interface TestFilters {
   topic?: string;
   year?: number;
   search?: string;
   userId?: string;
-}): Promise<Test[]> {
-  const database = await getDatabase();
+}
 
+function buildTestFilterClause(filters: TestFilters): { whereClause: string; args: any[] } {
   const conditions: string[] = [];
   const args: any[] = [];
 
@@ -469,7 +498,26 @@ export async function searchTests(filters: {
     ? `WHERE ${conditions.join(' AND ')} ORDER BY year DESC, title`
     : 'ORDER BY year DESC, title';
 
+  return { whereClause, args };
+}
+
+export async function searchTests(filters: TestFilters): Promise<Test[]> {
+  const database = await getDatabase();
+  const { whereClause, args } = buildTestFilterClause(filters);
   return loadTestsBulk(database, whereClause, args);
+}
+
+/** Summary variant of searchTests - no questions/options payload. */
+export async function searchTestSummaries(filters: TestFilters): Promise<TestSummary[]> {
+  const database = await getDatabase();
+  const { whereClause, args } = buildTestFilterClause(filters);
+  return loadTestSummaries(database, whereClause, args);
+}
+
+/** Lightweight summaries of all tests (for the homepage SSR payload). */
+export async function getAllTestSummaries(): Promise<TestSummary[]> {
+  const database = await getDatabase();
+  return loadTestSummaries(database, 'ORDER BY year DESC, title', []);
 }
 
 export async function searchQuestions(filters: {

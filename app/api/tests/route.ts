@@ -9,6 +9,7 @@ import {
   getAvailableTopics,
   getAvailableRegions,
   searchTests,
+  searchTestSummaries,
 } from '@/lib/database';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     const topic = searchParams.get('topic');
     const search = searchParams.get('search')?.trim() || undefined;
     const mine = searchParams.get('mine') === '1';
+    const summary = searchParams.get('summary') === '1';
     const action = searchParams.get('action');
 
     // Get available years
@@ -51,6 +53,19 @@ export async function GET(request: NextRequest) {
         );
       }
       userId = session.user.id;
+    }
+
+    // Summary mode: lightweight listing payloads (no questions/options).
+    // Used by the homepage browse grid; full questions load per-test on
+    // demand from /api/tests/[id].
+    if (summary) {
+      const tests = await searchTestSummaries({
+        topic: topic || undefined,
+        year: year ? parseInt(year) : undefined,
+        search,
+        userId,
+      });
+      return NextResponse.json({ tests });
     }
 
     // Text search and owner filtering go through the flexible query builder;

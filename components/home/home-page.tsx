@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Test, UserAnswer, ViewType } from '@/lib/types';
+import { Test, TestSummary, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ interface TestResultWithTest {
 }
 
 interface HomePageProps {
-  initialTests: Test[];
+  initialTests: TestSummary[];
   initialTopics: string[];
 }
 
@@ -68,7 +68,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [currentView, setCurrentView] = useState<ViewType>('browse');
-  const [tests, setTests] = useState<Test[]>(initialTests);
+  const [tests, setTests] = useState<TestSummary[]>(initialTests);
   const [availableTopics, setAvailableTopics] = useState<string[]>(
     initialTopics.length > 0 ? initialTopics : DEFAULT_TOPICS
   );
@@ -207,11 +207,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     const requestId = ++testsFetchId.current;
     try {
       const params = new URLSearchParams();
+      params.append('summary', '1'); // lightweight listing payload (no questions)
       if (opts?.topic) params.append('topic', opts.topic);
       if (opts?.search) params.append('search', opts.search);
       if (opts?.mine) params.append('mine', '1');
-      const url = params.toString() ? `/api/tests?${params}` : '/api/tests';
-      const response = await fetch(url);
+      const response = await fetch(`/api/tests?${params}`);
       const data = await response.json();
       // Ignore stale responses that resolved out of order
       if (requestId !== testsFetchId.current) return;
@@ -298,8 +298,37 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     return testHistory.find(r => r.testId === testId);
   };
 
-  const handleStartTest = (test: Test) => {
-    setSelectedTest(test);
+  // Starting a test: listings carry only summaries, so fetch the full test
+  // (with questions) on demand unless we already have it (e.g. a freshly
+  // generated test).
+  const [startingTestId, setStartingTestId] = useState<string | null>(null);
+
+  const handleStartTest = async (test: TestSummary | Test) => {
+    if (startingTestId) return;
+
+    const hasQuestions =
+      'questions' in test && Array.isArray((test as Test).questions) && (test as Test).questions.length > 0;
+
+    let fullTest = test as Test;
+    if (!hasQuestions) {
+      setStartingTestId(test.id);
+      try {
+        const response = await fetch(`/api/tests/${test.id}`);
+        const data = await response.json();
+        if (!response.ok || !data.test) {
+          throw new Error(data.error || 'Failed to load test');
+        }
+        fullTest = data.test as Test;
+      } catch (error) {
+        console.error('Error loading test:', error);
+        setStartingTestId(null);
+        alert('Failed to load this test. Please try again.');
+        return;
+      }
+      setStartingTestId(null);
+    }
+
+    setSelectedTest(fullTest);
     setUserAnswers([]);
     setTimeSpent(0);
     setCurrentView('test');
@@ -758,7 +787,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {tests.reduce((sum, t) => sum + t.questions.length, 0)}
+                  {tests.reduce((sum, t) => sum + t.questionCount, 0)}
                 </p>
                 <p className="text-sm text-gray-600">Total Questions</p>
               </div>
@@ -950,7 +979,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <FileQuestion className="h-4 w-4" />
-                        <span>{test.questions.length} questions</span>
+                        <span>{test.questionCount} questions</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock className="h-4 w-4" />
@@ -1002,11 +1031,21 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                     <div className="mt-4 flex gap-2">
                       <Button
                         onClick={() => handleStartTest(test)}
+                        disabled={startingTestId !== null}
                         className="flex-1 gap-2"
                         variant={lastResult ? 'outline' : 'default'}
                       >
-                        <RotateCcw className="h-4 w-4" />
-                        {lastResult ? 'Retake' : 'Start Test'}
+                        {startingTestId === test.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <RotateCcw className="h-4 w-4" />
+                            {lastResult ? 'Retake' : 'Start Test'}
+                          </>
+                        )}
                       </Button>
                       {lastResult && (
                         <Link href="/history" className="flex-1">

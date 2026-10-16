@@ -27,6 +27,25 @@ export interface Test {
   userId?: string | null;
 }
 
+/**
+ * Lightweight test representation for listings. Carries everything the
+ * browse grid and stats need (including question count) without embedding
+ * every question - keeps the homepage payload small.
+ */
+export interface TestSummary {
+  id: string;
+  year: number;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  totalTime: number;
+  totalPoints: number;
+  topic: string;
+  region?: string;
+  userId?: string | null;
+  questionCount: number;
+}
+
 export interface UserAnswer {
   questionId: string;
   answer: string;

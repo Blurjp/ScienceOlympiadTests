@@ -1,4 +1,4 @@
-import { getAllTests, getAvailableTopics } from '@/lib/database';
+import { getAllTestSummaries, getAvailableTopics } from '@/lib/database';
 import HomePage from '@/components/home/home-page';
 import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -7,12 +7,14 @@ import { getSiteUrl } from '@/lib/site';
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  // Fetch real content server-side so crawlers see publisher content
-  // (AdSense: no ads on screens without publisher-content / low value content)
-  let tests: Awaited<ReturnType<typeof getAllTests>> = [];
+  // Fetch publisher content server-side so crawlers see real content
+  // (AdSense: no ads on screens without publisher-content / low value
+  // content). Summaries only - full questions would bloat the HTML payload;
+  // they load per-test on demand when a test is started.
+  let tests: Awaited<ReturnType<typeof getAllTestSummaries>> = [];
   let topics: string[] = [];
   try {
-    [tests, topics] = await Promise.all([getAllTests(), getAvailableTopics()]);
+    [tests, topics] = await Promise.all([getAllTestSummaries(), getAvailableTopics()]);
   } catch (error) {
     console.error('Failed to load initial data:', error);
   }

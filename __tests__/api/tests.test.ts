@@ -19,6 +19,7 @@ jest.mock('@/lib/database', () => ({
   getAvailableTopics: jest.fn(),
   getAvailableRegions: jest.fn(),
   searchTests: jest.fn(),
+  searchTestSummaries: jest.fn(),
 }));
 
 import { auth } from '@/auth';
@@ -31,6 +32,7 @@ import {
   getAvailableTopics,
   getAvailableRegions,
   searchTests,
+  searchTestSummaries,
 } from '@/lib/database';
 
 const mockAuth = auth as unknown as jest.MockedFunction<() => Promise<any>>;
@@ -42,6 +44,7 @@ const mockGetAvailableYears = getAvailableYears as jest.MockedFunction<typeof ge
 const mockGetAvailableTopics = getAvailableTopics as jest.MockedFunction<typeof getAvailableTopics>;
 const mockGetAvailableRegions = getAvailableRegions as jest.MockedFunction<typeof getAvailableRegions>;
 const mockSearchTests = searchTests as jest.MockedFunction<typeof searchTests>;
+const mockSearchTestSummaries = searchTestSummaries as jest.MockedFunction<typeof searchTestSummaries>;
 
 describe('GET /api/tests', () => {
   beforeEach(() => {
@@ -174,6 +177,40 @@ describe('GET /api/tests', () => {
         search: 'anatomy',
         userId: 'user-1',
       });
+    });
+  });
+
+  describe('summary mode', () => {
+    test('routes summary=1 through searchTestSummaries with filters', async () => {
+      const summaries = [{ id: 'test-1', title: 'Anatomy Test', questionCount: 25 }];
+      mockSearchTestSummaries.mockResolvedValue(summaries as any);
+
+      const request = new NextRequest('http://localhost:3000/api/tests?summary=1&topic=Anatomy');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.tests).toEqual(summaries);
+      expect(mockSearchTestSummaries).toHaveBeenCalledWith({
+        topic: 'Anatomy',
+        year: undefined,
+        search: undefined,
+        userId: undefined,
+      });
+      expect(mockGetAllTests).not.toHaveBeenCalled();
+      expect(mockSearchTests).not.toHaveBeenCalled();
+    });
+
+    test('summary mode works with mine=1 when signed in', async () => {
+      mockAuth.mockResolvedValue({ user: { id: 'user-1' } } as any);
+      mockSearchTestSummaries.mockResolvedValue([] as any);
+
+      const request = new NextRequest('http://localhost:3000/api/tests?summary=1&mine=1');
+      await GET(request);
+
+      expect(mockSearchTestSummaries).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-1' })
+      );
     });
   });
 
