@@ -96,7 +96,7 @@ export default async function EventPage({ params }: EventPageProps) {
 
         <h1 className="text-4xl font-bold text-gray-900">{topic} Practice Tests</h1>
         <p className="mt-4 text-lg text-gray-600">
-          Free, AI-generated {topic} practice tests for Science Olympiad Division C. Choose
+          Free, AI-generated {topic} practice tests for Science Olympiad. Choose
           Invitational, Regional, State, or National difficulty, import past exam PDFs, and
           track your scores over time.
         </p>

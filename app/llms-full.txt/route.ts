@@ -35,14 +35,14 @@ ${faq}
 
 > Machine-readable dump of all public text content on ${base}. Last updated: ${LAST_UPDATED}.
 
-SciolyPrep is a free web app that generates and grades Science Olympiad Division C practice tests with AI, imports past exam PDFs into interactive tests, and tracks progress. 5 free AI test generations per month; paid plans unlock unlimited generations. Operated by Pathvana LLC, support: support@aitrove.ai. Independent platform, not affiliated with Science Olympiad, Inc.
+SciolyPrep is a free web app that generates and grades Science Olympiad practice tests for Division B and C events with AI, imports past exam PDFs into interactive tests, and tracks progress. 5 free AI test generations per month; paid plans unlock unlimited generations. Operated by Pathvana LLC, support: support@aitrove.ai. Independent platform, not affiliated with Science Olympiad, Inc.
 
 Product facts:
 
 - Questions per test: 5-50, multiple choice with 4 options, AI-graded with partial credit
 - Difficulty levels: Invitational (easiest), Regional, State, National (hardest)
 - Free tier: 5 AI test generations per month, no credit card required
-- Events covered: ${DEFAULT_TOPICS.length} Division C events
+- Events covered: ${DEFAULT_TOPICS.length} Science Olympiad events across Divisions B and C
 - PDF import: upload a past exam PDF from a computer or Google Drive link; every question is parsed into an interactive test
 - Exam-Inspired Generator: analyzes real exam structure (topic mix, format, difficulty) and writes original new questions in that style
 

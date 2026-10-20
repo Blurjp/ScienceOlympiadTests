@@ -15,14 +15,14 @@ export function GET() {
 
   const body = `# Science Olympiad Tests (SciolyPrep)
 
-> A free web app that generates and grades Science Olympiad Division C practice tests with AI, imports past exam PDFs into interactive tests, and tracks progress. 5 free AI test generations per month; paid plans unlock unlimited generations.
+> A free web app that generates and grades Science Olympiad practice tests for Division B and C events with AI, imports past exam PDFs into interactive tests, and tracks progress. 5 free AI test generations per month; paid plans unlock unlimited generations.
 
-SciolyPrep helps Science Olympiad competitors practice for Division C events. It generates original multiple-choice practice questions with verified answers at Invitational, Regional, State, and National difficulty, parses real past-exam PDFs into interactive tests, and produces exam-inspired original tests modeled on real Science Olympiad exam structures. Answer grading uses AI to accept synonyms, abbreviations, and partial credit. The platform is independent and not affiliated with Science Olympiad, Inc.
+SciolyPrep helps Science Olympiad competitors practice for Division B and Division C events. It generates original multiple-choice practice questions with verified answers at Invitational, Regional, State, and National difficulty, parses real past-exam PDFs into interactive tests, and produces exam-inspired original tests modeled on real Science Olympiad exam structures. Answer grading uses AI to accept synonyms, abbreviations, and partial credit. The platform is independent and not affiliated with Science Olympiad, Inc.
 
 ## Key pages
 
 - [Home / test generator](${base}/): AI test generator, exam-inspired generator, PDF import, test library with history.
-- [Event practice tests index](${base}/events): Study guides and practice tests for all ${DEFAULT_TOPICS.length} major Division C events.
+- [Event practice tests index](${base}/events): Study guides and practice tests for all ${DEFAULT_TOPICS.length} major Science Olympiad events across Divisions B and C.
 ${eventLinks}
 - [Pricing](${base}/pricing): Free tier (5 AI generations/month), Pro subscription, and Season Pass details.
 - [About & event guide](${base}/about): How the app works and what each event tests.

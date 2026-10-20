@@ -48,7 +48,7 @@ export default async function Page() {
     },
     {
       q: 'Which Science Olympiad events are covered?',
-      a: `All ${DEFAULT_TOPICS.length} major Division C events, including Anatomy and Physiology, Astronomy, Chemistry Lab, Disease Detectives, Forensics, Fossils, Ornithology, and Thermodynamics. Each event has its own study guide and practice tests at four difficulty levels.`,
+      a: `All ${DEFAULT_TOPICS.length} major Science Olympiad events across Divisions B and C, including Anatomy and Physiology, Astronomy, Botany, Chemistry Lab, Disease Detectives, Food Science, Forensics, and Thermodynamics. Each event has its own study guide and practice tests at four difficulty levels.`,
     },
     {
       q: 'Is SciolyPrep affiliated with Science Olympiad, Inc.?',
@@ -84,7 +84,7 @@ export default async function Page() {
     applicationCategory: 'EducationalApplication',
     operatingSystem: 'Web',
     description:
-      'Generate and practice Science Olympiad Division C tests with AI. Original questions at Invitational through National difficulty, past-exam PDF import, and progress tracking.',
+      'Generate and practice Science Olympiad tests for Division B and Division C events with AI. Original questions at Invitational through National difficulty, past-exam PDF import, and progress tracking.',
     offers: {
       '@type': 'Offer',
       price: '0',

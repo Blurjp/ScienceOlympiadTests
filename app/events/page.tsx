@@ -8,7 +8,7 @@ import { slugifyTopic } from '@/lib/event-pages';
 export const metadata: Metadata = {
   title: 'Science Olympiad Event Practice Tests & Study Guides',
   description:
-    'Free AI-generated practice tests for every Science Olympiad Division C event - Anatomy, Astronomy, Chemistry Lab, Forensics, Thermodynamics, and more. Difficulty from Invitational to National.',
+    'Free AI-generated practice tests for every major Science Olympiad event in Divisions B and C - Anatomy, Astronomy, Botany, Chemistry Lab, Forensics, Thermodynamics, and more. Difficulty from Invitational to National.',
   alternates: { canonical: `${getSiteUrl()}/events` },
   openGraph: {
     images: [
@@ -44,7 +44,7 @@ export default function EventsIndexPage() {
         <h1 className="text-4xl font-bold text-gray-900">Science Olympiad Event Practice Tests</h1>
         <p className="mt-4 text-lg text-gray-600">
           Free, AI-generated practice tests for all {DEFAULT_TOPICS.length} major Science
-          Olympiad Division C events. Each event page includes a study guide covering what the
+          Olympiad events across Divisions B and C. Each event page includes a study guide covering what the
           test expects, plus practice tests at Invitational, Regional, State, and National
           difficulty.
         </p>

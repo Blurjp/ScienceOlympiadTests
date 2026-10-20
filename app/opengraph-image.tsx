@@ -6,7 +6,7 @@ import { getSiteUrl } from '@/lib/site';
 export const runtime = 'edge';
 
 export const alt =
-  'SciolyPrep - AI-generated Science Olympiad practice tests for 20 Division C events';
+  'SciolyPrep - AI-generated Science Olympiad practice tests for 32 Division B and C events';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -82,7 +82,7 @@ export default function OpengraphImage() {
             color: '#c4b5fd',
           }}
         >
-          20 Division C events · Invitational to National difficulty · PDF import ·
+          32 Division B and C events · Invitational to National difficulty · PDF import ·
           Progress tracking
         </div>
 

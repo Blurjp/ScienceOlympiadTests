@@ -4,19 +4,31 @@
 export const CANONICAL_TOPICS = [
   'Anatomy and Physiology',
   'Astronomy',
+  'Botany',
   'Chemistry Lab',
+  'Circuit Lab',
+  'Codebusters',
+  'Crime Busters',
+  'Designer Genes',
   'Disease Detectives',
   'Dynamic Planet',
   'Ecology',
   'Experimental Design',
   'Fermi Questions',
+  'Food Science',
   'Forensics',
   'Fossils',
+  'Heredity',
   'Machines',
+  'Meteorology',
   'Microbe Mission',
   'Optics',
   'Ornithology',
+  'Protein Modeling',
+  'Remote Sensing',
+  'Solar System',
   'Thermodynamics',
+  'Water Quality',
   'Write It Do It',
 ] as const;
 
@@ -29,19 +41,44 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
   'anatomy & physiology': 'Anatomy and Physiology',
   'anatomy': 'Anatomy and Physiology',
   'a&p': 'Anatomy and Physiology',
-  'protein modeling': 'Anatomy and Physiology',
   'cell biology': 'Anatomy and Physiology',
+  // Note: protein modeling is its own Division C event, defined below
 
   // Astronomy variations
   'astronomy': 'Astronomy',
-  'reach for the stars': 'Astronomy',
-  'solar system': 'Astronomy',
   'starry night': 'Astronomy',
+  // Note: solar system is its own Division B event, defined below
+
+  // Botany variations
+  'botany': 'Botany',
+  'plant science': 'Botany',
+  'plants': 'Botany',
 
   // Chemistry Lab variations
   'chemistry lab': 'Chemistry Lab',
   'chem lab': 'Chemistry Lab',
   'chemistry': 'Chemistry Lab',
+
+  // Circuit Lab variations
+  'circuit lab': 'Circuit Lab',
+  'circuits': 'Circuit Lab',
+  'electricity': 'Circuit Lab',
+  'electronics': 'Circuit Lab',
+
+  // Codebusters variations
+  'codebusters': 'Codebusters',
+  'code busters': 'Codebusters',
+  'codebuster': 'Codebusters',
+  'ciphers': 'Codebusters',
+  'cryptanalysis': 'Codebusters',
+
+  // Crime Busters variations
+  'crime busters': 'Crime Busters',
+  'crimebusters': 'Crime Busters',
+
+  // Designer Genes variations
+  'designer genes': 'Designer Genes',
+  'genomics': 'Designer Genes',
 
   // Disease Detectives variations
   'disease detectives': 'Disease Detectives',
@@ -49,18 +86,18 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
 
   // Dynamic Planet variations
   'dynamic planet': 'Dynamic Planet',
-  'rocks and minerals': 'Dynamic Planet',
   'earth science': 'Dynamic Planet',
   'geology': 'Dynamic Planet',
   'geologic mapping': 'Dynamic Planet',
+  // Note: rocks and minerals is its own event, defined below
 
   // Ecology variations
   'ecology': 'Ecology',
   'herpetology': 'Ecology',
   'entomology': 'Ecology',
   'green generation': 'Ecology',
-  'water quality': 'Ecology',
   // Note: ornithology is its own event, defined below
+  // Note: water quality is its own event, defined below
 
   // Experimental Design variations
   'experimental design': 'Experimental Design',
@@ -71,28 +108,45 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
   'fermi questions': 'Fermi Questions',
   'fermi': 'Fermi Questions',
 
+  // Food Science variations
+  'food science': 'Food Science',
+  'food sci': 'Food Science',
+  'food chemistry': 'Food Science',
+  'dairy science': 'Food Science',
+  'dairy': 'Food Science',
+  'dairy products': 'Food Science',
+
   // Forensics variations
   'forensics': 'Forensics',
-  'crime busters': 'Forensics',
+  // Note: crime busters is its own Division B event, defined above
 
   // Fossils variations
   'fossils': 'Fossils',
   'paleontology': 'Fossils',
 
+  // Heredity variations
+  'heredity': 'Heredity',
+  'genetics': 'Heredity',
+
   // Machines variations
   'machines': 'Machines',
   'simple machines': 'Machines',
   'compound machines': 'Machines',
-  'wind power': 'Machines',
-  'tower': 'Machines',
   'detector building': 'Machines',
   'mousetrap vehicle': 'Machines',
   'electric vehicle': 'Machines',
+  // Note: wind power and tower are their own events, defined below
 
   // Microbe Mission variations
   'microbe mission': 'Microbe Mission',
   'microbiology': 'Microbe Mission',
   'disease science': 'Microbe Mission',
+
+  // Meteorology variations
+  'meteorology': 'Meteorology',
+  'weather': 'Meteorology',
+  'weather and climate': 'Meteorology',
+  'severe weather': 'Meteorology',
 
   // Optics variations
   'optics': 'Optics',
@@ -101,6 +155,18 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
   // Ornithology variations
   'ornithology': 'Ornithology',
   'birds': 'Ornithology',
+
+  // Protein Modeling variations
+  'protein modeling': 'Protein Modeling',
+  'protein structure': 'Protein Modeling',
+
+  // Remote Sensing variations
+  'remote sensing': 'Remote Sensing',
+  'satellite imagery': 'Remote Sensing',
+
+  // Solar System variations
+  'solar system': 'Solar System',
+  'planetary science': 'Solar System',
 
   // Thermodynamics variations
   'thermodynamics': 'Thermodynamics',
@@ -112,6 +178,10 @@ const TOPIC_NORMALIZATION_MAP: Record<string, CanonicalTopic> = {
   'write it do it': 'Write It Do It',
   'widi': 'Write It Do It',
   'write it, do it': 'Write It Do It',
+
+  // Water Quality variations
+  'water quality': 'Water Quality',
+  'aquatic ecology': 'Water Quality',
 };
 
 /**

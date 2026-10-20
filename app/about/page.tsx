@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: 'About & Event Guide',
   description:
-    'Learn how SciolyPrep helps you prepare for Science Olympiad with AI-generated practice tests, exam-structure analysis, and PDF import. Includes a study guide to all 23 events.',
+    'Learn how SciolyPrep helps you prepare for Science Olympiad with AI-generated practice tests, exam-structure analysis, and PDF import. Includes a study guide to every event we cover.',
 };
 
 const TOPIC_GUIDES: { topic: string; blurb: string }[] = [
@@ -27,6 +27,31 @@ const TOPIC_GUIDES: { topic: string; blurb: string }[] = [
     topic: 'Astronomy',
     blurb:
       'Explore stellar evolution, galaxies, and deep-sky objects. Expect image-based identification questions, H-R diagram interpretation, and calculations involving luminosity and distance.',
+  },
+  {
+    topic: 'Botany',
+    blurb:
+      'New for 2027 - plant biology across both divisions. Study plant structure and physiology, photosynthesis, reproduction and life cycles, plant diversity from mosses to angiosperms, hormones, and paleobotany.',
+  },
+  {
+    topic: 'Circuit Lab',
+    blurb:
+      'Electricity and electronics - Ohm\u2019s law, series and parallel circuits, power, capacitors, and electromagnetism. Includes hands-on multimeter and circuit-analysis tasks plus written problems.',
+  },
+  {
+    topic: 'Codebusters',
+    blurb:
+      'Cryptanalysis of historical and modern ciphers - Caesar, Vigen\u00e8re, Aristocrats, Morse, Baconian, and math-based ciphers up through RSA. Practice frequency analysis and timed decoding.',
+  },
+  {
+    topic: 'Crime Busters',
+    blurb:
+      'Division B forensics - identify unknown powders, liquids, and fibers with simple chemical tests, read chromatograms and fingerprints, and use the results to solve a crime scenario.',
+  },
+  {
+    topic: 'Designer Genes',
+    blurb:
+      'Division C genetics at full depth - Mendelian and non-Mendelian inheritance, pedigrees, gene regulation, biotechnology like PCR and CRISPR, and Hardy-Weinberg population genetics.',
   },
   {
     topic: 'Chemistry Lab',
@@ -59,6 +84,11 @@ const TOPIC_GUIDES: { topic: string; blurb: string }[] = [
       'Estimate answers to order-of-magnitude questions - from the number of piano tuners in Chicago to the weight of the ocean. Speed and reasoning matter more than precision.',
   },
   {
+    topic: 'Food Science',
+    blurb:
+      'The 2027 season is all about dairy - milk composition, casein and whey proteins, freezing point depression, emulsification, pasteurization, and cultured products like yogurt and cheese. Practice the math behind the ice cream, curd, and butter lab tasks.',
+  },
+  {
     topic: 'Forensics',
     blurb:
       'Apply chemistry, biology, and physics to crime scene analysis. Practice identifying fibers, powders, fingerprints, and chromatography patterns.',
@@ -69,9 +99,19 @@ const TOPIC_GUIDES: { topic: string; blurb: string }[] = [
       'Identify fossil specimens and their geologic contexts. Know taxonomy, modes of life preservation, and major events in Earth history.',
   },
   {
+    topic: 'Heredity',
+    blurb:
+      'Division B genetics - Punnett squares, inheritance patterns, pedigree analysis, chromosomes and karyotypes, plus the molecular basics of DNA, from replication to protein synthesis.',
+  },
+  {
     topic: 'Machines',
     blurb:
       'Physics of simple and compound machines - levers, pulleys, inclined planes. Practice calculating mechanical advantage, efficiency, and forces.',
+  },
+  {
+    topic: 'Meteorology',
+    blurb:
+      'The 2027 focus is Severe Weather and Storms - thunderstorms, tornadoes, hurricanes, and winter storms - with heavy emphasis on reading weather maps, station models, radar, and other meteorological data.',
   },
   {
     topic: 'Microbe Mission',
@@ -89,9 +129,19 @@ const TOPIC_GUIDES: { topic: string; blurb: string }[] = [
       'Identify North American birds by sight and sound. Study anatomy, behavior, habitat, and conservation with a focus on the annual bird list.',
   },
   {
+    topic: 'Protein Modeling',
+    blurb:
+      'Protein structure and folding - from amino acid chemistry through quaternary structure, plus visualization and modeling skills. The 2027 focus protein is the sialic acid binding site of the 2009 H1N1 influenza hemagglutinin.',
+  },
+  {
     topic: 'Reach for the Stars',
     blurb:
       'Introductory astronomy for Division B - stellar life cycles, galaxies, and space exploration. Practice with star charts and mission data.',
+  },
+  {
+    topic: 'Remote Sensing',
+    blurb:
+      'Satellite imagery and Earth-observation data - the electromagnetic spectrum, sensor types, orbits, and image interpretation. Division C tasks in 2027 center on climate change processes.',
   },
   {
     topic: 'Rocks and Minerals',
@@ -99,9 +149,19 @@ const TOPIC_GUIDES: { topic: string; blurb: string }[] = [
       'Identify rock and mineral specimens using physical properties like hardness, cleavage, and luster. Understand rock cycles and formation environments.',
   },
   {
+    topic: 'Solar System',
+    blurb:
+      'The 2027 focus is habitability within and beyond the Solar System - planets, moons and ocean worlds, small bodies, exoplanet detection, and what makes a world livable.',
+  },
+  {
     topic: 'Tower',
     blurb:
       'Build a lightweight wooden tower that holds maximum weight. Practice physics calculations, wood selection, and structural design trade-offs.',
+  },
+  {
+    topic: 'Water Quality',
+    blurb:
+      'The 2027 focus is marine and estuary environments - water quality testing, macroinvertebrate bioindicators, estuary ecology, tides, and human impacts from eutrophication to ocean acidification.',
   },
   {
     topic: 'Wind Power',

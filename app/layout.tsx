@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Science Olympiad Tests - AI Practice Test Generator",
     description:
-      "Free AI-generated Science Olympiad practice tests for every Division C event. Import past exam PDFs, practice at any difficulty, and track your progress.",
+      "Free AI-generated Science Olympiad practice tests for every major event in Divisions B and C. Import past exam PDFs, practice at any difficulty, and track your progress.",
     url: getSiteUrl(),
     siteName: "Science Olympiad Tests",
     type: "website",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Science Olympiad Tests - AI Practice Test Generator",
     description:
-      "Free AI-generated Science Olympiad practice tests for every Division C event.",
+      "Free AI-generated Science Olympiad practice tests for every major Division B and C event.",
   },
 };
 

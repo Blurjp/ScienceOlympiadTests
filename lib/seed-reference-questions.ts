@@ -318,6 +318,72 @@ export const SEED_REFERENCE_QUESTIONS: ReferenceQuestion[] = [
     tags: ['estimation', 'air', 'density', 'volume']
   },
 
+  // ==================== FOOD SCIENCE ====================
+  {
+    topic: 'Food Science',
+    subtopic: 'Proteins - Casein and Whey',
+    difficulty: 'State',
+    questionType: 'multiple-choice',
+    questionText: 'At approximately what pH does casein reach its isoelectric point and precipitate out of milk to form curds?',
+    correctAnswer: 'pH 4.6',
+    options: [
+      'A) pH 2.4',
+      'B) pH 4.6',
+      'C) pH 6.7',
+      'D) pH 8.3'
+    ],
+    explanation: 'Casein reaches its isoelectric point (zero net charge) at pH 4.6. Below milk\'s normal pH of 6.7, acid neutralizes the negative charges on casein micelles so they clump into a gel. Whey proteins remain soluble at this pH and drain away with the whey.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['casein', 'isoelectric point', 'curds', 'pH']
+  },
+  {
+    topic: 'Food Science',
+    subtopic: 'Freezing Point Depression',
+    difficulty: 'Regional',
+    questionType: 'calculation',
+    questionText: 'A brine is prepared by dissolving 58.4 g of NaCl (molar mass 58.4 g/mol) in 1.00 kg of water. Given Kf = 1.86 °C·kg/mol for water and a van \'t Hoff factor of 2 for NaCl, what is the freezing point of the brine?',
+    correctAnswer: '-3.7 °C',
+    explanation: 'Moles NaCl = 58.4/58.4 = 1.00 mol → molality = 1.00 mol/kg. ΔTf = i·Kf·m = 2 × 1.86 × 1.00 = 3.72 °C. Freezing point = 0 - 3.72 ≈ -3.7 °C. This is why salt and ice freeze ice cream mix in bag-method labs.',
+    sourceYear: 2027,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['colligative properties', 'freezing point depression', 'ice cream', 'calculation']
+  },
+  {
+    topic: 'Food Science',
+    subtopic: 'Emulsification',
+    difficulty: 'National',
+    questionType: 'multiple-choice',
+    questionText: 'When cream is churned into butter, the emulsion undergoes which change?',
+    correctAnswer: 'It inverts from oil-in-water to water-in-oil',
+    options: [
+      'A) It inverts from oil-in-water to water-in-oil',
+      'B) It inverts from water-in-oil to oil-in-water',
+      'C) It remains oil-in-water but with smaller droplets',
+      'D) It becomes a true solution of fat in water'
+    ],
+    explanation: 'Cream is an oil-in-water emulsion (fat globules dispersed in watery serum). Churning strips the milk fat globule membranes so the globules coalesce; fat becomes the continuous phase and butter is a water-in-oil emulsion, with buttermilk (the aqueous phase) released.',
+    sourceYear: 2027,
+    sourceTournament: 'National',
+    qualityScore: 10,
+    tags: ['emulsions', 'butter', 'churning', 'phase inversion']
+  },
+  {
+    topic: 'Food Science',
+    subtopic: 'Milk Composition',
+    difficulty: 'Invitational',
+    questionType: 'short-answer',
+    questionText: 'What disaccharide is the primary carbohydrate in cow\'s milk, and which two monosaccharides is it composed of?',
+    correctAnswer: 'Lactose, composed of glucose and galactose',
+    explanation: 'Lactose (~4.8% of milk) is a disaccharide of glucose and galactose joined by a glycosidic bond. It is synthesized only in the mammary gland. The enzyme lactase hydrolyzes it during digestion.',
+    sourceYear: 2027,
+    sourceTournament: 'Invitational',
+    qualityScore: 8,
+    tags: ['lactose', 'carbohydrates', 'milk composition']
+  },
+
   // ==================== DYNAMIC PLANET ====================
   {
     topic: 'Dynamic Planet',
@@ -987,6 +1053,238 @@ export const SEED_REFERENCE_QUESTIONS: ReferenceQuestion[] = [
     sourceTournament: 'Regional',
     qualityScore: 9,
     tags: ['insulation', 'device', 'conduction', 'convection', 'radiation']
+  },
+
+  // ==================== 2027 SEASON EVENTS ====================
+  {
+    topic: 'Botany',
+    subtopic: 'Vascular Tissue',
+    difficulty: 'Invitational',
+    questionType: 'multiple-choice',
+    questionText: 'Which vascular tissue transports water and dissolved minerals from roots to leaves in a plant?',
+    correctAnswer: 'Xylem',
+    options: [
+      'A) Phloem',
+      'B) Xylem',
+      'C) Cambium',
+      'D) Cortex'
+    ],
+    explanation: 'Xylem carries water and minerals upward from the roots (its cells are dead at maturity). Phloem transports sugars from sources (like mature leaves) to sinks in both directions through living cells.',
+    sourceYear: 2027,
+    sourceTournament: 'Invitational',
+    qualityScore: 9,
+    tags: ['xylem', 'phloem', 'transport']
+  },
+  {
+    topic: 'Botany',
+    subtopic: 'Reproduction',
+    difficulty: 'State',
+    questionType: 'multiple-choice',
+    questionText: 'In angiosperms, double fertilization produces which two products?',
+    correctAnswer: 'A diploid zygote and a triploid endosperm',
+    options: [
+      'A) Two diploid zygotes',
+      'B) A diploid zygote and a triploid endosperm',
+      'C) A haploid zygote and a diploid endosperm',
+      'D) Two haploid gametophytes'
+    ],
+    explanation: 'One sperm nucleus fertilizes the egg (2n zygote) while a second sperm nucleus fuses with two polar nuclei to form the 3n endosperm, the nutritive tissue of the seed. This is unique to flowering plants.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['double fertilization', 'angiosperms', 'reproduction']
+  },
+  {
+    topic: 'Circuit Lab',
+    subtopic: 'Ohm\u2019s Law',
+    difficulty: 'Regional',
+    questionType: 'calculation',
+    questionText: 'A 12 V battery drives current through a 4 Ω resistor in series with a 2 Ω resistor. What current flows through the circuit?',
+    correctAnswer: '2 A',
+    explanation: 'Series resistors add: R_total = 4 + 2 = 6 Ω. Ohm\u2019s law: I = V/R = 12/6 = 2 A. In a series circuit the same 2 A flows through both resistors.',
+    sourceYear: 2027,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['Ohm\u2019s law', 'series circuits', 'calculation']
+  },
+  {
+    topic: 'Circuit Lab',
+    subtopic: 'Parallel Circuits',
+    difficulty: 'State',
+    questionType: 'short-answer',
+    questionText: 'Two 6 Ω resistors are connected in parallel across a 12 V battery. What is the equivalent resistance of the combination?',
+    correctAnswer: '3 Ω',
+    explanation: 'Identical resistors in parallel divide: R_eq = R/N = 6/2 = 3 Ω (or 1/R_eq = 1/6 + 1/6 = 1/3). Each branch draws 2 A independently; total current is 4 A.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 8,
+    tags: ['parallel circuits', 'equivalent resistance']
+  },
+  {
+    topic: 'Codebusters',
+    subtopic: 'Vigen\u00e8re Cipher',
+    difficulty: 'State',
+    questionType: 'short-answer',
+    questionText: 'Using the keyword SCIENCE, decrypt the first two letters of a Vigen\u00e8re ciphertext that begins with "ZK". Use A=0 indexing.',
+    correctAnswer: 'HI',
+    explanation: 'Decrypt by shifting each ciphertext letter BACKWARD by the corresponding key letter (mod 26): Z (25) - S (18) = 7 = H; K (10) - C (2) = 8 = I. Under Science Olympiad rules the key advances only on plaintext letters, skipping spaces.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 8,
+    tags: ['Vigen\u00e8re', 'decryption', 'modular arithmetic']
+  },
+  {
+    topic: 'Crime Busters',
+    subtopic: 'Powder Analysis',
+    difficulty: 'Regional',
+    questionType: 'multiple-choice',
+    questionText: 'An unknown powder fizzes when water is added but not when it is dry. Which powder is it most likely to be?',
+    correctAnswer: 'Baking powder',
+    options: [
+      'A) Baking soda',
+      'B) Baking powder',
+      'C) Cornstarch',
+      'D) Table salt'
+    ],
+    explanation: 'Baking powder contains both sodium bicarbonate and a built-in acid, so it fizzes with water alone. Baking soda (pure sodium bicarbonate) only fizzes when an external acid such as vinegar is added. Cornstarch is identified with iodine instead.',
+    sourceYear: 2027,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['powders', 'chemical tests', 'baking powder']
+  },
+  {
+    topic: 'Designer Genes',
+    subtopic: 'Hardy-Weinberg',
+    difficulty: 'National',
+    questionType: 'calculation',
+    questionText: 'Cystic fibrosis affects 1 in 2,500 newborns in a population at Hardy-Weinberg equilibrium. What fraction of the population are carriers?',
+    correctAnswer: 'About 1/25 (3.9%)',
+    explanation: 'q\u00b2 = 1/2500 = 0.0004, so q = 0.02 and p = 0.98. Carriers = 2pq = 2 \u00d7 0.98 \u00d7 0.02 = 0.0392 \u2248 3.9%, roughly 1 in 25. Many more people carry the allele than express the disease.',
+    sourceYear: 2027,
+    sourceTournament: 'National',
+    qualityScore: 10,
+    tags: ['Hardy-Weinberg', 'carriers', 'population genetics']
+  },
+  {
+    topic: 'Heredity',
+    subtopic: 'Inheritance Patterns',
+    difficulty: 'Regional',
+    questionType: 'multiple-choice',
+    questionText: 'Two parents without Huntington\u2019s disease have a child who develops it. What pattern of inheritance does Huntington\u2019s show?',
+    correctAnswer: 'This scenario is impossible for autosomal dominant Huntington\u2019s - an affected child must have an affected parent',
+    options: [
+      'A) Autosomal recessive',
+      'B) Autosomal dominant',
+      'C) X-linked recessive',
+      'D) This scenario is impossible for autosomal dominant Huntington\u2019s - an affected child must have an affected parent'
+    ],
+    explanation: 'Huntington\u2019s disease is autosomal dominant: affected children always inherit the allele from an affected (though perhaps not-yet-symptomatic) parent. If neither parent carries the allele, a child cannot develop it. Autosomal dominant traits do not skip generations.',
+    sourceYear: 2027,
+    sourceTournament: 'Regional',
+    qualityScore: 8,
+    tags: ['pedigrees', 'autosomal dominant', 'Huntington\u2019s']
+  },
+  {
+    topic: 'Meteorology',
+    subtopic: 'Severe Weather',
+    difficulty: 'Regional',
+    questionType: 'short-answer',
+    questionText: 'What is the difference between a tornado watch and a tornado warning?',
+    correctAnswer: 'A watch means conditions are favorable for tornadoes; a warning means a tornado has been sighted or indicated on radar and you should take shelter immediately',
+    explanation: 'A watch (typically covering many counties for hours) tells you to be prepared. A warning (small area, minutes) means the hazard is occurring or imminent - take action now. The same watch-vs-warning logic applies to severe thunderstorms and floods.',
+    sourceYear: 2027,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['tornado', 'watch vs warning', 'safety']
+  },
+  {
+    topic: 'Protein Modeling',
+    subtopic: 'Protein Structure',
+    difficulty: 'State',
+    questionType: 'multiple-choice',
+    questionText: 'Which level of protein structure describes the complete three-dimensional fold of a single polypeptide chain, stabilized by interactions between R groups?',
+    correctAnswer: 'Tertiary structure',
+    options: [
+      'A) Primary structure',
+      'B) Secondary structure',
+      'C) Tertiary structure',
+      'D) Quaternary structure'
+    ],
+    explanation: 'Tertiary structure is the overall 3D shape of one chain, stabilized by hydrophobic interactions, hydrogen bonds, ionic interactions, van der Waals forces, and disulfide bridges between side chains. Quaternary structure involves multiple separate chains.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['tertiary structure', 'R groups', 'folding']
+  },
+  {
+    topic: 'Remote Sensing',
+    subtopic: 'Vegetation Indices',
+    difficulty: 'State',
+    questionType: 'short-answer',
+    questionText: 'Give the formula for NDVI and state what values indicate healthy vegetation.',
+    correctAnswer: 'NDVI = (NIR - Red) / (NIR + Red); values near +1 indicate healthy dense vegetation',
+    explanation: 'Healthy vegetation reflects strongly in the near-infrared and absorbs red light for photosynthesis, so NDVI approaches +1. Bare soil and urban areas are near 0; water is negative. This is why vegetation appears red in standard false-color composites.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['NDVI', 'spectral bands', 'vegetation']
+  },
+  {
+    topic: 'Solar System',
+    subtopic: 'Comets',
+    difficulty: 'Invitational',
+    questionType: 'multiple-choice',
+    questionText: 'Which statement about a comet\u2019s ion tail is correct?',
+    correctAnswer: 'It points away from the Sun regardless of the comet\u2019s direction of motion',
+    options: [
+      'A) It trails behind the comet along its orbit',
+      'B) It points away from the Sun regardless of the comet\u2019s direction of motion',
+      'C) It points toward the Sun',
+      'D) It always points in the direction of motion'
+    ],
+    explanation: 'The ion (plasma) tail is pushed directly away from the Sun by the solar wind and radiation pressure, so it points anti-sunward even when the comet is moving outbound. The heavier dust tail curves along the orbit instead.',
+    sourceYear: 2027,
+    sourceTournament: 'Invitational',
+    qualityScore: 8,
+    tags: ['comets', 'solar wind', 'ion tail']
+  },
+  {
+    topic: 'Water Quality',
+    subtopic: 'Bioindicators',
+    difficulty: 'Regional',
+    questionType: 'multiple-choice',
+    questionText: 'A stream sample contains large numbers of tubifex worms, blood midge larvae, and leeches, but no stonefly or caddisfly larvae. What does this indicate?',
+    correctAnswer: 'Poor water quality with significant organic pollution',
+    options: [
+      'A) Excellent water quality with high biodiversity',
+      'B) Poor water quality with significant organic pollution',
+      'C) Cold, highly oxygenated water',
+      'D) A healthy trout stream'
+    ],
+    explanation: 'Tubifex worms, blood midges, and leeches are pollution-TOLERANT indicators that thrive in low-oxygen, organically polluted water. Sensitive taxa (stoneflies, caddisflies, mayflies - the EPT groups) disappear first as quality declines.',
+    sourceYear: 2027,
+    sourceTournament: 'Regional',
+    qualityScore: 9,
+    tags: ['macroinvertebrates', 'bioindicators', 'water quality']
+  },
+  {
+    topic: 'Water Quality',
+    subtopic: 'Dissolved Oxygen',
+    difficulty: 'State',
+    questionType: 'multiple-choice',
+    questionText: 'All else being equal, which water sample holds the most dissolved oxygen?',
+    correctAnswer: 'Cold water at low altitude',
+    options: [
+      'A) Warm water at sea level',
+      'B) Cold water at low altitude',
+      'C) Warm water at high altitude',
+      'D) Temperature and altitude have no effect on dissolved oxygen'
+    ],
+    explanation: 'Gas solubility in water increases as temperature decreases, and lower atmospheric pressure at altitude reduces the amount of oxygen that can dissolve. Cold, low-altitude water is therefore the most oxygen-rich.',
+    sourceYear: 2027,
+    sourceTournament: 'State',
+    qualityScore: 9,
+    tags: ['dissolved oxygen', 'temperature', 'solubility']
   },
 ];
 

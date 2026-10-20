@@ -3,50 +3,74 @@
  * for AI test generation.
  */
 
-// Topics available in the UI (from app/page.tsx)
+// Topics available in the UI (from lib/default-topics.ts)
 const DEFAULT_TOPICS = [
   'Anatomy and Physiology',
   'Astronomy',
+  'Botany',
   'Chemistry Lab',
+  'Circuit Lab',
+  'Codebusters',
+  'Crime Busters',
+  'Designer Genes',
   'Disease Detectives',
   'Dynamic Planet',
   'Ecology',
   'Experimental Design',
   'Fermi Questions',
+  'Food Science',
   'Forensics',
   'Fossils',
+  'Heredity',
   'Machines',
+  'Meteorology',
   'Microbe Mission',
   'Optics',
   'Ornithology',
+  'Protein Modeling',
   'Reach for the Stars',
+  'Remote Sensing',
   'Rocks and Minerals',
+  'Solar System',
   'Thermodynamics',
   'Tower',
+  'Water Quality',
   'Wind Power',
   'Write It Do It',
 ];
 
-// Topic descriptions for AI generation (from app/api/generate-ai-test/route.ts)
+// Topic descriptions for AI generation (from lib/topic-descriptions.ts)
 const TOPIC_DESCRIPTIONS: Record<string, string> = {
   'Anatomy and Physiology': 'human body systems, organs, tissues, and physiological processes',
   'Astronomy': 'stars, galaxies, planets, cosmology, and celestial mechanics',
+  'Botany': 'plant biology, anatomy, photosynthesis, reproduction, taxonomy, and evolution',
   'Chemistry Lab': 'chemical reactions, lab techniques, stoichiometry, and chemical properties',
+  'Circuit Lab': 'electricity, electronics, circuits, Ohm\u2019s law, power, and electromagnetism',
+  'Codebusters': 'cipher decoding, cryptanalysis, and classical to modern ciphers',
+  'Crime Busters': 'forensic qualitative analysis, powder and fiber identification, and chromatography',
+  'Designer Genes': 'molecular genetics, biotechnology, inheritance, and population genetics',
   'Disease Detectives': 'epidemiology, disease transmission, public health, and outbreak investigation',
   'Dynamic Planet': 'Earth science, geology, plate tectonics, and natural disasters',
   'Ecology': 'ecosystems, food webs, biodiversity, and environmental science',
   'Experimental Design': 'scientific method, experiment design, data analysis, and statistics',
   'Fermi Questions': 'estimation problems and order-of-magnitude calculations',
+  'Food Science': 'dairy science, milk composition, casein and whey, freezing point depression, emulsification, pasteurization, and cultured dairy products',
   'Forensics': 'crime scene analysis, evidence collection, and forensic science techniques',
   'Fossils': 'paleontology, fossil identification, geological time, and evolution',
+  'Heredity': 'classical and molecular genetics, inheritance patterns, pedigrees, and chromosomes',
   'Machines': 'simple machines, mechanical advantage, levers, pulleys, inclined planes, and physics of mechanical systems',
+  'Meteorology': 'weather, severe storms, atmosphere, forecasting, and meteorological data interpretation',
   'Microbe Mission': 'microbiology, bacteria, viruses, and microorganisms',
   'Optics': 'light, lenses, mirrors, reflection, refraction, and optical instruments',
   'Ornithology': 'bird identification, anatomy, behavior, and ecology',
+  'Protein Modeling': 'protein structure, folding, amino acids, and the 2027 influenza hemagglutinin focus',
   'Reach for the Stars': 'stellar astronomy, deep sky objects, and astrophysics',
+  'Remote Sensing': 'satellite imagery, Earth observation, spectral analysis, and climate data',
   'Rocks and Minerals': 'rock types, mineral identification, and geological processes',
+  'Solar System': 'planets, moons, small bodies, and habitability within and beyond the solar system',
   'Thermodynamics': 'heat transfer, thermodynamic laws, calorimetry, and heat engines',
   'Tower': 'structural engineering principles and physics of structures',
+  'Water Quality': 'aquatic ecology, marine and estuary environments, water testing, and macroinvertebrate indicators',
   'Wind Power': 'renewable energy, wind turbine design, and energy physics',
   'Write It Do It': 'technical writing and following written instructions',
 };
@@ -127,6 +151,54 @@ describe('Science Olympiad Topics Configuration', () => {
 
     test('Fermi Questions covers estimation', () => {
       expect(TOPIC_DESCRIPTIONS['Fermi Questions']).toContain('estimation');
+    });
+
+    test('Food Science covers dairy', () => {
+      expect(TOPIC_DESCRIPTIONS['Food Science']).toContain('dairy');
+    });
+
+    test('Botany covers plants', () => {
+      expect(TOPIC_DESCRIPTIONS['Botany']).toMatch(/plant/);
+    });
+
+    test('Circuit Lab covers electricity and circuits', () => {
+      expect(TOPIC_DESCRIPTIONS['Circuit Lab']).toMatch(/electricity|circuits/);
+    });
+
+    test('Codebusters covers ciphers', () => {
+      expect(TOPIC_DESCRIPTIONS['Codebusters']).toContain('cipher');
+    });
+
+    test('Crime Busters covers forensic analysis', () => {
+      expect(TOPIC_DESCRIPTIONS['Crime Busters']).toMatch(/forensic|powder/);
+    });
+
+    test('Designer Genes covers genetics', () => {
+      expect(TOPIC_DESCRIPTIONS['Designer Genes']).toContain('genetics');
+    });
+
+    test('Heredity covers genetics', () => {
+      expect(TOPIC_DESCRIPTIONS['Heredity']).toContain('genetics');
+    });
+
+    test('Meteorology covers weather', () => {
+      expect(TOPIC_DESCRIPTIONS['Meteorology']).toContain('weather');
+    });
+
+    test('Protein Modeling covers protein structure', () => {
+      expect(TOPIC_DESCRIPTIONS['Protein Modeling']).toContain('protein structure');
+    });
+
+    test('Remote Sensing covers satellites and Earth observation', () => {
+      expect(TOPIC_DESCRIPTIONS['Remote Sensing']).toMatch(/satellite|Earth observation/);
+    });
+
+    test('Solar System covers habitability and planets', () => {
+      expect(TOPIC_DESCRIPTIONS['Solar System']).toMatch(/planet|habitable/);
+    });
+
+    test('Water Quality covers aquatic environments', () => {
+      expect(TOPIC_DESCRIPTIONS['Water Quality']).toMatch(/aquatic|water/);
     });
 
     test('Forensics covers crime scene analysis', () => {
