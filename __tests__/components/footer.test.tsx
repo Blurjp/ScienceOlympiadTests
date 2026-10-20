@@ -45,4 +45,13 @@ describe('Footer Component', () => {
     render(<Footer />);
     expect(screen.getByText('SO')).toBeInTheDocument();
   });
+
+  test('renders AITrove badge linking to aitrove.ai', () => {
+    render(<Footer />);
+    const badge = screen.getByRole('img', { name: 'Featured on AITrove' });
+    expect(badge).toHaveAttribute('src', 'https://www.aitrove.ai/images/aitrove-badge.svg');
+    expect(badge.closest('a')).toHaveAttribute('href', 'https://www.aitrove.ai');
+    expect(badge.closest('a')).toHaveAttribute('target', '_blank');
+    expect(badge.closest('a')).toHaveAttribute('rel', 'noopener');
+  });
 });

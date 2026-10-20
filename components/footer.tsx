@@ -60,6 +60,23 @@ export default function Footer() {
           <p className="text-xs text-gray-500">
             This is an independent practice platform. Not affiliated with Science Olympiad, Inc.
           </p>
+          <div className="mt-3">
+            <a
+              href="https://www.aitrove.ai"
+              target="_blank"
+              rel="noopener"
+              aria-label="Featured on AITrove"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- remote SVG badge with fixed dimensions; next/image cannot optimize remote SVGs without dangerouslyAllowSVG */}
+              <img
+                src="https://www.aitrove.ai/images/aitrove-badge.svg"
+                alt="Featured on AITrove"
+                width="236"
+                height="54"
+                style={{ border: 0 }}
+              />
+            </a>
+          </div>
         </div>
       </div>
     </footer>
