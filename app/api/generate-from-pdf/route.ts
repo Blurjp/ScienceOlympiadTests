@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getCachedGeneration, saveCachedGeneration, getReferenceQuestions, formatReferenceQuestionsForPrompt, getTopicMeta, TopicMeta, getAvailableExamSources, getExamSourceById, DynamicExamSource } from '@/lib/database';
-import { GENERATION_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
+import { GENERATION_MODEL, GENERATION_REASONING_EFFORT, createChatCompletion, computeCostUsd } from '@/lib/openai';
 import { mapDifficultyForDatabase } from '@/lib/difficulty';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
@@ -99,6 +99,69 @@ async function extractMetaInformation(source: DynamicExamSource): Promise<ExamMe
   };
 }
 
+/**
+ * Free-tier usage limit check. Returns a 403 response when the user is out
+ * of monthly generations, or null when generation may proceed.
+ */
+async function checkUsageLimit(userId: string | undefined): Promise<NextResponse | null> {
+  if (!userId) return null;
+  try {
+    const subscriptionStatus = await getSubscriptionStatus(userId);
+
+    if (subscriptionStatus !== 'active') {
+      const monthlyUsage = await getUserMonthlyAIGenerations(userId);
+
+      if (monthlyUsage >= FREE_TIER_MONTHLY_LIMIT) {
+        return NextResponse.json(
+          {
+            error: 'Monthly limit reached',
+            limitReached: true,
+            used: monthlyUsage,
+            limit: FREE_TIER_MONTHLY_LIMIT,
+            message: `You've used all ${FREE_TIER_MONTHLY_LIMIT} free AI test generations this month. Upgrade to Pro for unlimited access.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
+  } catch (limitError) {
+    console.error('Usage limit check error (non-fatal):', limitError);
+    // Continue anyway - don't block on limit check failure
+  }
+  return null;
+}
+
+/** Fetch few-shot reference questions for the prompt (non-fatal). */
+async function fetchReferenceExamples(topic: string, level: string): Promise<string> {
+  try {
+    // First try database (for scraped/imported questions)
+    const dbQuestions = await getReferenceQuestions({
+      topic,
+      difficulty: level,
+      division: 'C', // Science Olympiad Division C only
+      limit: 3,
+      minQuality: 7,
+      requireAnswer: true, // Filter out placeholder answers for few-shot examples
+    });
+
+    if (dbQuestions.length > 0) {
+      return formatReferenceQuestionsForPrompt(dbQuestions);
+    }
+
+    // Fall back to seed questions
+    const seedQuestions = getSeedQuestionsForTopic(topic);
+    const filtered = seedQuestions
+      .filter(q => q.difficulty === level || seedQuestions.length < 5)
+      .slice(0, 3);
+    if (filtered.length > 0) {
+      return formatReferenceQuestionsForPrompt(filtered);
+    }
+  } catch (refError) {
+    console.error('Error fetching reference questions (non-fatal):', refError);
+  }
+  return '';
+}
+
 export async function POST(request: NextRequest) {
   // Cost-abuse protection: 8 generations per IP per 5 minutes
   const rateLimit = checkRateLimit('generate-from-pdf', getClientIp(request), 8, 5 * 60 * 1000);
@@ -152,34 +215,15 @@ export async function POST(request: NextRequest) {
     // Enforce the free-tier monthly limit for non-Pro users (applies to both
     // fresh and cached generations). This endpoint was previously unmetered,
     // letting free users generate unlimited AI tests via exam sources.
-    if (userId && !isAdminBypass) {
-      try {
-        const subscriptionStatus = await getSubscriptionStatus(userId);
-
-        if (subscriptionStatus !== 'active') {
-          const monthlyUsage = await getUserMonthlyAIGenerations(userId);
-
-          if (monthlyUsage >= FREE_TIER_MONTHLY_LIMIT) {
-            return NextResponse.json(
-              {
-                error: 'Monthly limit reached',
-                limitReached: true,
-                used: monthlyUsage,
-                limit: FREE_TIER_MONTHLY_LIMIT,
-                message: `You've used all ${FREE_TIER_MONTHLY_LIMIT} free AI test generations this month. Upgrade to Pro for unlimited access.`,
-              },
-              { status: 403 }
-            );
-          }
-        }
-      } catch (limitError) {
-        console.error('Usage limit check error (non-fatal):', limitError);
-        // Continue anyway - don't block on limit check failure
-      }
-    }
+    // Runs in parallel with the cache lookup since both are independent
+    // DB round-trips that previously ran serially.
+    const [limitResponse, cached] = await Promise.all([
+      userId && !isAdminBypass ? checkUsageLimit(userId) : null,
+      getCachedGeneration(sourceId, questionCount),
+    ]);
+    if (limitResponse) return limitResponse;
 
     // Check cache first - avoid LLM calls if we have cached questions
-    const cached = await getCachedGeneration(sourceId, questionCount);
     if (cached) {
       try {
         const cachedQuestions = JSON.parse(cached.generatedQuestions);
@@ -206,7 +250,12 @@ export async function POST(request: NextRequest) {
           questions,
         };
 
-        await saveTest(test, undefined, undefined, userId);
+        try {
+          await saveTest(test, undefined, undefined, userId);
+        } catch (dbError) {
+          console.error('Database save error (non-fatal):', dbError);
+          // Continue anyway - user still gets the test
+        }
 
         return NextResponse.json({
           success: true,
@@ -228,41 +277,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Extract ONLY meta-information (never question content)
-    const metaInfo = await extractMetaInformation(examSource);
+    // Extract ONLY meta-information (never question content) and fetch
+    // few-shot reference questions in parallel: independent DB work that
+    // previously ran serially before the LLM call.
+    const [metaInfo, referenceExamples] = await Promise.all([
+      extractMetaInformation(examSource),
+      fetchReferenceExamples(examSource.topic, examSource.level),
+    ]);
 
     // Get topic and difficulty descriptions from shared module
     const topicDescription = TOPIC_DESCRIPTIONS[examSource.topic] || examSource.topic;
     const difficultyDescription = DIFFICULTY_DESCRIPTIONS[examSource.level] || examSource.level;
-
-    // Fetch reference questions for few-shot learning (same pattern as generate-ai-test)
-    let referenceExamples = '';
-    try {
-      // First try database (for scraped/imported questions)
-      const dbQuestions = await getReferenceQuestions({
-        topic: examSource.topic,
-        difficulty: examSource.level,
-        division: 'C', // Science Olympiad Division C only
-        limit: 3,
-        minQuality: 7,
-        requireAnswer: true, // Filter out placeholder answers for few-shot examples
-      });
-
-      if (dbQuestions.length > 0) {
-        referenceExamples = formatReferenceQuestionsForPrompt(dbQuestions);
-      } else {
-        // Fall back to seed questions
-        const seedQuestions = getSeedQuestionsForTopic(examSource.topic);
-        const filtered = seedQuestions
-          .filter(q => q.difficulty === examSource.level || seedQuestions.length < 5)
-          .slice(0, 3);
-        if (filtered.length > 0) {
-          referenceExamples = formatReferenceQuestionsForPrompt(filtered);
-        }
-      }
-    } catch (refError) {
-      console.error('Error fetching reference questions (non-fatal):', refError);
-    }
 
     // Build the generation prompt with topic knowledge and examples
     const metaInfoJson = JSON.stringify({
@@ -340,7 +365,7 @@ MATHEMATICAL ACCURACY:
         },
       ],
       maxCompletionTokens: 16000,
-      reasoningEffort: 'low',
+      reasoningEffort: GENERATION_REASONING_EFFORT,
       responseFormatJson: true,
     });
 
@@ -357,22 +382,26 @@ MATHEMATICAL ACCURACY:
       // an empty response with finish_reason=length means the model spent it
       // all thinking. Distinguish that from a genuinely empty reply.
       const truncated = completion.choices[0]?.finish_reason === 'length';
-      await logApiUsage({
-        userId,
-        endpoint: 'generate-from-pdf',
-        model: GENERATION_MODEL,
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        costUsd,
-        topic: examSource.topic,
-        difficulty: metaInfo.difficultyLevel,
-        questionCount,
-        success: false,
-        errorMessage: truncated
-          ? 'Generation hit the output token limit while reasoning (finish_reason=length)'
-          : 'Empty response from API',
-      });
+      try {
+        await logApiUsage({
+          userId,
+          endpoint: 'generate-from-pdf',
+          model: GENERATION_MODEL,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          costUsd,
+          topic: examSource.topic,
+          difficulty: metaInfo.difficultyLevel,
+          questionCount,
+          success: false,
+          errorMessage: truncated
+            ? 'Generation hit the output token limit while reasoning (finish_reason=length)'
+            : 'Empty response from API',
+        });
+      } catch (logError) {
+        console.error('Failed to log API usage:', logError);
+      }
 
       return NextResponse.json(
         {
@@ -499,31 +528,37 @@ MATHEMATICAL ACCURACY:
       questions,
     };
 
-    // Save to database
-    await saveTest(test, undefined, undefined, userId);
-
-    // Save to cache for future use (avoid repeated LLM calls)
-    await saveCachedGeneration(
-      sourceId,
-      undefined, // No specific URL for dynamic sources
-      questionCount,
-      questions,
-      metaInfo
-    );
-
-    // Log successful usage
-    await logApiUsage({
-      userId,
-      endpoint: 'generate-from-pdf',
-      model: GENERATION_MODEL,
-      promptTokens,
-      completionTokens,
-      totalTokens,
-      costUsd,
-      topic: examSource.topic,
-      difficulty: metaInfo.difficultyLevel,
-      questionCount: questions.length,
-      success: true,
+    // Persist the test, populate the generation cache, and log usage.
+    // These are independent writes: run them in parallel, and don't fail the
+    // response after the user has already waited out (and paid for) the
+    // generation - a lost write is logged, not surfaced as a 500.
+    const writeResults = await Promise.allSettled([
+      saveTest(test, undefined, undefined, userId),
+      saveCachedGeneration(
+        sourceId,
+        undefined, // No specific URL for dynamic sources
+        questionCount,
+        questions,
+        metaInfo
+      ),
+      logApiUsage({
+        userId,
+        endpoint: 'generate-from-pdf',
+        model: GENERATION_MODEL,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        costUsd,
+        topic: examSource.topic,
+        difficulty: metaInfo.difficultyLevel,
+        questionCount: questions.length,
+        success: true,
+      }),
+    ]);
+    writeResults.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        console.error(`Post-generation write ${i} failed:`, result.reason);
+      }
     });
 
     return NextResponse.json({

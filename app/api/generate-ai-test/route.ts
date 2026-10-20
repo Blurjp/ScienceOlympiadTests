@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveTest, logApiUsage, getSubscriptionStatus, getUserMonthlyAIGenerations, getReferenceQuestions, formatReferenceQuestionsForPrompt } from '@/lib/database';
-import { GENERATION_MODEL, createChatCompletion, computeCostUsd } from '@/lib/openai';
+import { GENERATION_MODEL, GENERATION_REASONING_EFFORT, createStreamingChatCompletion, computeCostUsd } from '@/lib/openai';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateId } from '@/lib/utils';
 import { Test, Question } from '@/lib/types';
@@ -23,6 +23,76 @@ interface GenerateRequest {
 // Netlify has 26s timeout (Pro) or 10s (Free)
 // OpenAI needs ~2-3 seconds per question, so limit to 10 questions max for reliability
 const MAX_QUESTIONS_FOR_TIMEOUT = 10;
+
+/** Count complete question objects in the partial JSON stream. */
+function countGeneratedQuestions(text: string): number {
+  return (text.match(/"question"\s*:/g) || []).length;
+}
+
+/**
+ * Free-tier usage limit check. Returns a 403 response when the user is out
+ * of monthly generations, or null when generation may proceed.
+ */
+async function checkUsageLimit(userId: string | undefined): Promise<NextResponse | null> {
+  if (!userId) return null;
+  try {
+    const subscriptionStatus = await getSubscriptionStatus(userId);
+
+    // Free users have a monthly limit
+    if (subscriptionStatus !== 'active') {
+      const monthlyUsage = await getUserMonthlyAIGenerations(userId);
+
+      if (monthlyUsage >= FREE_TIER_MONTHLY_LIMIT) {
+        return NextResponse.json(
+          {
+            error: 'Monthly limit reached',
+            limitReached: true,
+            used: monthlyUsage,
+            limit: FREE_TIER_MONTHLY_LIMIT,
+            message: `You've used all ${FREE_TIER_MONTHLY_LIMIT} free AI test generations this month. Upgrade to Pro for unlimited access.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
+  } catch (limitError) {
+    console.error('Usage limit check error (non-fatal):', limitError);
+    // Continue anyway - don't block on limit check failure
+  }
+  return null;
+}
+
+/** Fetch few-shot reference questions for the prompt (non-fatal). */
+async function fetchReferenceExamples(topic: string, difficulty: string): Promise<string> {
+  try {
+    // First try database (for scraped/imported questions)
+    const dbQuestions = await getReferenceQuestions({
+      topic,
+      difficulty,
+      division: 'C', // Science Olympiad Division C only
+      limit: 3,
+      minQuality: 7,
+      requireAnswer: true, // Filter out placeholder answers for few-shot examples
+    });
+
+    if (dbQuestions.length > 0) {
+      return formatReferenceQuestionsForPrompt(dbQuestions);
+    }
+
+    // Fall back to seed questions
+    const seedQuestions = getSeedQuestionsForTopic(topic);
+    const filtered = seedQuestions
+      .filter(q => q.difficulty === difficulty || seedQuestions.length < 5)
+      .slice(0, 3);
+    if (filtered.length > 0) {
+      return formatReferenceQuestionsForPrompt(filtered);
+    }
+  } catch (refError) {
+    console.error('Error fetching reference questions (non-fatal):', refError);
+    // Continue without reference examples
+  }
+  return '';
+}
 
 export async function POST(request: NextRequest) {
   // Cost-abuse protection: rate limit applies to everyone as defense-in-depth
@@ -49,104 +119,53 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check usage limits for free users
-  if (userId) {
-    try {
-      const subscriptionStatus = await getSubscriptionStatus(userId);
-
-      // Free users have a monthly limit
-      if (subscriptionStatus !== 'active') {
-        const monthlyUsage = await getUserMonthlyAIGenerations(userId);
-
-        if (monthlyUsage >= FREE_TIER_MONTHLY_LIMIT) {
-          return NextResponse.json(
-            {
-              error: 'Monthly limit reached',
-              limitReached: true,
-              used: monthlyUsage,
-              limit: FREE_TIER_MONTHLY_LIMIT,
-              message: `You've used all ${FREE_TIER_MONTHLY_LIMIT} free AI test generations this month. Upgrade to Pro for unlimited access.`,
-            },
-            { status: 403 }
-          );
-        }
-      }
-    } catch (limitError) {
-      console.error('Usage limit check error (non-fatal):', limitError);
-      // Continue anyway - don't block on limit check failure
-    }
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('Missing OPENAI_API_KEY environment variable');
+    return NextResponse.json(
+      { error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to environment variables.' },
+      { status: 500 }
+    );
   }
 
+  let body: GenerateRequest;
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('Missing OPENAI_API_KEY environment variable');
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to environment variables.' },
-        { status: 500 }
-      );
-    }
+    body = await request.json();
+  } catch (parseError) {
+    console.error('Request body parse error:', parseError);
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 }
+    );
+  }
+  const {
+    topic,
+    questionCount: requestedCount = 10,
+    difficulty = 'Regional',
+  } = body;
 
-    let body: GenerateRequest;
-    try {
-      body = await request.json();
-    } catch (parseError) {
-      console.error('Request body parse error:', parseError);
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-    const {
-      topic,
-      questionCount: requestedCount = 10,
-      difficulty = 'Regional',
-    } = body;
+  // Limit question count to avoid timeout (Netlify has 26s limit)
+  const questionCount = Math.min(requestedCount, MAX_QUESTIONS_FOR_TIMEOUT);
 
-    // Limit question count to avoid timeout (Netlify has 26s limit)
-    const questionCount = Math.min(requestedCount, MAX_QUESTIONS_FOR_TIMEOUT);
+  if (!topic) {
+    return NextResponse.json(
+      { error: 'Topic is required' },
+      { status: 400 }
+    );
+  }
 
-    if (!topic) {
-      return NextResponse.json(
-        { error: 'Topic is required' },
-        { status: 400 }
-      );
-    }
+  // Run the usage-limit check and the reference-question fetch in parallel:
+  // both are independent DB round-trips that previously ran serially.
+  const [limitResponse, referenceExamples] = await Promise.all([
+    checkUsageLimit(userId),
+    fetchReferenceExamples(topic, difficulty),
+  ]);
+  if (limitResponse) return limitResponse;
 
-    const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
-    const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
+  const topicDescription = TOPIC_DESCRIPTIONS[topic] || topic.toLowerCase();
+  const difficultyDescription = DIFFICULTY_DESCRIPTIONS[difficulty] || difficulty;
 
-    // Fetch reference questions for few-shot learning
-    let referenceExamples = '';
-    try {
-      // First try database (for scraped/imported questions)
-      const dbQuestions = await getReferenceQuestions({
-        topic,
-        difficulty,
-        division: 'C', // Science Olympiad Division C only
-        limit: 3,
-        minQuality: 7,
-        requireAnswer: true, // Filter out placeholder answers for few-shot examples
-      });
-
-      if (dbQuestions.length > 0) {
-        referenceExamples = formatReferenceQuestionsForPrompt(dbQuestions);
-      } else {
-        // Fall back to seed questions
-        const seedQuestions = getSeedQuestionsForTopic(topic);
-        const filtered = seedQuestions
-          .filter(q => q.difficulty === difficulty || seedQuestions.length < 5)
-          .slice(0, 3);
-        if (filtered.length > 0) {
-          referenceExamples = formatReferenceQuestionsForPrompt(filtered);
-        }
-      }
-    } catch (refError) {
-      console.error('Error fetching reference questions (non-fatal):', refError);
-      // Continue without reference examples
-    }
-
-    // Enhanced prompt for higher quality questions
-    const prompt = `You are an expert Science Olympiad coach creating a Division C practice test for ${topic}.
+  // Enhanced prompt for higher quality questions
+  const prompt = `You are an expert Science Olympiad coach creating a Division C practice test for ${topic}.
 
 TOPIC: ${topic}
 FOCUS AREAS: ${topicDescription}
@@ -193,11 +212,10 @@ Return valid JSON:
 
 Generate exactly ${questionCount} multiple-choice questions.`;
 
-    const completion = await createChatCompletion({
-      model: GENERATION_MODEL,
-      messages: [        {
-          role: 'system',
-          content: `You are an expert Science Olympiad coach and test writer with 20+ years of experience. You have deep expertise in ${topic} and understand exactly what makes a good competition question.
+  const messages = [
+    {
+      role: 'system' as const,
+      content: `You are an expert Science Olympiad coach and test writer with 20+ years of experience. You have deep expertise in ${topic} and understand exactly what makes a good competition question.
 
 CRITICAL REQUIREMENTS:
 1. Every question MUST be factually correct - verify your knowledge before generating
@@ -223,221 +241,193 @@ MATHEMATICAL ACCURACY (EXTREMELY IMPORTANT):
 - Common error to avoid: forgetting unit conversions (e.g., 4cm = 40mm, not 4mm)
 
 Output valid JSON only.`,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      // Cap includes reasoning tokens on gpt-5-family models, so it must
-      // comfortably exceed reasoning + the full JSON output (a cap that
-      // isn't hit costs nothing - billing is per token actually used)
-      maxCompletionTokens: 16000,
-      reasoningEffort: 'low',
-      responseFormatJson: true,
-    });
+    },
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+  ];
 
-    // Extract token usage from completion
-    const usage = completion.usage;
-    const promptTokens = usage?.prompt_tokens || 0;
-    const completionTokens = usage?.completion_tokens || 0;
-    const totalTokens = usage?.total_tokens || 0;
+  // Stream the generation to the client via SSE so the user sees live
+  // progress instead of a static spinner for the full 20-50s generation.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (data: unknown) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
 
-    // Calculate cost
-    const costUsd = computeCostUsd(usage, { model: GENERATION_MODEL });
+      // Log usage without crashing the stream (mirrors the old non-fatal pattern)
+      const logUsage = async (success: boolean, questionCountLogged: number, errorMessage?: string) => {
+        try {
+          await logApiUsage({
+            userId,
+            endpoint: 'generate-ai-test',
+            model: GENERATION_MODEL,
+            promptTokens: usage?.prompt_tokens || 0,
+            completionTokens: usage?.completion_tokens || 0,
+            totalTokens: usage?.total_tokens || 0,
+            costUsd: computeCostUsd(usage, { model: GENERATION_MODEL }),
+            topic,
+            difficulty,
+            questionCount: questionCountLogged,
+            success,
+            errorMessage,
+          });
+        } catch (logError) {
+          console.error('Failed to log API usage:', logError);
+        }
+      };
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      // On reasoning models the completion budget includes reasoning tokens:
-      // an empty response with finish_reason=length means the model spent it
-      // all thinking. Distinguish that from a genuinely empty reply.
-      const truncated = completion.choices[0]?.finish_reason === 'length';
-      const errorMessage = truncated
-        ? 'Generation hit the output token limit while reasoning (finish_reason=length)'
-        : 'Empty response from API';
-      console.error(`Generation failed: ${errorMessage}`, {
-        finishReason: completion.choices[0]?.finish_reason,
-        completionTokens,
-      });
-      // Log failed API call (don't let this crash)
-      try {
-        await logApiUsage({
-          userId,
-          endpoint: 'generate-ai-test',
-          model: GENERATION_MODEL,
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          costUsd,
-          topic,
-          difficulty,
-          questionCount,
-          success: false,
-          errorMessage,
-        });
-      } catch (logError) {
-        console.error('Failed to log API usage:', logError);
-      }
-
-      return NextResponse.json(
-        {
-          error: truncated
-            ? 'The AI ran out of output space while composing this test. Please try again, or generate fewer questions.'
-            : 'Failed to generate questions - empty response',
-        },
-        { status: truncated ? 422 : 500 }
-      );
-    }
-
-    // Parse the JSON response
-    let questions: Question[];
-    try {
-      const parsed = JSON.parse(content);
-
-      // Handle both array and object with questions key
-      const questionArray = Array.isArray(parsed) ? parsed : (parsed.questions || []);
-
-      if (!Array.isArray(questionArray) || questionArray.length === 0) {
-        throw new Error('No questions in response');
-      }
-
-      // Add IDs to questions
-      questions = questionArray.map((q: any) => ({
-        id: generateId(),
-        type: q.type || 'short-answer',
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer,
-        points: q.points || 1,
-        category: q.category || topic,
-      }));
-    } catch (parseError: any) {
-      const truncated = completion.choices[0]?.finish_reason === 'length';
-      const errorMessage = truncated
-        ? `JSON truncated by output token limit (finish_reason=length): ${parseError?.message || 'parse failed'}`
-        : `JSON parse failed: ${parseError?.message || 'parse failed'}`;
-      console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
+      let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;
 
       try {
-        await logApiUsage({
-          userId,
-          endpoint: 'generate-ai-test',
+        send({ type: 'start', total: questionCount });
+
+        let lastCount = 0;
+        const { text: content, finishReason, usage: streamUsage } = await createStreamingChatCompletion({
           model: GENERATION_MODEL,
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          costUsd,
-          topic,
-          difficulty,
-          questionCount,
-          success: false,
-          errorMessage: errorMessage.substring(0, 500),
+          messages,
+          // Cap includes reasoning tokens on gpt-5-family models, so it must
+          // comfortably exceed reasoning + the full JSON output (a cap that
+          // isn't hit costs nothing - billing is per token actually used)
+          maxCompletionTokens: 16000,
+          reasoningEffort: GENERATION_REASONING_EFFORT,
+          responseFormatJson: true,
+          onDelta: (_delta, fullTextSoFar) => {
+            const count = countGeneratedQuestions(fullTextSoFar);
+            if (count > lastCount) {
+              lastCount = count;
+              send({ type: 'progress', count, total: questionCount });
+            }
+          },
         });
-      } catch (logError) {
-        console.error('Failed to log API usage:', logError);
+        usage = streamUsage;
+
+        if (!content) {
+          const truncated = finishReason === 'length';
+          const errorMessage = truncated
+            ? 'Generation hit the output token limit while reasoning (finish_reason=length)'
+            : 'Empty response from API';
+          console.error(`Generation failed: ${errorMessage}`, { finishReason });
+          await logUsage(false, questionCount, errorMessage);
+          send({
+            type: 'error',
+            error: truncated
+              ? 'The AI ran out of output space while composing this test. Please try again, or generate fewer questions.'
+              : 'Failed to generate questions - empty response',
+          });
+          return;
+        }
+
+        // Parse the JSON response
+        let questions: Question[];
+        try {
+          const parsed = JSON.parse(content);
+
+          // Handle both array and object with questions key
+          const questionArray = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+
+          if (!Array.isArray(questionArray) || questionArray.length === 0) {
+            throw new Error('No questions in response');
+          }
+
+          // Add IDs to questions
+          questions = questionArray.map((q: any) => ({
+            id: generateId(),
+            type: q.type || 'short-answer',
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            points: q.points || 1,
+            category: q.category || topic,
+          }));
+        } catch (parseError: any) {
+          const truncated = finishReason === 'length';
+          const errorMessage = truncated
+            ? `JSON truncated by output token limit (finish_reason=length): ${parseError?.message || 'parse failed'}`
+            : `JSON parse failed: ${parseError?.message || 'parse failed'}`;
+          console.error('JSON parse error:', parseError, 'Content:', content?.substring(0, 500));
+          await logUsage(false, questionCount, errorMessage.substring(0, 500));
+
+          send({
+            type: 'error',
+            error: truncated
+              ? 'The generated test was too long for the AI output limit. Please try fewer questions.'
+              : 'Failed to parse generated questions. Please try again.',
+          });
+          return;
+        }
+
+        // Calculate totals
+        const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+        const totalTime = questions.length * 90; // 1.5 minutes per question
+
+        // Create test
+        const test: Test = {
+          id: generateId(),
+          year: new Date().getFullYear(),
+          title: `AI Generated: ${topic} Practice Test`,
+          description: `AI-generated practice test with ${questions.length} questions for ${topic}. Questions are AI-generated and should be verified for accuracy.`,
+          difficulty,
+          totalTime,
+          totalPoints,
+          topic,
+          questions,
+        };
+
+        // Hand the finished test to the client immediately; persist after.
+        send({
+          type: 'complete',
+          success: true,
+          test,
+          questionCount: questions.length,
+          totalPoints,
+          totalTime,
+          aiGenerated: true,
+          disclaimer: 'Questions are AI-generated. Verify answers before using for serious practice.',
+        });
+
+        // Save to database and log usage off the user's critical path. The
+        // stream stays open while these run, keeping the function alive.
+        try {
+          await saveTest(test, undefined, undefined, userId);
+        } catch (dbError) {
+          console.error('Database save error (non-fatal):', dbError);
+        }
+        await logUsage(true, questions.length);
+
+        send({ type: 'done' });
+      } catch (error: any) {
+        console.error('AI generation error:', error);
+
+        // Handle specific OpenAI API errors
+        let clientError = 'Failed to generate test';
+        if (error?.status === 401 || error?.code === 'invalid_api_key') {
+          clientError = 'Invalid OpenAI API key. Please check your API key configuration.';
+        } else if (error?.status === 429) {
+          clientError = 'Rate limit exceeded. Please wait a moment and try again.';
+        } else if (error?.code === 'insufficient_quota' || error?.status === 402) {
+          clientError = 'OpenAI API quota exceeded. Please check your billing.';
+        } else if (error?.code === 'model_not_found') {
+          clientError = 'The AI model is not available. Please try again later.';
+        } else if (error?.message) {
+          clientError = `Failed to generate test: ${error.message}`;
+        }
+
+        await logUsage(false, questionCount, error?.message || 'Unknown error');
+        send({ type: 'error', error: clientError });
+      } finally {
+        controller.close();
       }
+    },
+  });
 
-      return NextResponse.json(
-        {
-          error: truncated
-            ? 'The generated test was too long for the AI output limit. Please try fewer questions.'
-            : 'Failed to parse generated questions. Please try again.',
-        },
-        { status: truncated ? 422 : 500 }
-      );
-    }
-
-    // Calculate totals
-    const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-    const totalTime = questions.length * 90; // 1.5 minutes per question
-
-    // Create test
-    const test: Test = {
-      id: generateId(),
-      year: new Date().getFullYear(),
-      title: `AI Generated: ${topic} Practice Test`,
-      description: `AI-generated practice test with ${questions.length} questions for ${topic}. Questions are AI-generated and should be verified for accuracy.`,
-      difficulty,
-      totalTime,
-      totalPoints,
-      topic,
-      questions,
-    };
-
-    // Save to database (don't let DB failure crash the response)
-    try {
-      await saveTest(test, undefined, undefined, userId);
-    } catch (dbError) {
-      console.error('Database save error (non-fatal):', dbError);
-      // Continue anyway - user still gets the test
-    }
-
-    // Log successful API usage (don't let logging failure crash the response)
-    try {
-      await logApiUsage({
-        userId,
-        endpoint: 'generate-ai-test',
-        model: GENERATION_MODEL,
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        costUsd,
-        topic,
-        difficulty,
-        questionCount: questions.length,
-        success: true,
-      });
-    } catch (logError) {
-      console.error('API usage logging error (non-fatal):', logError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      test,
-      questionCount: questions.length,
-      totalPoints,
-      totalTime,
-      aiGenerated: true,
-      disclaimer: 'Questions are AI-generated. Verify answers before using for serious practice.',
-    });
-  } catch (error: any) {
-    console.error('AI generation error:', error);
-
-    // Handle specific OpenAI API errors
-    if (error?.status === 401 || error?.code === 'invalid_api_key') {
-      return NextResponse.json(
-        { error: 'Invalid OpenAI API key. Please check your API key configuration.' },
-        { status: 401 }
-      );
-    }
-
-    if (error?.status === 429) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. Please wait a moment and try again.' },
-        { status: 429 }
-      );
-    }
-
-    if (error?.code === 'insufficient_quota' || error?.status === 402) {
-      return NextResponse.json(
-        { error: 'OpenAI API quota exceeded. Please check your billing.' },
-        { status: 402 }
-      );
-    }
-
-    if (error?.code === 'model_not_found') {
-      return NextResponse.json(
-        { error: 'The AI model is not available. Please try again later.' },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error: 'Failed to generate test',
-        details: error?.message || (error instanceof Error ? error.message : 'Unknown error'),
-      },
-      { status: 500 }
-    );
-  }
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }

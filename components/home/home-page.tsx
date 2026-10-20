@@ -88,6 +88,8 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
+  // Live progress from the streaming generation endpoint (questions done / total)
+  const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
   const [genConfig, setGenConfig] = useState({
     topic: '',
     questionCount: 10,
@@ -376,6 +378,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     }
 
     setIsGenerating(true);
+    setGenProgress(null);
     try {
       const response = await fetch('/api/generate-ai-test', {
         method: 'POST',
@@ -387,16 +390,68 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         }),
       });
 
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream') && response.body) {
+        // Streaming path: read SSE events for live progress, then the final test.
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let completeResult: { test: Parameters<typeof handleStartTest>[0] } | null = null;
+        let streamError: string | null = null;
+
+        // Keep draining until the server closes the stream so the server can
+        // finish its post-response DB writes (save + usage logging).
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const events = buffer.split('\n\n');
+          buffer = events.pop() || '';
+          for (const event of events) {
+            const dataLine = event.split('\n').find((l) => l.startsWith('data: '));
+            if (!dataLine) continue;
+            try {
+              const payload = JSON.parse(dataLine.slice(6));
+              if (payload.type === 'progress') {
+                setGenProgress({ current: payload.count, total: payload.total });
+              } else if (payload.type === 'complete') {
+                completeResult = payload;
+              } else if (payload.type === 'error') {
+                streamError = payload.error || 'Failed to generate test. Please try again.';
+              }
+            } catch {
+              // Ignore malformed events
+            }
+          }
+        }
+
+        if (completeResult?.test) {
+          // Refresh lists in the background; don't make the user wait on them.
+          void Promise.all([
+            loadTests({
+              topic: selectedTopic ?? undefined,
+              search: debouncedSearch || undefined,
+              mine: onlyMyTests,
+            }),
+            loadTopics(),
+          ]).catch((err) => console.error('Background list refresh failed:', err));
+          handleStartTest(completeResult.test);
+          return;
+        }
+        if (streamError) {
+          alert(streamError);
+        } else {
+          alert('Failed to generate test. Please try again.');
+        }
+        return;
+      }
+
+      // Non-streaming (error) path: auth, rate limit, quota, bad request, etc.
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Reload tests and start the generated test
-        await loadTests({
-          topic: selectedTopic ?? undefined,
-          search: debouncedSearch || undefined,
-          mine: onlyMyTests,
-        });
-        await loadTopics();
         handleStartTest(result.test);
       } else if (result.signInRequired) {
         router.push('/api/auth/signin');
@@ -410,6 +465,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       alert('Failed to generate test. Please try again.');
     } finally {
       setIsGenerating(false);
+      setGenProgress(null);
     }
   };
 
@@ -439,12 +495,15 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       const result = await response.json();
 
       if (response.ok && result.success) {
-        await loadTests({
-          topic: selectedTopic ?? undefined,
-          search: debouncedSearch || undefined,
-          mine: onlyMyTests,
-        });
-        await loadTopics();
+        // Refresh lists in the background; don't make the user wait on them.
+        void Promise.all([
+          loadTests({
+            topic: selectedTopic ?? undefined,
+            search: debouncedSearch || undefined,
+            mine: onlyMyTests,
+          }),
+          loadTopics(),
+        ]).catch((err) => console.error('Background list refresh failed:', err));
         handleStartTest(result.test);
       } else if (result.signInRequired) {
         router.push('/api/auth/signin');
@@ -568,7 +627,9 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                   {isGenerating ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
+                      {genProgress
+                        ? `Generating ${genProgress.current}/${genProgress.total}...`
+                        : 'Generating...'}
                     </>
                   ) : (
                     <>

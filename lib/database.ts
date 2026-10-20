@@ -1472,8 +1472,25 @@ export async function getAllUsersWithActivity(): Promise<AdminUserWithActivity[]
 // Reference Questions Database (Historical Tests)
 // ============================================
 
-// Initialize reference questions table
-async function initializeReferenceQuestionsTable() {
+// Initialize reference questions table.
+// The DDL (CREATE TABLE/INDEX + ALTER) is idempotent but it used to re-run on
+// every request that touched reference_questions, adding avoidable DB
+// round-trips to the generation hot path. Memoize per process instead.
+let referenceQuestionsTableInit: Promise<void> | null = null;
+
+function initializeReferenceQuestionsTable(): Promise<void> {
+  if (!referenceQuestionsTableInit) {
+    const init = doInitializeReferenceQuestionsTable();
+    // Reset on failure so the next call retries instead of caching the error.
+    init.catch(() => {
+      referenceQuestionsTableInit = null;
+    });
+    referenceQuestionsTableInit = init;
+  }
+  return referenceQuestionsTableInit;
+}
+
+async function doInitializeReferenceQuestionsTable() {
   const database = getClient();
 
   // Table to store curated reference questions from historical tests
