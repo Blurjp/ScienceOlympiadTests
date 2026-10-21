@@ -1,4 +1,4 @@
-import { auth } from "@/auth"
+import { auth, signOut } from "@/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -73,7 +73,12 @@ export default async function Header() {
                     )}
                   </Button>
                 </Link>
-                <form action="/api/auth/signout" method="POST">
+                <form
+                  action={async () => {
+                    "use server"
+                    await signOut({ redirectTo: "/" })
+                  }}
+                >
                   <Button variant="outline" size="sm" type="submit">
                     <LogOut className="w-4 h-4 mr-2" />
                     <span className="hidden sm:inline">Sign Out</span>
