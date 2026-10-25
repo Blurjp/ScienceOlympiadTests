@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import Credentials from "next-auth/providers/credentials"
 import { createUser, getUserByEmail, getSubscriptionStatus } from "@/lib/database"
 
 // How often the JWT's subscription status is refreshed from the database.
@@ -12,6 +13,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    // Google One Tap (Identity Services): returning users can sign in from an
+    // on-page Google prompt - or silently via auto-select - without the full
+    // OAuth redirect flow. The prompt returns a signed Google ID token which
+    // we verify below before creating a session.
+    Credentials({
+      id: "google-one-tap",
+      name: "Google One Tap",
+      credentials: {
+        credential: { label: "Credential", type: "text" },
+      },
+      async authorize(credentials) {
+        const credential = credentials?.credential
+        if (!credential || typeof credential !== "string") return null
+
+        // tokeninfo verifies the token's signature server-side; it only
+        // returns a payload for valid, unexpired tokens.
+        const res = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+        )
+        if (!res.ok) return null
+        const payload = await res.json()
+
+        // The token must be minted for *our* client ID (critical: prevents
+        // tokens obtained for another app from being replayed here).
+        if (payload.aud !== process.env.GOOGLE_CLIENT_ID) return null
+        if (payload.email_verified !== "true" && payload.verified_email !== true) return null
+        if (!payload.email || !payload.sub) return null
+        if (Number(payload.exp) * 1000 < Date.now()) return null
+
+        // The signIn and jwt callbacks below handle the DB upsert and
+        // subscription enrichment, exactly like the full OAuth flow.
+        return {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name || payload.email,
+          image: payload.picture || undefined,
+        }
+      },
     }),
   ],
   trustHost: true,

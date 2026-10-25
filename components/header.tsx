@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { User, LogOut, Upload, Crown, MessageCircle } from "lucide-react"
 import { HomeNavLink, HomeLogo } from "./home-nav-link"
+import { SignOutForm } from "./auth/sign-out-form"
 
 export default async function Header() {
   const session = await auth()
@@ -73,7 +74,7 @@ export default async function Header() {
                     )}
                   </Button>
                 </Link>
-                <form
+                <SignOutForm
                   action={async () => {
                     "use server"
                     await signOut({ redirectTo: "/" })
@@ -83,7 +84,7 @@ export default async function Header() {
                     <LogOut className="w-4 h-4 mr-2" />
                     <span className="hidden sm:inline">Sign Out</span>
                   </Button>
-                </form>
+                </SignOutForm>
               </>
             ) : (
               <Link href="/login">

@@ -3,6 +3,7 @@ import { SessionProvider } from "next-auth/react";
 import { Analytics } from "@vercel/analytics/next";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import { OneTap } from "@/components/auth/one-tap";
 import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased min-h-screen flex flex-col">
         <SessionProvider>
+          <OneTap clientId={process.env.GOOGLE_CLIENT_ID} />
           <Header />
           <main className="flex-grow">{children}</main>
           <Footer />

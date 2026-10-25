@@ -4,12 +4,16 @@ import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
+import { disableGoogleAutoSelect } from './one-tap';
 
 export function SignOutButton() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignOut = async () => {
     setIsLoading(true);
+    // Tell Google this was an explicit sign-out so One Tap does not
+    // silently sign the user back in on the next page load.
+    disableGoogleAutoSelect();
     try {
       await signOut({ callbackUrl: '/' });
     } catch (error) {
