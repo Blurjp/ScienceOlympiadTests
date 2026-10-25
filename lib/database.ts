@@ -2,6 +2,7 @@ import { createClient, Client } from '@libsql/client';
 import crypto from 'crypto';
 import { Test, Question, TestSummary } from './types';
 import { normalizeTopic } from './topic-utils';
+import { mapDifficultyForDatabase } from './difficulty';
 
 let db: Client | null = null;
 let initialized = false;
@@ -196,7 +197,12 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string,
         test.year,
         test.title,
         test.description,
-        test.difficulty,
+        // Existing databases enforce a narrow CHECK constraint on difficulty
+        // (Easy/Medium/Hard only), so competition-level values like 'Regional'
+        // must always be mapped before persisting. Without this the INSERT
+        // fails with SQLITE_CONSTRAINT and the test silently disappears from
+        // the user's library ("My Tests Only" shows nothing).
+        test.difficulty ? mapDifficultyForDatabase(test.difficulty) : null,
         test.totalTime,
         test.totalPoints,
         test.topic,
