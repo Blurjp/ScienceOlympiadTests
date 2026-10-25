@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getSiteUrl } from '@/lib/site';
 import {
   Beaker,
   BookOpen,
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
   title: 'About & Event Guide',
   description:
     'Learn how SciolyPrep helps you prepare for Science Olympiad with AI-generated practice tests, exam-structure analysis, and PDF import. Includes a study guide to every event we cover.',
+  alternates: { canonical: `${getSiteUrl()}/about` },
 };
 
 const TOPIC_GUIDES: { topic: string; blurb: string }[] = [

@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getSiteUrl } from '@/lib/site';
 import { Shield, Mail } from 'lucide-react';
 
 export const metadata = {
   title: 'Privacy Policy',
   description: 'Privacy Policy for Science Olympiad Tests practice platform',
+  alternates: { canonical: `${getSiteUrl()}/privacy` },
 };
 
 export default function PrivacyPage() {

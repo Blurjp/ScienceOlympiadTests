@@ -3,8 +3,15 @@ import HomePage from '@/components/home/home-page';
 import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { JsonLd } from '@/components/seo/json-ld';
 import { getSiteUrl } from '@/lib/site';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
+
+// Self-referencing canonical so query-string variants (e.g. /?inspired=true
+// from the PDF parser hand-off) consolidate onto the clean homepage URL.
+export const metadata: Metadata = {
+  alternates: { canonical: getSiteUrl() },
+};
 
 export default async function Page() {
   // Fetch publisher content server-side so crawlers see real content

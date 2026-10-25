@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getSiteUrl } from '@/lib/site';
 import { FileText, Mail } from 'lucide-react';
 
 export const metadata = {
   title: 'Terms of Service',
   description: 'Terms of Service for Science Olympiad Tests practice platform',
+  alternates: { canonical: `${getSiteUrl()}/terms` },
 };
 
 export default function TermsPage() {
