@@ -2,10 +2,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getSiteUrl } from '@/lib/site';
 import { FileText, Mail } from 'lucide-react';
 
+const canonical = `${getSiteUrl()}/terms`;
+
 export const metadata = {
   title: 'Terms of Service',
   description: 'Terms of Service for Science Olympiad Tests practice platform',
-  alternates: { canonical: `${getSiteUrl()}/terms` },
+  alternates: { canonical },
+  openGraph: {
+    url: canonical,
+    images: [
+      {
+        url: `${getSiteUrl()}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'SciolyPrep - AI-generated Science Olympiad practice tests',
+      },
+    ],
+  },
 };
 
 export default function TermsPage() {

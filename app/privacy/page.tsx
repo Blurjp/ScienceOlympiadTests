@@ -2,10 +2,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getSiteUrl } from '@/lib/site';
 import { Shield, Mail } from 'lucide-react';
 
+const canonical = `${getSiteUrl()}/privacy`;
+
 export const metadata = {
   title: 'Privacy Policy',
   description: 'Privacy Policy for Science Olympiad Tests practice platform',
-  alternates: { canonical: `${getSiteUrl()}/privacy` },
+  alternates: { canonical },
+  openGraph: {
+    url: canonical,
+    images: [
+      {
+        url: `${getSiteUrl()}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'SciolyPrep - AI-generated Science Olympiad practice tests',
+      },
+    ],
+  },
 };
 
 export default function PrivacyPage() {

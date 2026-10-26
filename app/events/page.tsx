@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     'Free AI-generated practice tests for every major Science Olympiad event in Divisions B and C - Anatomy, Astronomy, Botany, Chemistry Lab, Forensics, Thermodynamics, and more. Difficulty from Invitational to National.',
   alternates: { canonical: `${getSiteUrl()}/events` },
   openGraph: {
+    url: `${getSiteUrl()}/events`,
     images: [
       {
         url: `${getSiteUrl()}/opengraph-image`,

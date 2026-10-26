@@ -12,11 +12,24 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+const canonical = `${getSiteUrl()}/about`;
+
 export const metadata: Metadata = {
   title: 'About & Event Guide',
   description:
     'Learn how SciolyPrep helps you prepare for Science Olympiad with AI-generated practice tests, exam-structure analysis, and PDF import. Includes a study guide to every event we cover.',
-  alternates: { canonical: `${getSiteUrl()}/about` },
+  alternates: { canonical },
+  openGraph: {
+    url: canonical,
+    images: [
+      {
+        url: `${getSiteUrl()}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'SciolyPrep - AI-generated Science Olympiad practice tests',
+      },
+    ],
+  },
 };
 
 const TOPIC_GUIDES: { topic: string; blurb: string }[] = [

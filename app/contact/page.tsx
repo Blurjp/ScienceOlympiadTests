@@ -4,11 +4,24 @@ import { ContactForm } from '@/components/contact/contact-form';
 import { getSiteUrl } from '@/lib/site';
 import { Mail, Clock, MessageCircle } from 'lucide-react';
 
+const canonical = `${getSiteUrl()}/contact`;
+
 export const metadata: Metadata = {
   title: 'Contact Us',
   description:
     'Get in touch with the Science Olympiad Tests team. Questions, bug reports, feature requests, and billing support.',
-  alternates: { canonical: `${getSiteUrl()}/contact` },
+  alternates: { canonical },
+  openGraph: {
+    url: canonical,
+    images: [
+      {
+        url: `${getSiteUrl()}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'SciolyPrep - AI-generated Science Olympiad practice tests',
+      },
+    ],
+  },
 };
 
 const SUPPORT_EMAIL = 'support@aitrove.ai';
