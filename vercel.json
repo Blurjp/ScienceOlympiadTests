@@ -10,6 +10,12 @@
       "destination": "https://sciolyprep.com/$1",
       "permanent": true,
       "has": [{ "type": "host", "value": "www.sciolyprep.com" }]
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "https://sciolyprep.com/$1",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "scienceolympiadtests.vercel.app" }]
     }
   ],
   "functions": {
