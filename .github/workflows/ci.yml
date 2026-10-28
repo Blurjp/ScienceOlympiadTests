@@ -5,11 +5,19 @@ on:
     branches: [main, master, claude/*]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   test:
     name: Test & Lint
-    runs-on: ubuntu-latest
+    # CI_MAC_RUNNER repo variable flips this to ["self-hosted", "mac-mini"]
+    # once the runner pair is online. Absent variable = hosted ubuntu, so
+    # this workflow is behavior-neutral before the flip.
+    runs-on: ${{ fromJSON(vars.CI_MAC_RUNNER || '"ubuntu-latest"') }}
+    # Public repo: fork PRs must never run unreviewed code on the self-hosted
+    # machine. PR-triggered runs wait for a reviewer in mac-ci-approval;
+    # push runs (trusted committers) use the unprotected mac-ci-open.
+    environment: ${{ github.event_name == 'pull_request' && 'mac-ci-approval' || 'mac-ci-open' }}
 
     steps:
       - name: Checkout repository
@@ -19,7 +27,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Cache only on hosted runners: the self-hosted machine persists
+          # node_modules on disk, and a multi-GB cache archive POST would
+          # crawl on residential upload bandwidth. NB: the condition must be
+          # written Linux-positive - in GitHub expressions '' is falsy, so
+          # `os == 'macOS' && '' || 'npm'` would always evaluate to 'npm'.
+          cache: ${{ runner.os == 'Linux' && 'npm' || '' }}
 
       - name: Install dependencies
         run: npm ci
@@ -41,18 +54,25 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_MAC_RUNNER || '"ubuntu-latest"') }}
+    environment: ${{ github.event_name == 'pull_request' && 'mac-ci-approval' || 'mac-ci-open' }}
     needs: test
 
     steps:
+      # clean: false keeps .next/ build caches across runs on the
+      # self-hosted machine (hosted runners start from a clean disk anyway,
+      # so nothing changes there). npm ci still wipes node_modules by its
+      # own semantics; that is fine.
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: ${{ runner.os == 'Linux' && 'npm' || '' }}
 
       - name: Install dependencies
         run: npm ci
