@@ -44,10 +44,9 @@ export default function EventsIndexPage() {
       <div className="mx-auto max-w-4xl px-4 py-12">
         <h1 className="text-4xl font-bold text-gray-900">Science Olympiad Event Practice Tests</h1>
         <p className="mt-4 text-lg text-gray-600">
-          Free, AI-generated practice tests for all {DEFAULT_TOPICS.length} major Science
-          Olympiad events across Divisions B and C. Each event page includes a study guide covering what the
-          test expects, plus practice tests at Invitational, Regional, State, and National
-          difficulty.
+          Explore Science Olympiad practice by event, including Anatomy and Physiology,
+          Astronomy, and Disease Detectives. Read topic guides and try sample questions
+          without signing in, or generate an AI practice test at your chosen difficulty.
         </p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">

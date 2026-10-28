@@ -47,7 +47,7 @@ export default async function Page() {
     },
     {
       q: 'How does the AI Science Olympiad test generator work?',
-      a: 'Pick an event, a difficulty (Invitational, Regional, State, or National), and the number of questions. SciolyPrep generates original multiple-choice questions with verified answers at that difficulty, then grades your answers with AI that accepts synonyms, abbreviations, and partial credit.',
+      a: 'Pick an event, a difficulty (Invitational, Regional, State, or National), and the number of questions. SciolyPrep generates multiple-choice questions and answers at that difficulty. AI-generated material can contain mistakes, so check answers against reliable sources.',
     },
     {
       q: 'Can I practice with real past Science Olympiad exams?',

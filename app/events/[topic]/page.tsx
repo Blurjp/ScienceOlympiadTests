@@ -7,6 +7,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { getSiteUrl } from '@/lib/site';
 import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { TOPIC_DESCRIPTIONS } from '@/lib/topic-descriptions';
+import { SAMPLE_QUESTIONS } from '@/lib/sample-questions';
 import { slugifyTopic, unslugifyTopic, topicDescriptionBlocks, eventFaq } from '@/lib/event-pages';
 import { CheckCircle2, FileText, Sparkles, Upload, BarChart3 } from 'lucide-react';
 
@@ -55,6 +56,7 @@ export default async function EventPage({ params }: EventPageProps) {
   const description = TOPIC_DESCRIPTIONS[topic] || `Practice questions for ${topic}.`;
   const blocks = topicDescriptionBlocks(description);
   const faq = eventFaq(topic);
+  const sample = SAMPLE_QUESTIONS[topic];
 
   // Show up to 6 related events for internal linking
   const related = DEFAULT_TOPICS.filter((t) => t !== topic).slice(0, 6);
@@ -116,6 +118,22 @@ export default async function EventPage({ params }: EventPageProps) {
           </Link>
         </div>
 
+        {sample && (
+          <section className="mt-12 rounded-xl border border-blue-200 bg-white p-6 shadow-sm" aria-labelledby="sample-heading">
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-700">Try a question · No sign-in required</p>
+            <h2 id="sample-heading" className="mt-2 text-2xl font-bold text-gray-900">{topic} Sample Practice Question</h2>
+            <p className="mt-4 font-medium text-gray-900">{sample.question}</p>
+            <ol className="mt-4 list-inside list-[upper-alpha] space-y-2 text-gray-700">
+              {sample.options.map((option) => <li key={option}>{option}</li>)}
+            </ol>
+            <details className="mt-5 rounded-lg bg-blue-50 p-4 text-gray-800">
+              <summary className="cursor-pointer font-semibold text-blue-800">Show answer and explanation</summary>
+              <p className="mt-3"><strong>Answer:</strong> {sample.answer}</p>
+              <p className="mt-2">{sample.explanation}</p>
+            </details>
+          </section>
+        )}
+
         {/* What's tested */}
         <section className="mt-12">
           <h2 className="text-2xl font-bold text-gray-900">What {topic} Tests Cover</h2>
@@ -156,8 +174,8 @@ export default async function EventPage({ params }: EventPageProps) {
                 <CardTitle className="text-base mt-2">AI Test Generator</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-gray-600">
-                Original {topic} questions at your chosen difficulty, generated in seconds.
-                Every question includes a verified answer.
+                Generate original {topic} questions at your chosen difficulty. AI-generated
+                questions and answers can contain mistakes, so check them against reliable sources.
               </CardContent>
             </Card>
             <Card>

@@ -556,6 +556,13 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Create Your Science Olympiad Practice Tests
           </h1>
+          <p className="max-w-3xl text-gray-600">
+            Prepare for Science Olympiad with practice questions, event study guides, and imported exams.
+            Explore <Link href="/events" className="font-medium text-blue-700 underline hover:text-blue-900">practice tests and study guides by event</Link>, including
+            {' '}<Link href="/events/astronomy" className="text-blue-700 underline hover:text-blue-900">Astronomy</Link>,
+            {' '}<Link href="/events/anatomy-and-physiology" className="text-blue-700 underline hover:text-blue-900">Anatomy and Physiology</Link>, and
+            {' '}<Link href="/events/disease-detectives" className="text-blue-700 underline hover:text-blue-900">Disease Detectives</Link>.
+          </p>
         </div>
 
         {/* AI Test Generator Section */}
