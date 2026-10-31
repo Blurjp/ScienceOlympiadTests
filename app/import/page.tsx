@@ -101,10 +101,11 @@ export default function ImportPage() {
           </p>
         </div>
 
-        {/* Anonymous visitors get the explainer + sign-in path. The import
-            action itself requires an account (the API rejects anonymous
-            imports), so the form only renders for signed-in users. */}
-        {status === 'unauthenticated' ? (
+        {/* The landing explainer is the SSR default so crawlers (and
+            anonymous visitors) get real content in the served HTML; the
+            import form only appears once the session resolves as
+            authenticated (the API rejects anonymous imports anyway). */}
+        {status === 'authenticated' ? (
           <>
             <Card className="mb-6">
               <CardHeader>
