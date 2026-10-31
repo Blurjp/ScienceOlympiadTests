@@ -16,6 +16,7 @@ const GUIDES_UPDATED = new Date('2026-10-16'); // event guides + about/contact
 const PRICING_UPDATED = new Date('2026-10-16'); // pricing page
 const LEGAL_UPDATED = new Date('2026-10-16'); // privacy/terms
 const IMPORT_LANDING_UPDATED = new Date('2026-10-31');
+const SEASON_2027_UPDATED = new Date('2026-10-31'); // 2027 events list page
 
 // Per-test pages: only tests with the admin-set `indexable` flag (one per
 // event x difficulty, >=10 questions, human-checked) are indexed, so the
@@ -50,6 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     })),
     { url: `${base}/import`, lastModified: IMPORT_LANDING_UPDATED, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${base}/events/2027`, lastModified: SEASON_2027_UPDATED, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/about`, lastModified: GUIDES_UPDATED, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/contact`, lastModified: GUIDES_UPDATED, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${base}/pricing`, lastModified: PRICING_UPDATED, changeFrequency: 'monthly', priority: 0.7 },

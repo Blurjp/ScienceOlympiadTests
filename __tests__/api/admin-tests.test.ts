@@ -8,18 +8,24 @@ import { ADMIN_COOKIE_NAME, SESSION_DURATION, createAdminSessionCookieValue } fr
 jest.mock('@/lib/database', () => ({
   getPageEligibleTestSummaries: jest.fn(),
   setTestIndexable: jest.fn(),
+  getTestSummariesByIds: jest.fn(),
+}));
+
+jest.mock('@/lib/indexnow', () => ({
+  pingIndexNow: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/auth', () => ({
   auth: jest.fn().mockResolvedValue(null),
 }));
 
-import { getPageEligibleTestSummaries, setTestIndexable } from '@/lib/database';
+import { getPageEligibleTestSummaries, setTestIndexable, getTestSummariesByIds } from '@/lib/database';
 
 const mockGetSummaries = getPageEligibleTestSummaries as jest.MockedFunction<
   typeof getPageEligibleTestSummaries
 >;
 const mockSetIndexable = setTestIndexable as jest.MockedFunction<typeof setTestIndexable>;
+const mockGetByIds = getTestSummariesByIds as jest.MockedFunction<typeof getTestSummariesByIds>;
 
 function createAuthenticatedRequest(url: string, body?: unknown): NextRequest {
   const validCookie = createAdminSessionCookieValue({
@@ -86,6 +92,9 @@ describe('/api/admin/tests', () => {
 
     test('toggles indexing for a valid request', async () => {
       mockSetIndexable.mockResolvedValue({ ok: true });
+      mockGetByIds.mockResolvedValue([
+        { id: 't1', topic: 'Astronomy', difficulty: 'Medium' } as any,
+      ]);
 
       const response = await POST(
         createAuthenticatedRequest('http://localhost:3000/api/admin/tests', {

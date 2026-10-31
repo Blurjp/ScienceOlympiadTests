@@ -1323,7 +1323,7 @@ COMMON MISTAKES:
   'Ornithology': `bird identification, anatomy, flight mechanics, behavior, migration, and classification.
 
 KEY FACTS TO VERIFY:
-- Bird orders: Passeriformes (perching birds, largest order ~60%), Anseriformes (ducks/geese), Falconiformes (hawks/eagles), Strigiformes (owls)
+- Bird orders: Passeriformes (perching birds, largest order ~60%), Anseriformes (ducks/geese), Accipitriformes (hawks/eagles), Falconiformes (falcons), Strigiformes (owls)
 - Flight feathers: Primaries (outer wing, thrust), Secondaries (inner wing, lift), Tail feathers (steering)
 - Bone adaptations: Hollow bones, fused bones (synsacrum, pygostyle), large sternum (keel for flight muscles)
 - Migration: Many use magnetic fields, stars, sun position, landmarks. Flyways: Atlantic, Mississippi, Central, Pacific
@@ -1388,7 +1388,7 @@ COMMON MISTAKES:
 KEY FACTS TO VERIFY:
 - Spectral classes (hot to cool): O B A F G K M ("Oh Be A Fine Girl/Guy, Kiss Me") - O is hottest (blue), M is coolest (red)
 - HR Diagram: X-axis = temperature (reversed: hot left, cool right), Y-axis = luminosity. Main sequence diagonal, giants upper right, white dwarfs lower left
-- Stellar evolution: Nebula → Protostar → Main Sequence → Red Giant → (depends on mass) → White Dwarf/Neutron Star/Black Hole
+- Stellar evolution: Nebula → Protostar → Main Sequence → then depends on mass: Sun-like stars → Red Giant → Planetary nebula → White Dwarf; massive stars (>8 M☉) → Supergiant → Supernova → Neutron star or Black hole
 - Sun is G-type main sequence star (G2V), ~5,778 K surface temperature
 
 DEEP SKY OBJECTS:

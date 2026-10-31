@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_COOKIE_NAME, isAdminEmail, verifyAdminSessionCookie } from '@/lib/admin-auth';
 import { auth } from '@/auth';
-import { getPageEligibleTestSummaries, setTestIndexable } from '@/lib/database';
+import {
+  getPageEligibleTestSummaries,
+  getTestSummariesByIds,
+  setTestIndexable,
+} from '@/lib/database';
+import { pingIndexNow } from '@/lib/indexnow';
+import { buildTestPath } from '@/lib/test-pages';
+import { slugifyTopic } from '@/lib/event-pages';
+import { getSiteUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +64,23 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.reason }, { status: 409 });
     }
+
+    // Notify IndexNow engines right away (Bing/Copilot, DuckDuckGo,
+    // ChatGPT search) - both directions, so a flipped-off page also gets
+    // recrawled to see its new noindex. Fire-and-forget.
+    try {
+      const [summary] = await getTestSummariesByIds([id]);
+      if (summary) {
+        const base = getSiteUrl();
+        void pingIndexNow(
+          [`${base}${buildTestPath(slugifyTopic(summary.topic), id, summary.difficulty)}`],
+          new URL(base).host
+        );
+      }
+    } catch {
+      // URL build/ping failures never block the toggle itself
+    }
+
     return NextResponse.json({ success: true, id, indexable });
   } catch (error) {
     console.error('Failed to toggle test indexing:', error);
