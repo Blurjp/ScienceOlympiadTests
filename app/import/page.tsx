@@ -105,7 +105,7 @@ export default function ImportPage() {
             anonymous visitors) get real content in the served HTML; the
             import form only appears once the session resolves as
             authenticated (the API rejects anonymous imports anyway). */}
-        {status === 'authenticated' ? (
+        {status !== 'authenticated' ? (
           <>
             <Card className="mb-6">
               <CardHeader>
