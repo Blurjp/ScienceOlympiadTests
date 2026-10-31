@@ -16,10 +16,13 @@ export const authConfig = {
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard")
       const isOnProfile = nextUrl.pathname.startsWith("/profile")
       const isOnGenerate = nextUrl.pathname.startsWith("/generate")
-      const isOnImport = nextUrl.pathname.startsWith("/import")
 
-      // Protect dashboard, profile, generate, and import routes
-      if (isOnDashboard || isOnProfile || isOnGenerate || isOnImport) {
+      // Protect dashboard, profile, and generate routes. /import stays a
+      // public landing page (it explains PDF import and links to sign-in);
+      // the URL-import action is protected server-side by
+      // /api/download-pdf (and /api/generate-from-pdf), which 401 anonymous
+      // callers.
+      if (isOnDashboard || isOnProfile || isOnGenerate) {
         if (isLoggedIn) return true
         return false // Redirect unauthenticated users to login page
       }

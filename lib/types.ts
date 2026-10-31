@@ -47,6 +47,8 @@ export interface TestSummary {
   region?: string;
   userId?: string | null;
   questionCount: number;
+  /** Row updated_at, when available (used for sitemap lastmod). */
+  updatedAt?: string;
 }
 
 export interface UserAnswer {

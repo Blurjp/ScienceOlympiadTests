@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,11 +16,14 @@ import {
   AlertCircle,
   FileText,
   ExternalLink,
+  Lock,
+  Upload,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ImportPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -87,22 +91,81 @@ export default function ImportPage() {
               Back to Home
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Import Test from URL</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Turn Past Exam PDFs into Practice Tests
+          </h1>
           <p className="mt-2 text-gray-600">
-            Paste a link to a Science Olympiad test PDF and we&apos;ll extract the questions
+            Practice with the exams you already have: import a past Science
+            Olympiad test PDF and every question becomes an interactive, timed
+            test with instant scoring.
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              PDF URL
-            </CardTitle>
-            <CardDescription>
-              Enter the URL of a publicly accessible Science Olympiad test PDF. Google Drive links are supported!
-            </CardDescription>
-          </CardHeader>
+        {/* Anonymous visitors get the explainer + sign-in path. The import
+            action itself requires an account (the API rejects anonymous
+            imports), so the form only renders for signed-in users. */}
+        {status === 'unauthenticated' ? (
+          <>
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  How PDF import works
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ol className="list-decimal space-y-2 pl-5 text-gray-700">
+                  <li>Find a past test PDF on your computer or a Google Drive link (e.g. from a test exchange).</li>
+                  <li>Sign in and paste the link, or upload the file from the PDF parser.</li>
+                  <li>We extract every question into a timed, scored practice test.</li>
+                  <li>Your scores and history are saved to your account automatically.</li>
+                </ol>
+              </CardContent>
+            </Card>
+
+            <Card className="mb-6">
+              <CardContent className="flex items-start gap-3 pt-6">
+                <Lock className="mt-0.5 h-5 w-5 text-emerald-700" />
+                <div>
+                  <p className="font-medium text-gray-900">Your imports stay private</p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Imported exams are copyright their authors, so they are never
+                    published to the public library — only you can practice them
+                    and see your results.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => router.push('/api/auth/signin?callbackUrl=/import')}>
+                Sign in to import a test
+              </Button>
+              <Link href="/pdf-parser">
+                <Button variant="outline" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Try the PDF parser first
+                </Button>
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
+              <span className="font-medium text-gray-900">Signed in</span> — paste
+              a PDF URL below. Imports stay private to your account.
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  PDF URL
+                </CardTitle>
+                <CardDescription>
+                  Enter the URL of a publicly accessible Science Olympiad test PDF. Google Drive links are supported!
+                </CardDescription>
+              </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label htmlFor="url" className="sr-only">PDF URL</Label>
@@ -234,6 +297,8 @@ export default function ImportPage() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
     </div>
   );

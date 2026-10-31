@@ -85,6 +85,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [onlyMyTests, setOnlyMyTests] = useState(false);
   const testsFetchId = useRef(0);
+  const deepLinkHandledRef = useRef(false);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -335,6 +336,18 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     setTimeSpent(0);
     setCurrentView('test');
   };
+
+  // Deep link from public per-test pages: /?test=<id> jumps straight into
+  // the timed test (public tests only — the API 404s private ones for
+  // anonymous viewers).
+  useEffect(() => {
+    const testId = searchParams.get('test');
+    if (!testId || deepLinkHandledRef.current) return;
+    deepLinkHandledRef.current = true;
+    router.replace('/', { scroll: false });
+    void handleStartTest({ id: testId } as TestSummary);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, router]);
 
   const handleSubmitTest = (answers: UserAnswer[], timeSpent: number) => {
     setUserAnswers(answers);

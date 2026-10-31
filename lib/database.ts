@@ -311,6 +311,13 @@ export async function getTest(testId: string): Promise<Test | null> {
   if (testResult.rows.length === 0) return null;
   const test = testResult.rows[0] as any;
 
+  return loadTestWithOptions(database, test);
+}
+
+// Load one test row's questions + options (shared by getTest and the
+// public per-test pages).
+async function loadTestWithOptions(database: Client, test: any): Promise<Test> {
+  const testId = test.id;
   const questionsResult = await database.execute({
     sql: 'SELECT * FROM questions WHERE test_id = ? ORDER BY question_order',
     args: [testId]
@@ -393,6 +400,7 @@ async function loadTestSummaries(
     region: test.region || undefined,
     userId: test.user_id ?? null,
     questionCount: test.question_count ?? 0,
+    updatedAt: test.updated_at ?? undefined,
   }));
 }
 
@@ -485,6 +493,66 @@ export async function getTestsByTopic(topic: string): Promise<Test[]> {
 export async function getTestsByYearAndTopic(year: number, topic: string): Promise<Test[]> {
   const database = await getDatabase();
   return loadTestsBulk(database, 'WHERE is_public = 1 AND year = ? AND topic = ? ORDER BY title', [year, topic]);
+}
+
+/**
+ * A single test for the public per-test page (/tests/[topic]/[slug]).
+ * Eligibility is enforced in SQL, not just in the page component: the test
+ * must be public original content. Third-party imports (source_url set or
+ * 'Imported from%'/'Parsed from%' descriptions) and generate-from-pdf
+ * output ('Original Practice:%' titles) never get public pages.
+ * Returns the test plus its updated_at timestamp for caching/sitemap use.
+ */
+export async function getPublicOriginalTest(
+  testId: string
+): Promise<{ test: Test; updatedAt: string | null } | null> {
+  const database = await getDatabase();
+  const result = await database.execute({
+    sql: `SELECT * FROM tests
+          WHERE id = ?
+            AND is_public = 1
+            AND source_url IS NULL
+            AND title NOT LIKE 'Original Practice:%'
+            AND COALESCE(description, '') NOT LIKE 'Imported from%'
+            AND COALESCE(description, '') NOT LIKE 'Parsed from%'`,
+    args: [testId],
+  });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0] as any;
+  const test = await loadTestWithOptions(database, row);
+  return { test, updatedAt: row.updated_at ?? null };
+}
+
+/** Public summaries for one topic (sibling-difficulty links on per-test
+ * pages). Page eligibility is re-checked by the caller. */
+export async function getPublicTestSummariesByTopic(
+  topic: string
+): Promise<TestSummary[]> {
+  const database = await getDatabase();
+  return loadTestSummaries(
+    database,
+    'WHERE is_public = 1 AND topic = ? ORDER BY difficulty, question_count DESC',
+    [topic]
+  );
+}
+
+/** Summaries for explicit test ids (sitemap lastmod for curated pages). */
+export async function getTestSummariesByIds(
+  ids: string[]
+): Promise<TestSummary[]> {
+  if (ids.length === 0) return [];
+  const database = await getDatabase();
+  const out: TestSummary[] = [];
+  for (const idChunk of chunk(ids, 100)) {
+    const placeholders = idChunk.map(() => '?').join(',');
+    const rows = await loadTestSummaries(
+      database,
+      `WHERE id IN (${placeholders})`,
+      idChunk
+    );
+    out.push(...rows);
+  }
+  return out;
 }
 
 /**
