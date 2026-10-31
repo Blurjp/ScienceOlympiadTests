@@ -10,6 +10,8 @@ export async function GET(
   try {
     const test = await getTest(params.id);
 
+    // Every not-found path returns the same 404 (never 403) so the response
+    // never confirms that a hidden test id exists.
     if (!test) {
       return NextResponse.json(
         { error: 'Test not found' },
@@ -17,7 +19,28 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ test });
+    // Private tests (is_public = 0) are served only to their owner or an
+    // admin. Test ids are timestamp+random strings, not sequential integers,
+    // but they are not cryptographic - enforce the flag, don't rely on id
+    // unguessability.
+    const session = await auth();
+    const viewerId = session?.user?.id;
+    const isAdmin = Boolean(
+      session?.user?.email && isAdminEmail(session.user.email)
+    );
+    if (test.isPublic === false && test.userId !== viewerId && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Test not found' },
+        { status: 404 }
+      );
+    }
+
+    // Visibility depends on the viewer; never let a shared cache hold this
+    // response or one user could be served another user's private test.
+    return NextResponse.json(
+      { test },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json(

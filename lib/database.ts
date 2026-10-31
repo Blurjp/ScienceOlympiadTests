@@ -189,10 +189,12 @@ async function getDatabase(): Promise<Client> {
  * Persist a test atomically (test row + questions + options in one batch).
  *
  * `isPublic` defaults to FALSE: anything not explicitly published stays out
- * of the shared library. Only routes that generate fully original content
- * (AI generators, exam-inspired generator) pass true; verbatim imports
- * (URL import, uploaded-PDF parsing) keep the default so third-party exams
- * are never re-hosted publicly without an explicit opt-in.
+ * of the shared library. Only the fully original AI generators (template and
+ * LLM question writers) pass true; verbatim imports (URL import,
+ * uploaded-PDF parsing) and exam-inspired output (derived from someone
+ * else's exam, and an LLM can reproduce source questions near-verbatim)
+ * keep the default so third-party material is never re-hosted publicly
+ * without an explicit opt-in.
  */
 export async function saveTest(
   test: Test,
@@ -351,6 +353,8 @@ export async function getTest(testId: string): Promise<Test | null> {
     totalPoints: test.total_points,
     topic: test.topic,
     region: test.region || undefined,
+    userId: test.user_id ?? null,
+    isPublic: Boolean(test.is_public),
     questions: questionWithOptions,
   };
 }

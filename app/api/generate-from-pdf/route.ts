@@ -251,9 +251,11 @@ export async function POST(request: NextRequest) {
         };
 
         try {
-          // Exam-inspired tests are 100% original questions, so they may
-          // publish; the imported exam itself stays private.
-          await saveTest(test, undefined, undefined, userId, true);
+          // Exam-inspired output stays private: it is derived from someone
+          // else's uploaded exam, and an LLM working from a source exam can
+          // reproduce questions near-verbatim. Only fully original routes
+          // (generate-test, generate-ai-test) publish to the public library.
+          await saveTest(test, undefined, undefined, userId);
         } catch (dbError) {
           console.error('Database save error (non-fatal):', dbError);
           // Continue anyway - user still gets the test
@@ -535,8 +537,9 @@ MATHEMATICAL ACCURACY:
     // response after the user has already waited out (and paid for) the
     // generation - a lost write is logged, not surfaced as a 500.
     const writeResults = await Promise.allSettled([
-      // Original (exam-inspired) questions: publishable.
-      saveTest(test, undefined, undefined, userId, true),
+      // Exam-inspired output stays private (derived from an uploaded exam);
+      // saveTest defaults to isPublic = false.
+      saveTest(test, undefined, undefined, userId),
       saveCachedGeneration(
         sourceId,
         undefined, // No specific URL for dynamic sources

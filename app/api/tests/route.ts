@@ -66,7 +66,11 @@ export async function GET(request: NextRequest) {
         userId: mine ? sessionUserId : undefined,
         viewerId,
       });
-      return NextResponse.json({ tests });
+      // Result set varies by viewer (viewerId); never cacheable.
+      return NextResponse.json(
+        { tests },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      );
     }
 
     // Text search and owner filtering go through the flexible query builder;
@@ -79,7 +83,11 @@ export async function GET(request: NextRequest) {
         userId: mine ? sessionUserId : undefined,
         viewerId,
       });
-      return NextResponse.json({ tests });
+      // Result set varies by viewer (viewerId); never cacheable.
+      return NextResponse.json(
+        { tests },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      );
     }
 
     // Get tests with filters
