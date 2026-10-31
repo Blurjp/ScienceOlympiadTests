@@ -1036,7 +1036,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <CardTitle className="text-lg">{test.title}</CardTitle>
+                      {/* Not a heading: 100+ repeated card titles as <h3>
+                          diluted the page's heading structure for crawlers. */}
+                      <p className="text-lg font-semibold leading-none tracking-tight text-gray-900">
+                        {test.title}
+                      </p>
                       <Badge className={getDifficultyColor(test.difficulty)}>
                         {test.difficulty}
                       </Badge>

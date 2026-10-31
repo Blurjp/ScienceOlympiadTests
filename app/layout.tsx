@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s | SciolyPrep",
   },
   description:
-    "Generate and practice Science Olympiad tests for every event - Anatomy, Astronomy, Chemistry Lab, Forensics, and more. AI-generated questions, PDF import, and progress tracking.",
+    "Free AI-generated Science Olympiad practice tests for 32 Division B & C events. Import past exam PDFs and track your progress.",
   icons: {
     icon: "/favicon.svg",
     apple: "/favicon.svg",

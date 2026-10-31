@@ -24,7 +24,8 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
   if (!topic) return {};
   const base = getSiteUrl();
   const title = `${topic} Practice Tests - Free AI Generator`;
-  const description = `Practice ${topic} for Science Olympiad with AI-generated tests at Invitational, Regional, State, and National difficulty. Import past exam PDFs and track your progress. Free to start.`;
+  // Keep ≤155 chars so it isn't truncated in SERPs (151 at the longest topic name).
+  const description = `Free ${topic} practice tests for Science Olympiad, Invitational to National level. AI-generated questions, PDF import, progress tracking.`;
   return {
     title,
     description,
@@ -58,8 +59,15 @@ export default async function EventPage({ params }: EventPageProps) {
   const faq = eventFaq(topic);
   const sample = SAMPLE_QUESTIONS[topic];
 
-  // Show up to 6 related events for internal linking
-  const related = DEFAULT_TOPICS.filter((t) => t !== topic).slice(0, 6);
+  // Circular neighbors: every event page gets exactly 6 outbound links and,
+  // symmetrically, 6 inbound links from other event pages. The old
+  // `.slice(0, 6)` linked the same alphabetical head from every page, leaving
+  // later events (Water Quality, Wind Power, ...) with zero internal links.
+  const idx = DEFAULT_TOPICS.indexOf(topic);
+  const related =
+    idx === -1
+      ? DEFAULT_TOPICS.slice(0, 6)
+      : Array.from({ length: 6 }, (_, k) => DEFAULT_TOPICS[(idx + 1 + k) % DEFAULT_TOPICS.length]);
 
   const faqJsonLd = {
     '@context': 'https://schema.org',

@@ -8,6 +8,8 @@ const canonical = `${getSiteUrl()}/login`;
 export const metadata: Metadata = {
   title: 'Sign In | Science Olympiad Tests',
   description: 'Sign in with Google to generate practice tests, import exams, and track your Science Olympiad progress.',
+  // No search value: a sign-in page should not compete with content pages.
+  robots: { index: false, follow: true },
   alternates: { canonical },
   openGraph: {
     url: canonical,

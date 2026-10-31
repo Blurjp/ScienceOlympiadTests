@@ -251,7 +251,9 @@ export async function POST(request: NextRequest) {
         };
 
         try {
-          await saveTest(test, undefined, undefined, userId);
+          // Exam-inspired tests are 100% original questions, so they may
+          // publish; the imported exam itself stays private.
+          await saveTest(test, undefined, undefined, userId, true);
         } catch (dbError) {
           console.error('Database save error (non-fatal):', dbError);
           // Continue anyway - user still gets the test
@@ -533,7 +535,8 @@ MATHEMATICAL ACCURACY:
     // response after the user has already waited out (and paid for) the
     // generation - a lost write is logged, not surfaced as a 500.
     const writeResults = await Promise.allSettled([
-      saveTest(test, undefined, undefined, userId),
+      // Original (exam-inspired) questions: publishable.
+      saveTest(test, undefined, undefined, userId, true),
       saveCachedGeneration(
         sourceId,
         undefined, // No specific URL for dynamic sources

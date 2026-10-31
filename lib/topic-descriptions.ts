@@ -140,7 +140,7 @@ HR DIAGRAM:
 - Mass determines position on main sequence: More massive = hotter, brighter, shorter-lived
 
 STELLAR EVOLUTION:
-- Low mass (<0.5 M☉): Main sequence → Red giant → Planetary nebula → White dwarf
+- Low mass (<0.5 M☉): Main-sequence lifetime exceeds the age of the universe, so none have evolved off it yet. The lowest-mass stars (≲0.25 M☉) are predicted to skip the red giant phase and fade into helium white dwarfs.
 - Medium mass (0.5-8 M☉): Main sequence → Red giant → Helium flash → Horizontal branch → AGB → Planetary nebula → White dwarf
 - High mass (>8 M☉): Main sequence → Supergiant → Supernova → Neutron star (1.4-3 M☉) or Black hole (>3 M☉)
 - Main sequence lifetime ∝ M/L ∝ 1/M² (more massive = shorter life)

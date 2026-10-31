@@ -499,8 +499,9 @@ Output valid JSON only.`;
 
         // Save to database and log usage off the user's critical path. The
         // stream stays open while these run, keeping the function alive.
+        // AI-generated tests are original content: publish to the library.
         try {
-          await saveTest(test, undefined, undefined, userId);
+          await saveTest(test, undefined, undefined, userId, true);
         } catch (dbError) {
           console.error('Database save error (non-fatal):', dbError);
         }

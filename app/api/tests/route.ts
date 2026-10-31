@@ -42,18 +42,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ regions });
     }
 
-    // "Only my tests" requires a signed-in user
-    let userId: string | undefined;
-    if (mine) {
-      const session = await auth();
-      if (!session?.user?.id) {
-        return NextResponse.json(
-          { error: 'Please sign in to filter by your own tests.', signInRequired: true },
-          { status: 401 }
-        );
-      }
-      userId = session.user.id;
+    // "Only my tests" requires a signed-in user; resolve the viewer for all
+    // requests so signed-in users also see their own private imports in the
+    // default grid (anonymous visitors get public tests only).
+    const session = await auth();
+    const sessionUserId = session?.user?.id;
+    if (mine && !sessionUserId) {
+      return NextResponse.json(
+        { error: 'Please sign in to filter by your own tests.', signInRequired: true },
+        { status: 401 }
+      );
     }
+    const viewerId = sessionUserId;
 
     // Summary mode: lightweight listing payloads (no questions/options).
     // Used by the homepage browse grid; full questions load per-test on
@@ -63,19 +63,21 @@ export async function GET(request: NextRequest) {
         topic: topic || undefined,
         year: year ? parseInt(year) : undefined,
         search,
-        userId,
+        userId: mine ? sessionUserId : undefined,
+        viewerId,
       });
       return NextResponse.json({ tests });
     }
 
     // Text search and owner filtering go through the flexible query builder;
     // plain year/topic combos keep using the dedicated helpers.
-    if (search || userId) {
+    if (search || (mine && sessionUserId)) {
       const tests = await searchTests({
         topic: topic || undefined,
         year: year ? parseInt(year) : undefined,
         search,
-        userId,
+        userId: mine ? sessionUserId : undefined,
+        viewerId,
       });
       return NextResponse.json({ tests });
     }

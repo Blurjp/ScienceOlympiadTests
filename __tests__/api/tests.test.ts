@@ -176,6 +176,7 @@ describe('GET /api/tests', () => {
         year: undefined,
         search: 'anatomy',
         userId: 'user-1',
+        viewerId: 'user-1',
       });
     });
   });
@@ -196,6 +197,8 @@ describe('GET /api/tests', () => {
         year: undefined,
         search: undefined,
         userId: undefined,
+        // Signed-in viewers also see their own private imports in the grid
+        viewerId: 'user-1',
       });
       expect(mockGetAllTests).not.toHaveBeenCalled();
       expect(mockSearchTests).not.toHaveBeenCalled();
