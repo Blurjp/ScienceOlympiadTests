@@ -28,6 +28,9 @@ export interface Test {
   /** Whether the test appears in the shared public library. Private tests
    * (third-party imports) are only served to their owner or an admin. */
   isPublic?: boolean;
+  /** Admin-set search-indexing flag for the per-test page. Never derived
+   * at render time; see lib/curated-tests.ts and /api/admin/tests. */
+  indexable?: boolean;
 }
 
 /**
@@ -49,6 +52,8 @@ export interface TestSummary {
   questionCount: number;
   /** Row updated_at, when available (used for sitemap lastmod). */
   updatedAt?: string;
+  /** Search-indexing flag for per-test pages (admin toggle only). */
+  indexable?: boolean;
 }
 
 export interface UserAnswer {

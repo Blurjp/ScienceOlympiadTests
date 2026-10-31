@@ -76,6 +76,11 @@ async function doInitializeDatabase() {
       -- is a one-off UPDATE (scripts/make-imports-private.sql) for rows
       -- already imported. Third-party exams must never publish by default.
       is_public BOOLEAN DEFAULT 0,
+      -- Search-indexing quality bar for per-test pages. Set ONLY via the
+      -- admin toggle (POST /api/admin/tests) after a human review; never
+      -- derived at render time from question counts. Initial seed:
+      -- scripts/apply-curated-indexable.js
+      indexable BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
@@ -85,6 +90,15 @@ async function doInitializeDatabase() {
   // Add region column if it doesn't exist (for existing databases)
   try {
     await database.execute(`ALTER TABLE tests ADD COLUMN region TEXT CHECK(region IN ('Invitational', 'Regionals', 'States', 'Nationals'))`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  // Add indexable column if it doesn't exist (for existing databases).
+  // CREATE TABLE IF NOT EXISTS never rewrites an existing table, so the
+  // ALTER is what actually brings production up to date.
+  try {
+    await database.execute(`ALTER TABLE tests ADD COLUMN indexable BOOLEAN DEFAULT 0`);
   } catch (e) {
     // Column already exists, ignore
   }
@@ -401,6 +415,7 @@ async function loadTestSummaries(
     userId: test.user_id ?? null,
     questionCount: test.question_count ?? 0,
     updatedAt: test.updated_at ?? undefined,
+    indexable: Boolean(test.indexable),
   }));
 }
 
@@ -510,16 +525,16 @@ export async function getPublicOriginalTest(
   const result = await database.execute({
     sql: `SELECT * FROM tests
           WHERE id = ?
-            AND is_public = 1
-            AND source_url IS NULL
-            AND title NOT LIKE 'Original Practice:%'
-            AND COALESCE(description, '') NOT LIKE 'Imported from%'
-            AND COALESCE(description, '') NOT LIKE 'Parsed from%'`,
+            AND ${PAGE_ELIGIBLE_SQL}`,
     args: [testId],
   });
   if (result.rows.length === 0) return null;
   const row = result.rows[0] as any;
   const test = await loadTestWithOptions(database, row);
+  test.isPublic = true;
+  // The indexing quality bar lives in the row, set only via the admin
+  // toggle - never derived here from question counts.
+  test.indexable = Boolean(row.indexable);
   return { test, updatedAt: row.updated_at ?? null };
 }
 
@@ -553,6 +568,86 @@ export async function getTestSummariesByIds(
     out.push(...rows);
   }
   return out;
+}
+
+// Page eligibility as SQL - must stay in sync with isPageEligibleTest() in
+// lib/test-pages.ts (the page component re-checks with that predicate).
+const PAGE_ELIGIBLE_SQL = `is_public = 1
+      AND source_url IS NULL
+      AND title NOT LIKE 'Original Practice:%'
+      AND COALESCE(description, '') NOT LIKE 'Imported from%'
+      AND COALESCE(description, '') NOT LIKE 'Parsed from%'`;
+
+/**
+ * All tests whose per-test pages search engines may INDEX (the `indexable`
+ * flag, set only via the admin toggle). Backs the sitemap and the event-page
+ * "indexed practice tests" links. Real updated_at is included for lastmod.
+ */
+export async function getIndexableTestSummaries(): Promise<TestSummary[]> {
+  const database = await getDatabase();
+  return loadTestSummaries(
+    database,
+    `WHERE ${PAGE_ELIGIBLE_SQL} AND indexable = 1 ORDER BY topic, difficulty`,
+    []
+  );
+}
+
+/** Indexable test summaries for one event page. */
+export async function getIndexableTestsByTopic(
+  topic: string
+): Promise<TestSummary[]> {
+  const database = await getDatabase();
+  return loadTestSummaries(
+    database,
+    `WHERE ${PAGE_ELIGIBLE_SQL} AND indexable = 1 AND topic = ? ORDER BY difficulty`,
+    [topic]
+  );
+}
+
+/**
+ * Every page-eligible public test regardless of indexable state, for the
+ * admin toggle UI. Imports and generate-from-pdf output never appear here:
+ * they have no public page to index.
+ */
+export async function getPageEligibleTestSummaries(): Promise<TestSummary[]> {
+  const database = await getDatabase();
+  return loadTestSummaries(
+    database,
+    `WHERE ${PAGE_ELIGIBLE_SQL} ORDER BY topic, difficulty, question_count DESC`,
+    []
+  );
+}
+
+/**
+ * Admin toggle for the per-test-page indexing quality bar. Flipping ON is
+ * refused for ineligible tests and for tests with fewer than 10 questions
+ * (the documented bar); the human review itself is the admin's judgment and
+ * is not derivable. Toggling bumps updated_at so the sitemap lastmod stays
+ * truthful.
+ */
+export async function setTestIndexable(
+  testId: string,
+  indexed: boolean
+): Promise<{ ok: boolean; reason?: string }> {
+  const database = await getDatabase();
+  if (indexed) {
+    const check = await database.execute({
+      sql: `SELECT (SELECT COUNT(*) FROM questions WHERE test_id = tests.id) AS question_count
+            FROM tests WHERE id = ? AND ${PAGE_ELIGIBLE_SQL}`,
+      args: [testId],
+    });
+    if (check.rows.length === 0) {
+      return { ok: false, reason: 'Test not found or not eligible for a public page' };
+    }
+    if (Number((check.rows[0] as any).question_count) < 10) {
+      return { ok: false, reason: 'Below the 10-question quality bar' };
+    }
+  }
+  await database.execute({
+    sql: 'UPDATE tests SET indexable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    args: [indexed ? 1 : 0, testId],
+  });
+  return { ok: true };
 }
 
 /**

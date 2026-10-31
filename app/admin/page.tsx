@@ -76,7 +76,16 @@ interface RecentApiCall {
   createdAt: string;
 }
 
-type Tab = 'overview' | 'users' | 'activity';
+type Tab = 'overview' | 'users' | 'activity' | 'tests';
+
+interface AdminTestSummary {
+  id: string;
+  topic: string;
+  difficulty: string;
+  title: string;
+  questionCount: number;
+  indexable?: boolean;
+}
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return 'Never';
@@ -139,6 +148,9 @@ export default function AdminPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [showPasswordLogin, setShowPasswordLogin] = useState(false);
+  const [indexableTests, setIndexableTests] = useState<AdminTestSummary[]>([]);
+  const [testsLoading, setTestsLoading] = useState(false);
+  const [togglingTestId, setTogglingTestId] = useState<string | null>(null);
 
   // Check if already authenticated on mount
   useEffect(() => {
@@ -207,6 +219,47 @@ export default function AdminPage() {
       console.error('Failed to load data:', error);
     }
     setIsRefreshing(false);
+  };
+
+  // SEO indexing toggles: page-eligible public tests with their indexable
+  // state. Loaded lazily when the tab opens.
+  const loadIndexableTests = async () => {
+    setTestsLoading(true);
+    try {
+      const response = await fetch('/api/admin/tests');
+      if (response.ok) {
+        const data = await response.json();
+        setIndexableTests(data.tests || []);
+      }
+    } catch (error) {
+      console.error('Failed to load tests:', error);
+    }
+    setTestsLoading(false);
+  };
+
+  const toggleIndexable = async (test: AdminTestSummary) => {
+    if (togglingTestId) return;
+    setTogglingTestId(test.id);
+    try {
+      const next = !test.indexable;
+      const response = await fetch('/api/admin/tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: test.id, indexable: next }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Failed to update');
+      } else {
+        setIndexableTests((prev) =>
+          prev.map((t) => (t.id === test.id ? { ...t, indexable: next } : t))
+        );
+      }
+    } catch (error) {
+      console.error('Failed to toggle indexing:', error);
+      alert('Failed to update');
+    }
+    setTogglingTestId(null);
   };
 
   const filteredUsers = useMemo(() => {
@@ -340,10 +393,14 @@ export default function AdminPage() {
             ['overview', 'Overview'],
             ['users', 'Users'],
             ['activity', 'Activity'],
+            ['tests', 'SEO Tests'],
           ] as [Tab, string][]).map(([tab, label]) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                if (tab === 'tests') loadIndexableTests();
+              }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
                 activeTab === tab
                   ? 'border-blue-600 text-blue-600'
@@ -654,6 +711,84 @@ export default function AdminPage() {
                             <td className="text-right py-2">{day.calls}</td>
                             <td className="text-right py-2">{(day.tokens / 1000).toFixed(1)}K</td>
                             <td className="text-right py-2">${day.cost.toFixed(4)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* ===================== SEO Tests Tab ===================== */}
+        {activeTab === 'tests' && (
+          <>
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold">Per-test page indexing</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Toggle which public test pages search engines may index. The bar:
+                public original content, &ge;10 questions (enforced), and a human
+                spot-check of the questions (your judgment). Indexed pages get
+                <code className="mx-1 px-1 rounded bg-gray-100">index,follow</code>
+                + sitemap entries; all others stay
+                <code className="mx-1 px-1 rounded bg-gray-100">noindex,follow</code>.
+                Changes appear in the sitemap and event pages within an hour.
+              </p>
+            </div>
+
+            {testsLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-4">Event</th>
+                          <th className="text-left py-2">Difficulty</th>
+                          <th className="text-left py-2">Test</th>
+                          <th className="text-right py-2">Questions</th>
+                          <th className="text-right py-2 px-4">Indexed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {indexableTests.map((t) => (
+                          <tr key={t.id} className="border-b">
+                            <td className="py-2 px-4">{t.topic}</td>
+                            <td className="py-2">{t.difficulty}</td>
+                            <td className="py-2 max-w-md truncate" title={t.title}>
+                              {t.title}
+                            </td>
+                            <td className="py-2 text-right">
+                              {t.questionCount}
+                              {t.questionCount < 10 && (
+                                <span className="ml-1 text-xs text-gray-400" title="Below the enforced 10-question bar">
+                                  (bar)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 px-4 text-right">
+                              <button
+                                onClick={() => toggleIndexable(t)}
+                                disabled={togglingTestId === t.id || (!t.indexable && t.questionCount < 10)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  t.indexable
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                              >
+                                {togglingTestId === t.id
+                                  ? '…'
+                                  : t.indexable
+                                    ? 'Indexed'
+                                    : 'Off'}
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

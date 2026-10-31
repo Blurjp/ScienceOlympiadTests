@@ -1,10 +1,14 @@
-// Curated per-test pages that search engines may INDEX. Everything else
-// with a public page renders noindex,follow (see app/tests/[topic]/[slug]).
+// SEED LIST for the tests.indexable flag - NOT read at runtime.
+//
+// Applied once by: node scripts/apply-curated-indexable.js
+// Ongoing changes: Admin dashboard > SEO Tests (POST /api/admin/tests),
+// which is the ONLY writer of tests.indexable. Runtime (page robots meta,
+// sitemap, event-page links) reads the DB field exclusively.
 //
 // Policy (docs review, 2026-10-31): index ONE test per event x difficulty —
 // hundreds of near-identical AI-generated pages trip Google's scaled-content
-// spam policy and can drag the whole domain down. A test is promoted here
-// only when it (a) is public original content, (b) has >= 10 questions, and
+// spam policy and can drag the whole domain down. A test is promoted only
+// when it (a) is public original content, (b) has >= 10 questions, and
 // (c) a human has checked the content. Regenerate candidates with:
 //   node scripts/suggest-curated-tests.js
 // then eyeball the questions before adding the id here.

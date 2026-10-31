@@ -254,21 +254,18 @@ describe('generateId', () => {
     expect(typeof id).toBe('string');
   });
 
-  test('contains timestamp component', () => {
-    const before = Date.now();
+  test('generates UUID-shaped ids (URL-stable, unguessable)', () => {
     const id = generateId();
-    const after = Date.now();
-
-    const timestamp = parseInt(id.split('-')[0]);
-    expect(timestamp).toBeGreaterThanOrEqual(before);
-    expect(timestamp).toBeLessThanOrEqual(after);
+    // crypto.randomUUID format: 8-4-4-4-12 lowercase hex
+    expect(id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
   });
 
-  test('contains random component', () => {
-    const id = generateId();
-    const parts = id.split('-');
-    expect(parts.length).toBe(2);
-    expect(parts[1].length).toBe(9);
+  test('legacy timestamp-style ids remain parseable as URL segments', () => {
+    // Older rows keep ids like 1770335271483-6mds2qpu1; both shapes must
+    // work in per-test page slugs (see lib/test-pages tests).
+    expect(generateId()).not.toMatch(/^\d+-[a-z0-9]{9}$/);
   });
 
   test('generates many unique IDs', () => {

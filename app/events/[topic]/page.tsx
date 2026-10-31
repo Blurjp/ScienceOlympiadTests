@@ -9,11 +9,18 @@ import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { TOPIC_DESCRIPTIONS } from '@/lib/topic-descriptions';
 import { SAMPLE_QUESTIONS } from '@/lib/sample-questions';
 import { slugifyTopic, unslugifyTopic, topicDescriptionBlocks, eventFaq } from '@/lib/event-pages';
+import { getIndexableTestsByTopic } from '@/lib/database';
+import { buildTestPath, difficultyLabel, difficultySlug } from '@/lib/test-pages';
 import { CheckCircle2, FileText, Sparkles, Upload, BarChart3 } from 'lucide-react';
 
 interface EventPageProps {
   params: { topic: string };
 }
+
+// Event pages link to the admin-curated per-test pages, which can change
+// without a deploy (admin toggle); hourly ISR keeps the links and the rest
+// of this static content fresh.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return DEFAULT_TOPICS.map((topic) => ({ topic: slugifyTopic(topic) }));
@@ -58,6 +65,18 @@ export default async function EventPage({ params }: EventPageProps) {
   const blocks = topicDescriptionBlocks(description);
   const faq = eventFaq(topic);
   const sample = SAMPLE_QUESTIONS[topic];
+
+  // Admin-indexed per-test pages for this event, grouped by difficulty.
+  // Difficulties with no indexed test render nothing (no placeholders).
+  // Group by URL slug (difficultySlug) so stored values from either CHECK
+  // vocabulary ('State' on wide-check DBs, 'Medium' on narrow) land together.
+  const indexed = await getIndexableTestsByTopic(topic);
+  const indexedByDifficulty = (['easy', 'medium', 'hard'] as const)
+    .map((slug) => ({
+      difficulty: difficultyLabel(slug),
+      tests: indexed.filter((t) => difficultySlug(t.difficulty) === slug),
+    }))
+    .filter((g) => g.tests.length > 0);
 
   // Circular neighbors: every event page gets exactly 6 outbound links and,
   // symmetrically, 6 inbound links from other event pages. The old
@@ -139,6 +158,36 @@ export default async function EventPage({ params }: EventPageProps) {
               <p className="mt-3"><strong>Answer:</strong> {sample.answer}</p>
               <p className="mt-2">{sample.explanation}</p>
             </details>
+          </section>
+        )}
+
+        {indexedByDifficulty.length > 0 && (
+          <section className="mt-12" aria-labelledby="indexed-tests-heading">
+            <h2 id="indexed-tests-heading" className="text-2xl font-bold text-gray-900">
+              Indexed {topic} Practice Tests by Difficulty
+            </h2>
+            <p className="mt-2 text-gray-600">
+              Reviewed full-length {topic} practice tests, each with every
+              question and answer choice listed on its own page.
+            </p>
+            <div className="mt-4 space-y-3">
+              {indexedByDifficulty.map((group) => (
+                <div key={group.difficulty} className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-700">
+                    {group.difficulty}:
+                  </span>
+                  {group.tests.map((t) => (
+                    <Link
+                      key={t.id}
+                      href={buildTestPath(slugifyTopic(t.topic), t.id, t.difficulty)}
+                      className="rounded-full border bg-white px-4 py-2 text-sm text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                    >
+                      {t.questionCount} questions · {t.year}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+            </div>
           </section>
         )}
 

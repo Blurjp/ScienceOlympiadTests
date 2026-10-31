@@ -29,6 +29,28 @@ describe('test-pages slug grammar', () => {
     });
   });
 
+  it('parses slugs whose id is a UUID (four internal dashes)', () => {
+    const uuid = '0b6d8f5e-4a2c-4f7b-9d31-2c8a51e7f903';
+    expect(parseTestSlug(`${uuid}-hard-practice-test`)).toEqual({
+      id: uuid,
+      difficulty: 'hard',
+    });
+    // round-trip: build then parse recovers the same id
+    expect(parseTestSlug(buildTestSlug(uuid, 'Easy'))?.id).toBe(uuid);
+  });
+
+  it('drives the 301: a non-canonical slug rebuilds to a different one', () => {
+    // The page component compares the requested slug against
+    // buildTestSlug(id, difficulty) and permanentRedirects on mismatch;
+    // these are the exact values it compares.
+    const id = '0b6d8f5e-4a2c-4f7b-9d31-2c8a51e7f903';
+    const requested = `${id}-easy-practice-test`; // wrong difficulty
+    const canonical = buildTestSlug(id, 'Hard');
+    expect(requested).not.toBe(canonical);
+    // and the canonical one matches itself (no redirect)
+    expect(buildTestSlug(id, 'Easy')).toBe(requested);
+  });
+
   it('rejects malformed slugs', () => {
     expect(parseTestSlug(`${id}-practice-test`)).toBeNull();
     expect(parseTestSlug(`${id}-regional-practice-test`)).toBeNull();

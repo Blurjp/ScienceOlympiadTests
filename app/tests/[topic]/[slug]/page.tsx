@@ -4,7 +4,6 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { JsonLd } from '@/components/seo/json-ld';
 import { getSiteUrl } from '@/lib/site';
 import { slugifyTopic, unslugifyTopic } from '@/lib/event-pages';
-import { isCuratedTestId } from '@/lib/curated-tests';
 import {
   getPublicOriginalTest,
   getPublicTestSummariesByTopic,
@@ -59,9 +58,11 @@ export async function generateMetadata({
     alternates: {
       canonical: `${getSiteUrl()}${buildTestPath(params.topic, test.id, test.difficulty)}`,
     },
-    // Only curated tests may be indexed; everything else is noindex,follow
-    // so link equity still flows without tripping scaled-content spam.
-    robots: isCuratedTestId(test.id)
+    // Only admin-indexed tests may be indexed; everything else is
+    // noindex,follow so link equity still flows without tripping
+    // scaled-content spam. The flag lives on the test row (admin toggle),
+    // never derived at render time.
+    robots: test.indexable
       ? { index: true, follow: true }
       : { index: false, follow: true },
   };
@@ -90,7 +91,6 @@ export default async function TestPage({ params }: TestPageProps) {
   }
 
   const questions = toPublicQuestions(test.questions);
-  const curated = isCuratedTestId(test.id);
   const base = getSiteUrl();
   const canonicalPath = buildTestPath(canonicalTopic, test.id, test.difficulty);
   const eventSlug = unslugifyTopic(canonicalTopic);

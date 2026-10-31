@@ -131,6 +131,10 @@ export function getDifficultyColor(difficulty: string): string {
   }
 }
 
+// UUIDs (crypto.randomUUID) instead of timestamp+random: unguessable
+// without being sequential, stable as URL segments (/tests/...), and the
+// shape private-test enumeration defenses assume. Legacy timestamp-style
+// ids remain valid; only NEW tests get UUIDs.
 export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return crypto.randomUUID();
 }
