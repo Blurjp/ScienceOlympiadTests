@@ -71,7 +71,11 @@ async function doInitializeDatabase() {
       region TEXT CHECK(region IN ('Invitational', 'Regionals', 'States', 'Nationals')),
       source_url TEXT,
       pdf_path TEXT,
-      is_public BOOLEAN DEFAULT 1,
+      -- New databases default to private. Existing tables keep their own
+      -- default; saveTest() always writes this column explicitly, and there
+      -- is a one-off UPDATE (scripts/make-imports-private.sql) for rows
+      -- already imported. Third-party exams must never publish by default.
+      is_public BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
@@ -181,7 +185,24 @@ async function getDatabase(): Promise<Client> {
 }
 
 // Test operations
-export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string, userId?: string) {
+/**
+ * Persist a test atomically (test row + questions + options in one batch).
+ *
+ * `isPublic` defaults to FALSE: anything not explicitly published stays out
+ * of the shared library. Only the fully original AI generators (template and
+ * LLM question writers) pass true; verbatim imports (URL import,
+ * uploaded-PDF parsing) and exam-inspired output (derived from someone
+ * else's exam, and an LLM can reproduce source questions near-verbatim)
+ * keep the default so third-party material is never re-hosted publicly
+ * without an explicit opt-in.
+ */
+export async function saveTest(
+  test: Test,
+  sourceUrl?: string,
+  pdfPath?: string,
+  userId?: string,
+  isPublic = false
+) {
   const database = await getDatabase();
 
   // Build all statements and execute them in a single atomic batch so a
@@ -189,8 +210,8 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string,
   const statements: { sql: string; args: any[] }[] = [
     {
       sql: `INSERT OR REPLACE INTO tests
-        (id, user_id, year, title, description, difficulty, total_time, total_points, topic, region, source_url, pdf_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, user_id, year, title, description, difficulty, total_time, total_points, topic, region, source_url, pdf_path, is_public)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         test.id,
         userId || null,
@@ -208,7 +229,8 @@ export async function saveTest(test: Test, sourceUrl?: string, pdfPath?: string,
         test.topic,
         test.region || null,
         sourceUrl || null,
-        pdfPath || null
+        pdfPath || null,
+        isPublic ? 1 : 0
       ]
     },
     {
@@ -331,6 +353,8 @@ export async function getTest(testId: string): Promise<Test | null> {
     totalPoints: test.total_points,
     topic: test.topic,
     region: test.region || undefined,
+    userId: test.user_id ?? null,
+    isPublic: Boolean(test.is_public),
     questions: questionWithOptions,
   };
 }
@@ -444,40 +468,56 @@ async function loadTestsBulk(
 
 export async function getAllTests(): Promise<Test[]> {
   const database = await getDatabase();
-  return loadTestsBulk(database, 'ORDER BY year DESC, title', []);
+  // Public-only: these legacy helpers back anonymous browse requests.
+  return loadTestsBulk(database, 'WHERE is_public = 1 ORDER BY year DESC, title', []);
 }
 
 export async function getTestsByYear(year: number): Promise<Test[]> {
   const database = await getDatabase();
-  return loadTestsBulk(database, 'WHERE year = ? ORDER BY title', [year]);
+  return loadTestsBulk(database, 'WHERE is_public = 1 AND year = ? ORDER BY title', [year]);
 }
 
 export async function getTestsByTopic(topic: string): Promise<Test[]> {
   const database = await getDatabase();
-  return loadTestsBulk(database, 'WHERE topic = ? ORDER BY year DESC, title', [topic]);
+  return loadTestsBulk(database, 'WHERE is_public = 1 AND topic = ? ORDER BY year DESC, title', [topic]);
 }
 
 export async function getTestsByYearAndTopic(year: number, topic: string): Promise<Test[]> {
   const database = await getDatabase();
-  return loadTestsBulk(database, 'WHERE year = ? AND topic = ? ORDER BY title', [year, topic]);
+  return loadTestsBulk(database, 'WHERE is_public = 1 AND year = ? AND topic = ? ORDER BY title', [year, topic]);
 }
 
 /**
  * Flexible test search used by /api/tests. All filters are optional and
  * combined with AND. `search` matches (case-insensitively, ASCII) against
  * title, description, and topic; `userId` restricts to tests the user
- * generated or imported themselves.
+ * generated or imported themselves; `viewerId` (the signed-in caller, when
+ * not filtering to their own tests) additionally exposes the viewer's own
+ * private tests alongside public ones.
  */
 export interface TestFilters {
   topic?: string;
   year?: number;
   search?: string;
   userId?: string;
+  viewerId?: string;
 }
 
 function buildTestFilterClause(filters: TestFilters): { whereClause: string; args: any[] } {
   const conditions: string[] = [];
   const args: any[] = [];
+
+  // Visibility: private tests only ever appear for their owner.
+  if (filters.userId) {
+    // "My tests only" already implies ownership; private rows are expected.
+    conditions.push('user_id = ?');
+    args.push(filters.userId);
+  } else if (filters.viewerId) {
+    conditions.push('(is_public = 1 OR user_id = ?)');
+    args.push(filters.viewerId);
+  } else {
+    conditions.push('is_public = 1');
+  }
 
   if (filters.topic) {
     conditions.push('topic = ?');
@@ -486,10 +526,6 @@ function buildTestFilterClause(filters: TestFilters): { whereClause: string; arg
   if (filters.year) {
     conditions.push('year = ?');
     args.push(filters.year);
-  }
-  if (filters.userId) {
-    conditions.push('user_id = ?');
-    args.push(filters.userId);
   }
   if (filters.search) {
     // Escape LIKE wildcards in user input so "%"/"_" match literally
@@ -520,10 +556,15 @@ export async function searchTestSummaries(filters: TestFilters): Promise<TestSum
   return loadTestSummaries(database, whereClause, args);
 }
 
-/** Lightweight summaries of all tests (for the homepage SSR payload). */
-export async function getAllTestSummaries(): Promise<TestSummary[]> {
+/** Lightweight summaries of tests for the homepage SSR payload.
+ * Anonymous visitors see public tests only; a signed-in viewer also sees
+ * their own private tests (imports) so their library doesn't vanish. */
+export async function getAllTestSummaries(viewerId?: string): Promise<TestSummary[]> {
   const database = await getDatabase();
-  return loadTestSummaries(database, 'ORDER BY year DESC, title', []);
+  const whereClause = viewerId
+    ? 'WHERE (is_public = 1 OR user_id = ?) ORDER BY year DESC, title'
+    : 'WHERE is_public = 1 ORDER BY year DESC, title';
+  return loadTestSummaries(database, whereClause, viewerId ? [viewerId] : []);
 }
 
 export async function searchQuestions(filters: {
@@ -604,19 +645,21 @@ export async function searchQuestions(filters: {
 
 export async function getAvailableYears(): Promise<number[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT DISTINCT year FROM tests ORDER BY year DESC');
+  // Public browse facets only: private imports must not reveal that an
+  // exam from a given year/region exists.
+  const result = await database.execute('SELECT DISTINCT year FROM tests WHERE is_public = 1 ORDER BY year DESC');
   return result.rows.map((y: any) => y.year);
 }
 
 export async function getAvailableTopics(): Promise<string[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT DISTINCT topic FROM tests ORDER BY topic');
+  const result = await database.execute('SELECT DISTINCT topic FROM tests WHERE is_public = 1 ORDER BY topic');
   return result.rows.map((t: any) => t.topic);
 }
 
 export async function getAvailableRegions(): Promise<string[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT DISTINCT region FROM tests WHERE region IS NOT NULL ORDER BY region');
+  const result = await database.execute('SELECT DISTINCT region FROM tests WHERE is_public = 1 AND region IS NOT NULL ORDER BY region');
   return result.rows.map((r: any) => r.region);
 }
 

@@ -213,7 +213,8 @@ describe('POST /api/generate-test', () => {
         }),
         undefined,
         undefined,
-        undefined
+        undefined,
+        true // AI-generated tests publish to the shared public library
       );
     });
   });

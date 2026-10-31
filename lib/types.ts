@@ -25,6 +25,9 @@ export interface Test {
   region?: Region;
   /** Owner of the test (null for seeded/shared tests) */
   userId?: string | null;
+  /** Whether the test appears in the shared public library. Private tests
+   * (third-party imports) are only served to their owner or an admin. */
+  isPublic?: boolean;
 }
 
 /**

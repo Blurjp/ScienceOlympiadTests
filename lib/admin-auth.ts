@@ -57,7 +57,8 @@ export function validateAdminCredentials(email: string, password: string): boole
   );
 }
 
-export function isAdminEmail(email: string): boolean {
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
   const adminEmail = getAdminEmail();
   if (!adminEmail) return false;
   return timingSafeEqualStr(email.trim().toLowerCase(), adminEmail.trim().toLowerCase());

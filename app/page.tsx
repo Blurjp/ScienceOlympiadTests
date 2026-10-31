@@ -13,18 +13,33 @@ export const metadata: Metadata = {
   alternates: { canonical: getSiteUrl() },
 };
 
+// How many test cards to embed in the server-rendered HTML. The full library
+// re-hydrates client-side on mount (the grid refetches /api/tests?summary=1),
+// so this only bounds the crawler-visible payload: an unbounded list put
+// 100+ card titles in the document and diluted the page's topical focus.
+const SSR_TEST_CARD_LIMIT = 12;
+
 export default async function Page() {
   // Fetch publisher content server-side so crawlers see real content
   // (AdSense: no ads on screens without publisher-content / low value
   // content). Summaries only - full questions would bloat the HTML payload;
   // they load per-test on demand when a test is started.
+  //
+  // The SSR payload is deliberately the ANONYMOUS view (public tests only):
+  // the response must never vary by viewer or a cached copy could leak one
+  // user's private imports to the next visitor. Signed-in users get their
+  // own private tests via the client-side /api/tests fetch on mount.
   let tests: Awaited<ReturnType<typeof getAllTestSummaries>> = [];
   let topics: string[] = [];
   try {
-    [tests, topics] = await Promise.all([getAllTestSummaries(), getAvailableTopics()]);
+    [tests, topics] = await Promise.all([
+      getAllTestSummaries(),
+      getAvailableTopics(),
+    ]);
   } catch (error) {
     console.error('Failed to load initial data:', error);
   }
+  const initialTests = tests.slice(0, SSR_TEST_CARD_LIMIT);
 
   const base = getSiteUrl();
 
@@ -114,7 +129,7 @@ export default async function Page() {
       <JsonLd data={organizationJsonLd} />
       <JsonLd data={faqJsonLd} />
       <HomePage
-        initialTests={tests}
+        initialTests={initialTests}
         initialTopics={topics.length > 0 ? topics : DEFAULT_TOPICS}
       />
 

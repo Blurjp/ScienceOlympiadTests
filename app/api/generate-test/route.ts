@@ -133,9 +133,10 @@ export async function POST(request: NextRequest) {
       questions: newQuestions,
     };
 
-    // Save to database
+    // Save to database. Template-generated tests are original content, so
+    // they publish to the shared public library.
     try {
-      await saveTest(test, undefined, undefined, userId);
+      await saveTest(test, undefined, undefined, userId, true);
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(

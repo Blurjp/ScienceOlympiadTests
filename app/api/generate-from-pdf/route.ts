@@ -251,6 +251,10 @@ export async function POST(request: NextRequest) {
         };
 
         try {
+          // Exam-inspired output stays private: it is derived from someone
+          // else's uploaded exam, and an LLM working from a source exam can
+          // reproduce questions near-verbatim. Only fully original routes
+          // (generate-test, generate-ai-test) publish to the public library.
           await saveTest(test, undefined, undefined, userId);
         } catch (dbError) {
           console.error('Database save error (non-fatal):', dbError);
@@ -533,6 +537,8 @@ MATHEMATICAL ACCURACY:
     // response after the user has already waited out (and paid for) the
     // generation - a lost write is logged, not surfaced as a 500.
     const writeResults = await Promise.allSettled([
+      // Exam-inspired output stays private (derived from an uploaded exam);
+      // saveTest defaults to isPublic = false.
       saveTest(test, undefined, undefined, userId),
       saveCachedGeneration(
         sourceId,
