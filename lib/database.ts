@@ -645,19 +645,21 @@ export async function searchQuestions(filters: {
 
 export async function getAvailableYears(): Promise<number[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT DISTINCT year FROM tests ORDER BY year DESC');
+  // Public browse facets only: private imports must not reveal that an
+  // exam from a given year/region exists.
+  const result = await database.execute('SELECT DISTINCT year FROM tests WHERE is_public = 1 ORDER BY year DESC');
   return result.rows.map((y: any) => y.year);
 }
 
 export async function getAvailableTopics(): Promise<string[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT DISTINCT topic FROM tests ORDER BY topic');
+  const result = await database.execute('SELECT DISTINCT topic FROM tests WHERE is_public = 1 ORDER BY topic');
   return result.rows.map((t: any) => t.topic);
 }
 
 export async function getAvailableRegions(): Promise<string[]> {
   const database = await getDatabase();
-  const result = await database.execute('SELECT DISTINCT region FROM tests WHERE region IS NOT NULL ORDER BY region');
+  const result = await database.execute('SELECT DISTINCT region FROM tests WHERE is_public = 1 AND region IS NOT NULL ORDER BY region');
   return result.rows.map((r: any) => r.region);
 }
 
