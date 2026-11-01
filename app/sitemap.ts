@@ -12,7 +12,9 @@ export const revalidate = 3600;
 // Bump these dates when the corresponding content actually changes, so
 // crawlers can trust the lastModified signal instead of seeing every URL
 // as "modified today" on each deploy.
-const GUIDES_UPDATED = new Date('2026-10-16'); // event guides + about/contact
+const GUIDES_UPDATED = new Date('2026-10-16'); // about page
+const EVENT_GUIDES_UPDATED = new Date('2026-11-01'); // season notes + deep question sets
+const CONTACT_UPDATED = new Date('2026-11-01'); // error-report + takedown sections
 const PRICING_UPDATED = new Date('2026-10-16'); // pricing page
 const LEGAL_UPDATED = new Date('2026-10-16'); // privacy/terms
 const IMPORT_LANDING_UPDATED = new Date('2026-10-31');
@@ -46,14 +48,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/events`, lastModified: GUIDES_UPDATED, changeFrequency: 'monthly', priority: 0.9 },
     ...DEFAULT_TOPICS.map((topic) => ({
       url: `${base}/events/${slugifyTopic(topic)}`,
-      lastModified: GUIDES_UPDATED,
+      lastModified: EVENT_GUIDES_UPDATED,
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
     { url: `${base}/import`, lastModified: IMPORT_LANDING_UPDATED, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${base}/events/2027`, lastModified: SEASON_2027_UPDATED, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/about`, lastModified: GUIDES_UPDATED, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${base}/contact`, lastModified: GUIDES_UPDATED, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${base}/contact`, lastModified: CONTACT_UPDATED, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${base}/pricing`, lastModified: PRICING_UPDATED, changeFrequency: 'monthly', priority: 0.7 },
     // /login is intentionally omitted: it's noindexed and has no search value.
     { url: `${base}/privacy`, lastModified: LEGAL_UPDATED, changeFrequency: 'yearly', priority: 0.3 },
