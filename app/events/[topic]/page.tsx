@@ -7,7 +7,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { getSiteUrl } from '@/lib/site';
 import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { TOPIC_DESCRIPTIONS } from '@/lib/topic-descriptions';
-import { SAMPLE_QUESTIONS } from '@/lib/sample-questions';
+import { SAMPLE_QUESTIONS, SAMPLE_QUESTION_SETS } from '@/lib/sample-questions';
 import { slugifyTopic, unslugifyTopic, topicDescriptionBlocks, eventFaq } from '@/lib/event-pages';
 import { getIndexableTestsByTopic } from '@/lib/database';
 import { buildTestPath, difficultyLabel, difficultySlug } from '@/lib/test-pages';
@@ -65,7 +65,11 @@ export default async function EventPage({ params }: EventPageProps) {
   const description = TOPIC_DESCRIPTIONS[topic] || `Practice questions for ${topic}.`;
   const blocks = topicDescriptionBlocks(description);
   const faq = eventFaq(topic);
-  const sample = SAMPLE_QUESTIONS[topic];
+  // Deeper sets for high-traffic events; other events fall back to their
+  // single featured question.
+  const sampleQuestions =
+    SAMPLE_QUESTION_SETS[topic] ??
+    (SAMPLE_QUESTIONS[topic] ? [SAMPLE_QUESTIONS[topic]] : []);
 
   // Verified 2027 season context (lib/divisions.ts, from the official
   // soinc.org slate) - differentiates each event page with facts instead of
@@ -162,19 +166,36 @@ export default async function EventPage({ params }: EventPageProps) {
           </Link>
         </div>
 
-        {sample && (
+        {sampleQuestions.length > 0 && (
           <section className="mt-12 rounded-xl border border-blue-200 bg-white p-6 shadow-sm" aria-labelledby="sample-heading">
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-700">Try a question · No sign-in required</p>
-            <h2 id="sample-heading" className="mt-2 text-2xl font-bold text-gray-900">{topic} Sample Practice Question</h2>
-            <p className="mt-4 font-medium text-gray-900">{sample.question}</p>
-            <ol className="mt-4 list-inside list-[upper-alpha] space-y-2 text-gray-700">
-              {sample.options.map((option) => <li key={option}>{option}</li>)}
-            </ol>
-            <details className="mt-5 rounded-lg bg-blue-50 p-4 text-gray-800">
-              <summary className="cursor-pointer font-semibold text-blue-800">Show answer and explanation</summary>
-              <p className="mt-3"><strong>Answer:</strong> {sample.answer}</p>
-              <p className="mt-2">{sample.explanation}</p>
-            </details>
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-700">Try {sampleQuestions.length === 1 ? 'a question' : 'some questions'} · No sign-in required</p>
+            <h2 id="sample-heading" className="mt-2 text-2xl font-bold text-gray-900">
+              {topic} Sample Practice {sampleQuestions.length === 1 ? 'Question' : 'Questions'}
+            </h2>
+            <div className="mt-5 space-y-6">
+              {sampleQuestions.map((sample, i) => (
+                <div key={sample.question}>
+                  <p className="font-medium text-gray-900">
+                    <span className="text-blue-700">{i + 1}.</span> {sample.question}
+                  </p>
+                  <ol className="mt-3 list-inside list-[upper-alpha] space-y-1.5 text-gray-700">
+                    {sample.options.map((option) => <li key={option}>{option}</li>)}
+                  </ol>
+                  <details className="mt-3 rounded-lg bg-blue-50 p-3 text-gray-800">
+                    <summary className="cursor-pointer font-semibold text-blue-800">Show answer and explanation</summary>
+                    <p className="mt-2"><strong>Answer:</strong> {sample.answer}</p>
+                    <p className="mt-1">{sample.explanation}</p>
+                  </details>
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 text-sm text-gray-600">
+              Want the full timed version with scoring?{' '}
+              <Link href="/" className="text-blue-700 underline hover:text-blue-900">
+                Generate a free {topic} practice test
+              </Link>{' '}
+              at Invitational, Regional, State, or National difficulty.
+            </p>
           </section>
         )}
 
