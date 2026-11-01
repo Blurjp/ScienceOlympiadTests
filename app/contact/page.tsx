@@ -63,6 +63,35 @@ export default function ContactPage() {
 
         <ContactForm />
 
+        <div className="mt-10 space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h2 className="text-sm font-semibold text-gray-900">
+              Spotted a mistake in a study guide or practice test?
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Our questions are AI-generated and can contain errors — accuracy matters on a
+              study site, so we fix reported errors quickly. Tell us the event, the
+              question or guide section, and what&apos;s wrong (or just paste the
+              sentence). You can also use the form above with subject
+              &quot;Correction&quot;.
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-900">
+              Copyright &amp; takedown
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              If you believe material on this site infringes your copyright, email{' '}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-600 hover:underline">
+                {SUPPORT_EMAIL}
+              </a>{' '}
+              with the URL and a description of the work. Imported exams are private by
+              default and never republished without rights; we act on valid requests
+              promptly.
+            </p>
+          </div>
+        </div>
+
         <p className="mt-6 text-center text-sm text-gray-500">
           For account or billing questions, you can also manage your subscription from{' '}
           <Link href="/pricing" className="text-blue-600 hover:underline">

@@ -11,6 +11,7 @@ import { SAMPLE_QUESTIONS } from '@/lib/sample-questions';
 import { slugifyTopic, unslugifyTopic, topicDescriptionBlocks, eventFaq } from '@/lib/event-pages';
 import { getIndexableTestsByTopic } from '@/lib/database';
 import { buildTestPath, difficultyLabel, difficultySlug } from '@/lib/test-pages';
+import { SEASON_2027_DIVISIONS, SEASON_2027_THEMES } from '@/lib/divisions';
 import { CheckCircle2, FileText, Sparkles, Upload, BarChart3 } from 'lucide-react';
 
 interface EventPageProps {
@@ -65,6 +66,18 @@ export default async function EventPage({ params }: EventPageProps) {
   const blocks = topicDescriptionBlocks(description);
   const faq = eventFaq(topic);
   const sample = SAMPLE_QUESTIONS[topic];
+
+  // Verified 2027 season context (lib/divisions.ts, from the official
+  // soinc.org slate) - differentiates each event page with facts instead of
+  // leaving 32 structurally identical templates for Google to hedge on.
+  const division = SEASON_2027_DIVISIONS[topic] ?? 'past';
+  const theme = SEASON_2027_THEMES[topic];
+  const seasonNote =
+    division === 'past'
+      ? `${topic} is not part of the 2027 event lineup - it ran in recent seasons, and retired events like this often return in later years. This guide and its practice tests remain open, and invitationals sometimes choose to run retired events.`
+      : division === 'BC'
+        ? `${topic} runs in both Division B and Division C for the 2027 season.`
+        : `${topic} runs in Division ${division} for the 2027 season.`;
 
   // Admin-indexed per-test pages for this event, grouped by difficulty.
   // Difficulties with no indexed test render nothing (no placeholders).
@@ -128,6 +141,10 @@ export default async function EventPage({ params }: EventPageProps) {
           Free, AI-generated {topic} practice tests for Science Olympiad. Choose
           Invitational, Regional, State, or National difficulty, import past exam PDFs, and
           track your scores over time.
+        </p>
+        <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-gray-700">
+          {seasonNote}
+          {theme ? ` 2027 rules focus: ${theme}.` : ''}
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
