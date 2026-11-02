@@ -21,6 +21,8 @@ import {
   ChevronDown,
   Mail,
   Send,
+  Eye,
+  X,
 } from 'lucide-react';
 
 interface AdminStats {
@@ -137,7 +139,16 @@ interface WinBackSendResult {
   wouldSend?: number;
   remainingCap?: number;
   skippedByCap?: number;
+  skippedUnknown?: number;
   error?: string;
+}
+
+interface WinBackEmailPreview {
+  preview: boolean;
+  email: string;
+  subject: string;
+  html: string;
+  text: string;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -211,6 +222,57 @@ export default function AdminPage() {
   const [winBackNote, setWinBackNote] = useState('');
   const [winBackSending, setWinBackSending] = useState(false);
   const [winBackResult, setWinBackResult] = useState<WinBackSendResult | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [emailPreview, setEmailPreview] = useState<WinBackEmailPreview | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
+
+  // Default to "all selected" whenever a fresh audience loads
+  useEffect(() => {
+    if (winBack?.candidates) {
+      setSelectedUserIds(new Set(winBack.candidates.map((c) => c.id)));
+    }
+  }, [winBack]);
+
+  const selectedCount = winBack
+    ? Array.from(selectedUserIds).filter((id) => winBack.candidates.some((c) => c.id === id)).length
+    : 0;
+
+  const toggleSelected = (id: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllSelected = () => {
+    if (!winBack) return;
+    const allIds = winBack.candidates.map((c) => c.id);
+    const allSelected = allIds.every((id) => selectedUserIds.has(id));
+    setSelectedUserIds(allSelected ? new Set() : new Set(allIds));
+  };
+
+  const previewEmailFor = async (userId: string) => {
+    setPreviewLoadingId(userId);
+    setEmailPreview(null);
+    try {
+      const response = await fetch('/api/admin/win-back', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ previewUserId: userId, note: winBackNote }),
+      });
+      if (response.ok) {
+        setEmailPreview(await response.json());
+      } else {
+        const data = await response.json().catch(() => ({}));
+        window.alert(data.error || 'Preview failed');
+      }
+    } catch {
+      window.alert('Network error loading preview');
+    }
+    setPreviewLoadingId(null);
+  };
 
   const loadWinBackPreview = async () => {
     setWinBackLoading(true);
@@ -226,9 +288,9 @@ export default function AdminPage() {
   };
 
   const sendWinBackEmails = async (dryRun: boolean) => {
+    if (selectedCount === 0) return;
     if (!dryRun) {
-      const count = winBack?.audienceCount ?? 0;
-      if (!window.confirm(`Send win-back emails to up to ${count} users? This cannot be undone.`)) {
+      if (!window.confirm(`Send win-back emails to ${selectedCount} selected user(s)? This cannot be undone.`)) {
         return;
       }
     }
@@ -238,7 +300,12 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/win-back', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dryRun, note: winBackNote, limit: 50 }),
+        body: JSON.stringify({
+          dryRun,
+          note: winBackNote,
+          limit: 50,
+          userIds: Array.from(selectedUserIds),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -976,16 +1043,16 @@ export default function AdminPage() {
                       <Button
                         variant="outline"
                         onClick={() => sendWinBackEmails(true)}
-                        disabled={winBackSending || winBack.audienceCount === 0}
+                        disabled={winBackSending || selectedCount === 0}
                       >
-                        Dry run
+                        Dry run ({selectedCount})
                       </Button>
                       <Button
                         onClick={() => sendWinBackEmails(false)}
-                        disabled={winBackSending || winBack.audienceCount === 0 || !winBack.resendConfigured}
+                        disabled={winBackSending || selectedCount === 0 || !winBack.resendConfigured}
                       >
                         <Send className="h-4 w-4 mr-2" />
-                        {winBackSending ? 'Working…' : 'Send emails'}
+                        {winBackSending ? 'Working…' : `Send ${selectedCount} email${selectedCount === 1 ? '' : 's'}`}
                       </Button>
                     </div>
 
@@ -994,27 +1061,47 @@ export default function AdminPage() {
                         {winBackResult.error
                           ? winBackResult.error
                           : winBackResult.dryRun
-                            ? `Dry run OK — would send ${winBackResult.wouldSend} email(s), ${winBackResult.skippedByCap ?? 0} skipped by daily cap, ${winBackResult.remainingCap ?? 0} cap slots left.`
-                            : `Sent ${winBackResult.sent} / attempted ${winBackResult.attempted} (${winBackResult.failed ?? 0} failed). ${winBackResult.remainingCap ?? 0} cap slots left today.`}
+                            ? `Dry run OK — would send ${winBackResult.wouldSend} email(s) to your selection (${winBackResult.skippedUnknown ?? 0} no longer eligible, ${winBackResult.skippedByCap ?? 0} held back by daily cap). ${winBackResult.remainingCap ?? 0} cap slots left.`
+                            : `Sent ${winBackResult.sent} / attempted ${winBackResult.attempted} (${winBackResult.failed ?? 0} failed${winBackResult.skippedUnknown ? `, ${winBackResult.skippedUnknown} skipped` : ''}). ${winBackResult.remainingCap ?? 0} cap slots left today.`}
                       </div>
                     )}
 
                     <div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                        Audience preview (first 25)
+                        Audience — {selectedCount} of {winBack.audienceCount} selected (first 25 shown)
                       </h3>
                       <div className="overflow-x-auto border border-gray-200 rounded-lg">
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50">
                             <tr>
+                              <th className="px-3 py-2 w-10">
+                                <input
+                                  type="checkbox"
+                                  aria-label="Select all"
+                                  checked={
+                                    winBack.candidates.length > 0 &&
+                                    winBack.candidates.every((c) => selectedUserIds.has(c.id))
+                                  }
+                                  onChange={toggleAllSelected}
+                                />
+                              </th>
                               <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
                               <th className="px-3 py-2 text-left font-medium text-gray-600">Last active</th>
                               <th className="px-3 py-2 text-left font-medium text-gray-600">New tests</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Preview</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {winBack.candidates.slice(0, 25).map((c) => (
-                              <tr key={c.id}>
+                              <tr key={c.id} className={selectedUserIds.has(c.id) ? '' : 'opacity-50'}>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${c.email}`}
+                                    checked={selectedUserIds.has(c.id)}
+                                    onChange={() => toggleSelected(c.id)}
+                                  />
+                                </td>
                                 <td className="px-3 py-2 text-gray-900">{c.email}</td>
                                 <td className="px-3 py-2 text-gray-500">{timeAgo(c.lastActive)}</td>
                                 <td className="px-3 py-2">
@@ -1026,11 +1113,22 @@ export default function AdminPage() {
                                     </span>
                                   )}
                                 </td>
+                                <td className="px-3 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => previewEmailFor(c.id)}
+                                    disabled={previewLoadingId === c.id}
+                                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium disabled:opacity-50"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                    {previewLoadingId === c.id ? 'Loading…' : 'View email'}
+                                  </button>
+                                </td>
                               </tr>
                             ))}
                             {winBack.candidates.length === 0 && (
                               <tr>
-                                <td colSpan={3} className="px-3 py-6 text-center text-gray-500">
+                                <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
                                   No inactive users match right now — nice retention! 🎉
                                 </td>
                               </tr>
@@ -1038,6 +1136,12 @@ export default function AdminPage() {
                           </tbody>
                         </table>
                       </div>
+                      {winBack.audienceCount > 25 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Selection actions apply to all {winBack.audienceCount} audience members; the
+                          table shows the first 25 — use the header checkbox to select/deselect everyone.
+                        </p>
+                      )}
                     </div>
 
                     {winBack.recentSends.length > 0 && (
@@ -1071,8 +1175,7 @@ export default function AdminPage() {
                         </div>
                       </div>
                     )}
-                    {winBack.recentFeedback.length > 0 && (
-                      <div>
+                    {winBack.recentFeedback.length > 0 && (                      <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent feedback</h3>
                         <div className="overflow-x-auto border border-gray-200 rounded-lg">
                           <table className="w-full text-sm">
@@ -1103,6 +1206,40 @@ export default function AdminPage() {
                       </div>
                     )}
                   </>
+                )}
+
+                {/* Email preview modal — renders the exact HTML that would be sent */}
+                {emailPreview && (
+                  <div
+                    className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+                    onClick={() => setEmailPreview(null)}
+                  >
+                    <div
+                      className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-start justify-between gap-4 px-5 py-3 border-b border-gray-200">
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 truncate">To: {emailPreview.email}</p>
+                          <p className="text-sm font-semibold text-gray-900 truncate">{emailPreview.subject}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEmailPreview(null)}
+                          className="text-gray-400 hover:text-gray-600 p-1"
+                          aria-label="Close preview"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+                      <iframe
+                        title="Win-back email preview"
+                        srcDoc={emailPreview.html}
+                        className="w-full flex-1 border-0"
+                        sandbox=""
+                      />
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>

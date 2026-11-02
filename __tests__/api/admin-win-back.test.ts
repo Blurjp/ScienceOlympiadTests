@@ -85,6 +85,38 @@ describe('/api/admin/win-back', () => {
   });
 
   describe('POST (send)', () => {
+    it('renders a per-user email preview without sending', async () => {
+      mockGetCandidates.mockResolvedValue([candidate]);
+      const res = await POST(
+        authedRequest('https://example.com/api/admin/win-back', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ previewUserId: 'user-1', note: 'Season update!' }),
+        })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.preview).toBe(true);
+      expect(data.email).toBe('inactive@example.com');
+      expect(data.subject).toBe('s');
+      expect(mockBuild).toHaveBeenCalledWith(
+        expect.objectContaining({ userName: 'Jane', note: 'Season update!' })
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when previewing a user outside the audience', async () => {
+      mockGetCandidates.mockResolvedValue([candidate]);
+      const res = await POST(
+        authedRequest('https://example.com/api/admin/win-back', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ previewUserId: 'ghost' }),
+        })
+      );
+      expect(res.status).toBe(404);
+    });
+
     it('defaults to dry run: previews without sending or recording', async () => {
       mockGetCandidates.mockResolvedValue([candidate]);
       const res = await POST(
@@ -151,6 +183,42 @@ describe('/api/admin/win-back', () => {
       );
       expect(res.status).toBe(429);
       expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('sends only to the admin-selected users when userIds is provided', async () => {
+      const second = { ...candidate, id: 'user-2', email: 'second@example.com', name: 'Bob' };
+      mockGetCandidates.mockResolvedValue([candidate, second]);
+      const res = await POST(
+        authedRequest('https://example.com/api/admin/win-back', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ dryRun: false, userIds: ['user-2'] }),
+        })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.sent).toBe(1);
+      expect(data.skippedUnknown).toBe(0);
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockSend).toHaveBeenCalledWith('second@example.com', expect.anything());
+      expect(mockRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-2', email: 'second@example.com' })
+      );
+    });
+
+    it('skips selected ids that left the audience and reports them', async () => {
+      mockGetCandidates.mockResolvedValue([candidate]);
+      const res = await POST(
+        authedRequest('https://example.com/api/admin/win-back', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ dryRun: false, userIds: ['user-1', 'ghost'] }),
+        })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.sent).toBe(1);
+      expect(data.skippedUnknown).toBe(1);
     });
 
     it('records send failures without aborting the batch', async () => {

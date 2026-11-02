@@ -121,7 +121,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let body: { dryRun?: boolean; note?: string; limit?: number };
+  let body: {
+    dryRun?: boolean;
+    note?: string;
+    limit?: number;
+    /** Send only to these audience member ids (cherry-pick from the admin UI). */
+    userIds?: string[];
+    /** When set, render (not send) the email for this user and return it. */
+    previewUserId?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -130,8 +138,41 @@ export async function POST(request: NextRequest) {
   const dryRun = body.dryRun !== false;
   const note = (body.note || '').trim().slice(0, 500) || null;
   const requestedLimit = Math.min(500, Math.max(1, Math.floor(Number(body.limit) || 50)));
+  const previewUserId =
+    typeof body.previewUserId === 'string' && body.previewUserId ? body.previewUserId : null;
 
   try {
+    const { enriched } = await buildAudience(30, 30, requestedLimit);
+
+    // Preview mode: return the fully rendered email for one user, no send.
+    if (previewUserId) {
+      const c = enriched.find((x) => x.id === previewUserId);
+      if (!c) {
+        return NextResponse.json(
+          {
+            error:
+              'User is not in the current win-back audience (they may have returned, been emailed recently, or unsubscribed).',
+          },
+          { status: 404 }
+        );
+      }
+      const email = buildWinBackEmail({
+        userName: c.name,
+        newTests: c.newTests,
+        newTestsCount: c.newTestsCount,
+        siteUrl: siteUrl(),
+        note,
+        unsubscribeToken: createUnsubscribeToken(c.id),
+      });
+      return NextResponse.json({
+        preview: true,
+        email: c.email,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+    }
+
     const sentLast24h = await countWinBackSentSince(24);
     const cap = dailyCap();
     const remaining = Math.max(0, cap - sentLast24h);
@@ -144,15 +185,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { enriched } = await buildAudience(30, 30, requestedLimit);
-    const toSend = enriched.slice(0, Math.min(requestedLimit, remaining));
+    // Optional cherry-pick: when the admin selected specific recipients,
+    // filter the audience down to them. Unknown ids (user returned, already
+    // emailed, unsubscribed since the preview loaded) are skipped and counted.
+    const requestedIds = Array.isArray(body.userIds)
+      ? body.userIds.filter((u): u is string => typeof u === 'string').slice(0, 500)
+      : null;
+    let pool = enriched;
+    let skippedUnknown = 0;
+    if (requestedIds) {
+      const idSet = new Set(requestedIds);
+      pool = enriched.filter((c) => idSet.has(c.id));
+      skippedUnknown = requestedIds.length - pool.length;
+    }
+
+    const toSend = pool.slice(0, remaining);
 
     if (dryRun) {
       return NextResponse.json({
         dryRun: true,
         wouldSend: toSend.length,
         remainingCap: remaining,
-        skippedByCap: enriched.length - toSend.length,
+        skippedByCap: pool.length - toSend.length,
+        skippedUnknown,
         note,
         sample: toSend.slice(0, 3).map((c) => ({
           email: c.email,
@@ -202,6 +257,7 @@ export async function POST(request: NextRequest) {
       attempted: toSend.length,
       sent,
       failed,
+      skippedUnknown,
       remainingCap: Math.max(0, remaining - sent),
       failures: failures.slice(0, 10),
     });
