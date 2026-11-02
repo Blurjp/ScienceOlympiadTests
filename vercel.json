@@ -30,6 +30,9 @@
     },
     "app/api/generate-from-pdf/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/admin/win-back/route.ts": {
+      "maxDuration": 300
     }
   }
 }

@@ -19,6 +19,8 @@ import {
   Search,
   Chrome,
   ChevronDown,
+  Mail,
+  Send,
 } from 'lucide-react';
 
 interface AdminStats {
@@ -76,7 +78,7 @@ interface RecentApiCall {
   createdAt: string;
 }
 
-type Tab = 'overview' | 'users' | 'activity' | 'tests';
+type Tab = 'overview' | 'users' | 'activity' | 'tests' | 'winback';
 
 interface AdminTestSummary {
   id: string;
@@ -85,6 +87,57 @@ interface AdminTestSummary {
   title: string;
   questionCount: number;
   indexable?: boolean;
+}
+
+interface WinBackCandidateInfo {
+  id: string;
+  email: string;
+  name: string | null;
+  lastActive: string | null;
+  newTestsCount: number;
+  newTestTitles: string[];
+}
+
+interface WinBackSendRecord {
+  id: number;
+  email: string;
+  newTestsCount: number;
+  note: string | null;
+  status: string;
+  createdAt: string;
+}
+
+interface WinBackPreview {
+  inactiveDays: number;
+  cooldownDays: number;
+  dailyCap: number;
+  sentLast24h: number;
+  resendConfigured: boolean;
+  audienceCount: number;
+  candidates: WinBackCandidateInfo[];
+  recentSends: WinBackSendRecord[];
+  recentFeedback: FeedbackRecordInfo[];
+}
+
+interface FeedbackRecordInfo {
+  id: number;
+  userId: string | null;
+  email: string | null;
+  score: number;
+  comment: string | null;
+  context: string;
+  createdAt: string;
+}
+
+interface WinBackSendResult {
+  dryRun: boolean;
+  sent?: number;
+  failed?: number;
+  attempted?: number;
+  wouldSend?: number;
+  remainingCap?: number;
+  skippedByCap?: number;
+  error?: string;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -151,6 +204,55 @@ export default function AdminPage() {
   const [indexableTests, setIndexableTests] = useState<AdminTestSummary[]>([]);
   const [testsLoading, setTestsLoading] = useState(false);
   const [togglingTestId, setTogglingTestId] = useState<string | null>(null);
+
+  // Win-back email campaign state
+  const [winBack, setWinBack] = useState<WinBackPreview | null>(null);
+  const [winBackLoading, setWinBackLoading] = useState(false);
+  const [winBackNote, setWinBackNote] = useState('');
+  const [winBackSending, setWinBackSending] = useState(false);
+  const [winBackResult, setWinBackResult] = useState<WinBackSendResult | null>(null);
+
+  const loadWinBackPreview = async () => {
+    setWinBackLoading(true);
+    try {
+      const response = await fetch('/api/admin/win-back');
+      if (response.ok) {
+        setWinBack(await response.json());
+      }
+    } catch (error) {
+      console.error('Failed to load win-back preview:', error);
+    }
+    setWinBackLoading(false);
+  };
+
+  const sendWinBackEmails = async (dryRun: boolean) => {
+    if (!dryRun) {
+      const count = winBack?.audienceCount ?? 0;
+      if (!window.confirm(`Send win-back emails to up to ${count} users? This cannot be undone.`)) {
+        return;
+      }
+    }
+    setWinBackSending(true);
+    setWinBackResult(null);
+    try {
+      const response = await fetch('/api/admin/win-back', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun, note: winBackNote, limit: 50 }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setWinBackResult({ dryRun, error: data.error || 'Request failed' });
+      } else {
+        setWinBackResult(data);
+        // Refresh preview so cap/sent counts stay accurate after a real send
+        if (!dryRun) await loadWinBackPreview();
+      }
+    } catch {
+      setWinBackResult({ dryRun, error: 'Network error' });
+    }
+    setWinBackSending(false);
+  };
 
   // Check if already authenticated on mount
   useEffect(() => {
@@ -394,12 +496,14 @@ export default function AdminPage() {
             ['users', 'Users'],
             ['activity', 'Activity'],
             ['tests', 'SEO Tests'],
+            ['winback', 'Win-Back'],
           ] as [Tab, string][]).map(([tab, label]) => (
             <button
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
                 if (tab === 'tests') loadIndexableTests();
+                if (tab === 'winback' && !winBack) loadWinBackPreview();
               }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
                 activeTab === tab
@@ -797,6 +901,211 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
             )}
+          </>
+        )}
+
+        {/* ===================== Win-Back Tab ===================== */}
+        {activeTab === 'winback' && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Win-back emails
+                </CardTitle>
+                <CardDescription>
+                  Remind users inactive for 30+ days about new tests and ask for feedback.
+                  Sends are capped per 24h and every email carries a one-click unsubscribe.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {winBackLoading && !winBack && <p className="text-sm text-gray-500">Loading audience…</p>}
+
+                {winBack && (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Audience</p>
+                        <p className="text-xl font-semibold">{winBack.audienceCount}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Sent (24h)</p>
+                        <p className="text-xl font-semibold">
+                          {winBack.sentLast24h}
+                          <span className="text-sm text-gray-400"> / {winBack.dailyCap}</span>
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Inactive threshold</p>
+                        <p className="text-xl font-semibold">{winBack.inactiveDays}d</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Resend</p>
+                        <p className={`text-xl font-semibold ${winBack.resendConfigured ? 'text-green-600' : 'text-red-600'}`}>
+                          {winBack.resendConfigured ? 'Ready' : 'No key'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {!winBack.resendConfigured && (
+                      <p className="text-sm text-red-600">
+                        RESEND_API_KEY is not set — real sends are disabled until it is configured.
+                      </p>
+                    )}
+
+                    <div>
+                      <label htmlFor="winback-note" className="block text-sm font-medium text-gray-700 mb-1">
+                        Season update note (optional, appended to every email)
+                      </label>
+                      <textarea
+                        id="winback-note"
+                        value={winBackNote}
+                        onChange={(e) => setWinBackNote(e.target.value)}
+                        rows={3}
+                        maxLength={500}
+                        placeholder="e.g. New Anatomy and Astronomy sets just landed — Regionals are around the corner!"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={loadWinBackPreview} disabled={winBackLoading}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${winBackLoading ? 'animate-spin' : ''}`} />
+                        Refresh preview
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => sendWinBackEmails(true)}
+                        disabled={winBackSending || winBack.audienceCount === 0}
+                      >
+                        Dry run
+                      </Button>
+                      <Button
+                        onClick={() => sendWinBackEmails(false)}
+                        disabled={winBackSending || winBack.audienceCount === 0 || !winBack.resendConfigured}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {winBackSending ? 'Working…' : 'Send emails'}
+                      </Button>
+                    </div>
+
+                    {winBackResult && (
+                      <div className={`rounded-lg p-3 text-sm ${winBackResult.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                        {winBackResult.error
+                          ? winBackResult.error
+                          : winBackResult.dryRun
+                            ? `Dry run OK — would send ${winBackResult.wouldSend} email(s), ${winBackResult.skippedByCap ?? 0} skipped by daily cap, ${winBackResult.remainingCap ?? 0} cap slots left.`
+                            : `Sent ${winBackResult.sent} / attempted ${winBackResult.attempted} (${winBackResult.failed ?? 0} failed). ${winBackResult.remainingCap ?? 0} cap slots left today.`}
+                      </div>
+                    )}
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                        Audience preview (first 25)
+                      </h3>
+                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Last active</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">New tests</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {winBack.candidates.slice(0, 25).map((c) => (
+                              <tr key={c.id}>
+                                <td className="px-3 py-2 text-gray-900">{c.email}</td>
+                                <td className="px-3 py-2 text-gray-500">{timeAgo(c.lastActive)}</td>
+                                <td className="px-3 py-2">
+                                  <span className="font-medium">{c.newTestsCount}</span>
+                                  {c.newTestTitles.length > 0 && (
+                                    <span className="text-gray-400 text-xs ml-2">
+                                      {c.newTestTitles.slice(0, 2).join(', ')}
+                                      {c.newTestTitles.length > 2 ? '…' : ''}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                            {winBack.candidates.length === 0 && (
+                              <tr>
+                                <td colSpan={3} className="px-3 py-6 text-center text-gray-500">
+                                  No inactive users match right now — nice retention! 🎉
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {winBack.recentSends.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent sends</h3>
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">New tests</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">Sent</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {winBack.recentSends.map((s) => (
+                                <tr key={s.id}>
+                                  <td className="px-3 py-2 text-gray-900">{s.email}</td>
+                                  <td className="px-3 py-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.status === 'sent' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                      {s.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-500">{s.newTestsCount}</td>
+                                  <td className="px-3 py-2 text-gray-500">{timeAgo(s.createdAt)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {winBack.recentFeedback.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent feedback</h3>
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">Score</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">Comment</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">From</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">When</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {winBack.recentFeedback.map((f) => (
+                                <tr key={f.id}>
+                                  <td className="px-3 py-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.score >= 7 ? 'bg-green-100 text-green-700' : f.score >= 4 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                      {f.score}/10
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-700 max-w-md">{f.comment || '—'}</td>
+                                  <td className="px-3 py-2 text-gray-500">{f.email || 'anonymous'}</td>
+                                  <td className="px-3 py-2 text-gray-500">{timeAgo(f.createdAt)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </div>

@@ -2348,3 +2348,282 @@ export function formatReferenceQuestionsForPrompt(questions: ReferenceQuestion[]
 
   return formatted;
 }
+
+// ============================================
+// Win-back emails + user feedback
+// ============================================
+
+// Memoized like the reference-questions init: the DDL is idempotent but
+// should not run on every request.
+let winBackTablesInit: Promise<void> | null = null;
+
+export function initializeWinBackTables(): Promise<void> {
+  if (!winBackTablesInit) {
+    winBackTablesInit = doInitializeWinBackTables();
+    winBackTablesInit.catch(() => {
+      winBackTablesInit = null;
+    });
+  }
+  return winBackTablesInit;
+}
+
+async function doInitializeWinBackTables() {
+  const database = getClient();
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS win_back_emails (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      new_tests_count INTEGER NOT NULL DEFAULT 0,
+      note TEXT,
+      status TEXT NOT NULL DEFAULT 'sent',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await database.execute(`
+    CREATE INDEX IF NOT EXISTS idx_win_back_user_time
+    ON win_back_emails(user_id, created_at)
+  `);
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS user_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      email TEXT,
+      score INTEGER NOT NULL,
+      comment TEXT,
+      context TEXT NOT NULL DEFAULT 'win-back',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  // One-click unsubscribe marker on the users table (idempotent).
+  try {
+    await database.execute(`ALTER TABLE users ADD COLUMN email_unsubscribed_at DATETIME`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+}
+
+export interface WinBackCandidate {
+  id: string;
+  email: string;
+  name: string | null;
+  /** Derived like getAllUsersWithActivity: MAX(last test, last API call, updated_at). */
+  lastActive: string | null;
+}
+
+function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+/**
+ * Users eligible for a win-back email:
+ * - has an email address, not unsubscribed
+ * - account at least `inactiveDays` old (never win-back brand-new signups)
+ * - no activity (test results, API usage, profile updates) in `inactiveDays`
+ * - no win-back email already sent in the last `cooldownDays`
+ */
+export async function getWinBackCandidates(opts: {
+  inactiveDays?: number;
+  cooldownDays?: number;
+  limit?: number;
+}): Promise<WinBackCandidate[]> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  const inactiveDays = clampInt(opts.inactiveDays, 30, 7, 365);
+  const cooldownDays = clampInt(opts.cooldownDays, 30, 1, 365);
+  const limit = clampInt(opts.limit, 500, 1, 1000);
+
+  const result = await database.execute(`
+    SELECT u.id, u.email, u.name,
+      MAX(
+        (SELECT MAX(tr.completed_at) FROM test_results tr WHERE tr.user_id = u.id),
+        (SELECT MAX(au.created_at) FROM api_usage au WHERE au.user_id = u.id),
+        u.updated_at
+      ) AS last_active
+    FROM users u
+    WHERE u.email IS NOT NULL
+      AND u.email_unsubscribed_at IS NULL
+      AND u.created_at <= datetime('now', '-${inactiveDays} days')
+      AND MAX(
+        (SELECT MAX(tr.completed_at) FROM test_results tr WHERE tr.user_id = u.id),
+        (SELECT MAX(au.created_at) FROM api_usage au WHERE au.user_id = u.id),
+        u.updated_at
+      ) <= datetime('now', '-${inactiveDays} days')
+      AND NOT EXISTS (
+        SELECT 1 FROM win_back_emails w
+        WHERE w.user_id = u.id
+          AND w.created_at >= datetime('now', '-${cooldownDays} days')
+      )
+    ORDER BY last_active ASC
+    LIMIT ${limit}
+  `);
+
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    lastActive: r.last_active,
+  }));
+}
+
+export interface PublicTestSinceRow {
+  id: string;
+  title: string;
+  topic: string;
+  difficulty: string;
+  description: string | null;
+  isPublic: boolean;
+  createdAt: string;
+}
+
+/** Public tests created in the last `days` days (for per-user "new since you left" lists). */
+export async function getPublicTestsSince(days: number): Promise<PublicTestSinceRow[]> {
+  const database = await getDatabase();
+  const d = clampInt(days, 365, 1, 1095);
+  const result = await database.execute(`
+    SELECT id, title, topic, difficulty, description, is_public, created_at
+    FROM tests
+    WHERE is_public = 1
+      AND created_at >= datetime('now', '-${d} days')
+    ORDER BY created_at DESC
+    LIMIT 1000
+  `);
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    topic: r.topic,
+    difficulty: r.difficulty,
+    description: r.description,
+    isPublic: r.is_public === 1,
+    createdAt: r.created_at,
+  }));
+}
+
+/** Win-back emails successfully sent in the last `hours` (enforces the daily cap). */
+export async function countWinBackSentSince(hours: number): Promise<number> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  const h = clampInt(hours, 24, 1, 720);
+  const result = await database.execute(`
+    SELECT COUNT(*) AS n
+    FROM win_back_emails
+    WHERE status = 'sent'
+      AND created_at >= datetime('now', '-${h} hours')
+  `);
+  return Number((result.rows[0] as any)?.n || 0);
+}
+
+export async function recordWinBackEmail(entry: {
+  userId: string;
+  email: string;
+  newTestsCount: number;
+  note?: string | null;
+  status: 'sent' | 'failed';
+}): Promise<void> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  await database.execute(`
+    INSERT INTO win_back_emails (user_id, email, new_tests_count, note, status)
+    VALUES ('${entry.userId.replace(/'/g, "''")}', '${entry.email.replace(/'/g, "''")}',
+      ${Math.max(0, Math.floor(entry.newTestsCount || 0))},
+      ${entry.note ? `'${entry.note.slice(0, 500).replace(/'/g, "''")}'` : 'NULL'},
+      '${entry.status}')
+  `);
+}
+
+export interface WinBackEmailRecord {
+  id: number;
+  email: string;
+  newTestsCount: number;
+  note: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export async function getRecentWinBackEmails(limit: number = 50): Promise<WinBackEmailRecord[]> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  const l = clampInt(limit, 50, 1, 200);
+  const result = await database.execute(`
+    SELECT id, email, new_tests_count, note, status, created_at
+    FROM win_back_emails
+    ORDER BY created_at DESC
+    LIMIT ${l}
+  `);
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    email: r.email,
+    newTestsCount: r.new_tests_count,
+    note: r.note,
+    status: r.status,
+    createdAt: r.created_at,
+  }));
+}
+
+/** Mark a user as unsubscribed from win-back emails (idempotent). */
+export async function setEmailUnsubscribed(userId: string): Promise<void> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  await database.execute(`
+    UPDATE users
+    SET email_unsubscribed_at = datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = '${userId.replace(/'/g, "''")}'
+  `);
+}
+
+export interface FeedbackEntry {
+  score: number;
+  comment?: string;
+  userId?: string;
+  email?: string;
+  context?: string;
+}
+
+export async function saveFeedback(entry: FeedbackEntry): Promise<void> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  const score = Math.max(1, Math.min(10, Math.floor(entry.score)));
+  const comment = entry.comment ? `'${entry.comment.slice(0, 2000).replace(/'/g, "''")}'` : 'NULL';
+  const userId = entry.userId ? `'${entry.userId.replace(/'/g, "''")}'` : 'NULL';
+  const email = entry.email ? `'${entry.email.replace(/'/g, "''")}'` : 'NULL';
+  const context = entry.context === 'general' ? 'general' : 'win-back';
+  await database.execute(`
+    INSERT INTO user_feedback (user_id, email, score, comment, context)
+    VALUES (${userId}, ${email}, ${score}, ${comment}, '${context}')
+  `);
+}
+
+export interface FeedbackRecord {
+  id: number;
+  userId: string | null;
+  email: string | null;
+  score: number;
+  comment: string | null;
+  context: string;
+  createdAt: string;
+}
+
+export async function getRecentFeedback(limit: number = 100): Promise<FeedbackRecord[]> {
+  await initializeWinBackTables();
+  const database = await getDatabase();
+  const l = clampInt(limit, 100, 1, 500);
+  const result = await database.execute(`
+    SELECT id, user_id, email, score, comment, context, created_at
+    FROM user_feedback
+    ORDER BY created_at DESC
+    LIMIT ${l}
+  `);
+  return result.rows.map((r: any) => ({
+    id: r.id,
+    userId: r.user_id,
+    email: r.email,
+    score: r.score,
+    comment: r.comment,
+    context: r.context,
+    createdAt: r.created_at,
+  }));
+}

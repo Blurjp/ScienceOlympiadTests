@@ -62,6 +62,8 @@ const config = {
     // Exclude third-party integration components
     '!components/adsense.tsx',
     '!components/adsense-script.tsx',
+    // Exclude win-back feedback form (client component with auth/searchParams hooks)
+    '!components/feedback-form.tsx',
     // Exclude complex marketing/home page component (requires integration testing)
     '!components/home/home-page.tsx',
     // Exclude async server components
