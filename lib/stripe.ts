@@ -55,3 +55,46 @@ export function getSeasonEnd(from: Date = new Date()): Date {
   // Season ends at 23:59:59 UTC on May 31
   return new Date(Date.UTC(endYear, 4, 31, 23, 59, 59));
 }
+
+// ---------------------------------------------------------------------------
+// Black Friday 2026 promotion: 50% off both plans during the promo window
+// (see lib/promotion.ts). The coupon is created with an explicit id, so
+// ensuring it is idempotent across cold starts and instances.
+// ---------------------------------------------------------------------------
+
+const BLACK_FRIDAY_COUPON_ID = 'black-friday-2026';
+let promotionCouponId: string | null = null;
+
+/**
+ * Ensure the Black Friday coupon exists and return its id.
+ *
+ * Creating with an explicit id makes repeated calls idempotent: a duplicate
+ * error means the coupon already exists and we reuse it. `duration: forever`
+ * locks 50% off for the life of subscriptions started during the window;
+ * for the one-time Season Pass the coupon simply halves the single charge.
+ *
+ * Never throws: returns null on failure so checkout proceeds undiscounted —
+ * the promotion is a bonus, not something worth blocking payment over.
+ */
+export async function getPromotionCouponId(): Promise<string | null> {
+  if (promotionCouponId) return promotionCouponId;
+  try {
+    await getStripe().coupons.create({
+      id: BLACK_FRIDAY_COUPON_ID,
+      percent_off: 50,
+      duration: 'forever',
+      name: 'Black Friday 2026 - 50% off',
+    });
+    promotionCouponId = BLACK_FRIDAY_COUPON_ID;
+  } catch (error: unknown) {
+    const code = (error as { code?: string })?.code;
+    const message = (error as { message?: string })?.message || '';
+    if (code === 'resource_already_exists' || /already exist/i.test(message)) {
+      promotionCouponId = BLACK_FRIDAY_COUPON_ID;
+    } else {
+      console.error('Failed to ensure Black Friday coupon:', message);
+      return null;
+    }
+  }
+  return promotionCouponId;
+}

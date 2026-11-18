@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { PricingCard } from '@/components/subscription/pricing-card';
 import { UpgradeButton } from '@/components/subscription/upgrade-button';
 import { ManageSubscriptionButton } from '@/components/subscription/manage-subscription-button';
-import { Sparkles, AlertCircle } from 'lucide-react';
+import { Sparkles, AlertCircle, Flame } from 'lucide-react';
+import { getActivePromotion, formatDiscountedPrice } from '@/lib/promotion';
 
 const FREE_FEATURES = [
-  '5 AI-generated tests per month',
+  '5 AI-generated tests per month (10 questions each)',
   'Access to all practice tests',
   'Basic progress tracking',
   'All Science Olympiad topics',
@@ -20,7 +21,8 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   'Unlimited AI-generated tests',
   'Up to 40 questions per test (free: 10)',
-  'Export tests as printable PDFs',
+  'Export tests as printable PDFs with answer keys',
+  'Export from the library, history, or results screen',
   'Priority test generation',
   'All Free features included',
   'Support development',
@@ -44,6 +46,7 @@ export default function PricingPage() {
   const isPro = session?.user?.isPro;
   const isSeason = session?.user?.subscriptionIsSeason;
   const isLoggedIn = !!session?.user;
+  const promotion = getActivePromotion();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -57,6 +60,24 @@ export default function PricingPage() {
             Choose the plan that works best for your Science Olympiad practice needs
           </p>
         </div>
+
+        {/* Black Friday promotion banner */}
+        {promotion && (
+          <div className="mb-8 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-red-800">
+              <Flame className="h-5 w-5 text-red-600" />
+              <span className="font-semibold">
+                {promotion.name} — {promotion.percentOff}% off Pro and the Season Pass
+              </span>
+              <Flame className="h-5 w-5 text-red-600" />
+            </div>
+            <p className="mt-1 text-sm text-red-700">
+              Discount applies automatically at checkout. Subscribe during the
+              sale and the Pro discount stays with your subscription for life.
+              Ends {promotion.endsAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.
+            </p>
+          </div>
+        )}
 
         {/* Canceled notice */}
         {canceled && (
@@ -100,7 +121,8 @@ export default function PricingPage() {
           {/* Pro Tier */}
           <PricingCard
             name="Pro"
-            price="$4.99"
+            price={formatDiscountedPrice(4.99, promotion)}
+            originalPrice={promotion ? '$4.99' : undefined}
             period="/month"
             description="For serious competitors"
             features={PRO_FEATURES}
@@ -128,7 +150,8 @@ export default function PricingPage() {
           {/* Season Pass Tier */}
           <PricingCard
             name="Season Pass"
-            price="$19.99"
+            price={formatDiscountedPrice(19.99, promotion)}
+            originalPrice={promotion ? '$19.99' : undefined}
             period="/season"
             description="One payment. The whole competition season."
             features={SEASON_FEATURES}
@@ -159,6 +182,30 @@ export default function PricingPage() {
             Frequently Asked Questions
           </h2>
           <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold mb-2">How many questions can a generated test have?</h3>
+              <p className="text-muted-foreground">
+                Free plan tests include up to 10 questions. Pro subscribers can generate tests
+                with up to 40 questions — everyone can see the 30- and 40-question options in the
+                generator, and upgrading unlocks them instantly.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Can I export my tests as PDFs?</h3>
+              <p className="text-muted-foreground">
+                Yes, with Pro. Export any test you own as a print-ready PDF (with an answer key
+                page) from the test library, your history page, the test screen, or the results
+                screen. Free plan users can see the export buttons and upgrade from there.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">How does the Black Friday discount work?</h3>
+              <p className="text-muted-foreground">
+                During the Black Friday sale (Nov 27–30), both plans are 50% off — the discount
+                is applied automatically at checkout, no code needed. Pro subscribers who sign up
+                during the sale keep 50% off for as long as they stay subscribed.
+              </p>
+            </div>
             <div>
               <h3 className="font-semibold mb-2">What counts as an AI test generation?</h3>
               <p className="text-muted-foreground">

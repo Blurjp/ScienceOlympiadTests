@@ -9,8 +9,10 @@ import type { Test } from '@/lib/types';
 import { FileDown, Loader2 } from 'lucide-react';
 
 interface ExportPdfButtonProps {
-  /** The test to export (sent back to the server for rendering). */
-  test: Test;
+  /** Full test object the client already has (e.g. a just-generated test). */
+  test?: Test;
+  /** Or a stored test id — the server loads it and access-checks ownership. */
+  testId?: string;
   /** Button label. */
   label?: string;
   variant?: 'default' | 'outline' | 'secondary' | 'ghost';
@@ -19,14 +21,19 @@ interface ExportPdfButtonProps {
 }
 
 /**
- * "Export PDF" action for generated/saved tests — a Pro feature.
+ * "Export PDF" action for tests — a Pro feature.
  *
  * The button is always visible. Free and signed-out users get an upgrade
  * modal instead of a download; the server re-verifies Pro status on every
  * request, so a stale session flag can never unlock the endpoint.
+ *
+ * Accepts either a full `test` object or a `testId` (used by library cards
+ * and history rows, which only carry summaries — the server fetches the
+ * test and enforces the same visibility rules as GET /api/tests/[id]).
  */
 export function ExportPdfButton({
   test,
+  testId,
   label = 'Export PDF',
   variant = 'outline',
   size,
@@ -50,12 +57,17 @@ export function ExportPdfButton({
       const response = await fetch('/api/export-test-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test }),
+        body: JSON.stringify(test ? { test } : { testId }),
       });
 
       if (response.status === 401 || response.status === 403) {
         // Signed out, session expired, or Pro check failed server-side.
         setShowUpgradeModal(true);
+        return;
+      }
+
+      if (response.status === 404) {
+        alert('This test is no longer available to export.');
         return;
       }
 
@@ -65,11 +77,18 @@ export function ExportPdfButton({
         return;
       }
 
+      // Prefer the server-provided filename; fall back to the local title.
+      const disposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+      const fallback = test
+        ? `${test.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'test'}.pdf`
+        : 'test.pdf';
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${test.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'test'}.pdf`;
+      a.download = filenameMatch?.[1] || fallback;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -125,7 +144,7 @@ export function ExportPdfButton({
             </h2>
             <p className="mb-4 text-sm text-muted-foreground">
               Upgrade to Pro to download any test as a print-ready PDF with an
-              answer key — perfect for offline practice.
+              answer key — from the library, your history, or the results screen.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               {sessionStatus === 'authenticated' ? (

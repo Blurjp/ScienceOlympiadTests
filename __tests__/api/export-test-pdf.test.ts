@@ -7,6 +7,7 @@ import { clearRateLimits } from '@/lib/rate-limit';
 
 jest.mock('@/lib/database', () => ({
   getSubscriptionStatus: jest.fn(),
+  getTest: jest.fn(),
 }));
 
 jest.mock('@/auth', () => ({
@@ -15,11 +16,12 @@ jest.mock('@/auth', () => ({
 
 import { POST as exportTestPdf } from '@/app/api/export-test-pdf/route';
 import { auth } from '@/auth';
-import { getSubscriptionStatus } from '@/lib/database';
+import { getSubscriptionStatus, getTest } from '@/lib/database';
 import type { Test } from '@/lib/types';
 
 const mockAuth = auth as jest.MockedFunction<typeof auth>;
 const mockSub = getSubscriptionStatus as jest.MockedFunction<typeof getSubscriptionStatus>;
+const mockGetTest = getTest as jest.MockedFunction<typeof getTest>;
 
 const validTest: Test = {
   id: 't1',
@@ -164,6 +166,75 @@ describe('export-test-pdf — happy path', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/pdf');
+  });
+});
+
+describe('export-test-pdf — testId mode (stored tests)', () => {
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ user: { id: 'user-1' } } as never);
+    mockSub.mockResolvedValue('active');
+  });
+
+  test('owner exports their own private test', async () => {
+    mockGetTest.mockResolvedValue({ ...validTest, isPublic: false, userId: 'user-1' } as never);
+
+    const response = await exportTestPdf(makeRequest({ testId: validTest.id }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/pdf');
+  });
+
+  test('any Pro user can export a public test', async () => {
+    mockGetTest.mockResolvedValue({ ...validTest, isPublic: true, userId: 'someone-else' } as never);
+
+    const response = await exportTestPdf(makeRequest({ testId: validTest.id }));
+
+    expect(response.status).toBe(200);
+  });
+
+  test("someone else's private test is a 404 (existence not leaked)", async () => {
+    mockGetTest.mockResolvedValue({ ...validTest, isPublic: false, userId: 'someone-else' } as never);
+
+    const response = await exportTestPdf(makeRequest({ testId: validTest.id }));
+    const data = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(data.error).toMatch(/not found/i);
+  });
+
+  test('a missing test id is a 404', async () => {
+    mockGetTest.mockResolvedValue(null as never);
+
+    const response = await exportTestPdf(makeRequest({ testId: 'does-not-exist' }));
+
+    expect(response.status).toBe(404);
+  });
+
+  test('an admin may export any private test', async () => {
+    // jest.setup.js sets ADMIN_EMAIL=admin@test.com
+    mockAuth.mockResolvedValue({ user: { id: 'admin-1', email: 'admin@test.com' } } as never);
+    mockGetTest.mockResolvedValue({ ...validTest, isPublic: false, userId: 'someone-else' } as never);
+
+    const response = await exportTestPdf(makeRequest({ testId: validTest.id }));
+
+    expect(response.status).toBe(200);
+  });
+
+  test('free users are rejected before the test is even fetched', async () => {
+    mockSub.mockResolvedValue('free');
+
+    const response = await exportTestPdf(makeRequest({ testId: validTest.id }));
+
+    expect(response.status).toBe(403);
+    expect(mockGetTest).not.toHaveBeenCalled();
+  });
+
+  test('a database failure during fetch is a 500', async () => {
+    mockGetTest.mockRejectedValue(new Error('db down'));
+
+    const response = await exportTestPdf(makeRequest({ testId: validTest.id }));
+
+    expect(response.status).toBe(500);
   });
 });
 

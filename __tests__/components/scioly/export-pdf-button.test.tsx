@@ -56,6 +56,7 @@ function mockFetchOk() {
   return jest.fn().mockResolvedValue({
     ok: true,
     status: 200,
+    headers: { get: () => null },
     blob: () => Promise.resolve(new Blob(['%PDF-mock'], { type: 'application/pdf' })),
   });
 }
@@ -184,8 +185,61 @@ describe('ExportPdfButton', () => {
     });
   });
 
-  test('a network error shows an alert', async () => {
+  test('testId mode: exports a stored test and uses the server filename', async () => {
+    const fetchSpy = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="Stored_Test.pdf"',
+      }),
+      blob: () => Promise.resolve(new Blob(['%PDF-mock'], { type: 'application/pdf' })),
+    });
+    global.fetch = fetchSpy as never;
+    const { clicks, spy } = clickAnchorSpy();
+    setSession('authenticated', true);
+
+    render(<ExportPdfButton testId="stored-123" label="PDF" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /PDF/i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/export-test-pdf',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ testId: 'stored-123' }),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(clicks.length).toBe(1);
+    });
+    expect(clicks[0].download).toBe('Stored_Test.pdf');
+    spy.mockRestore();
+  });
+
+  test('testId mode: a 404 alerts that the test is unavailable', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ error: 'Test not found' }),
+    }) as never;
+    setSession('authenticated', true);
+
+    render(<ExportPdfButton testId="gone-456" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Export PDF/i }));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('This test is no longer available to export.');
+    });
+    expect(screen.queryByText('PDF export is a Pro feature')).not.toBeInTheDocument();
+    alertSpy.mockRestore();
+  });
+
+  test('a network error shows an alert', async () => {    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
     global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as never;
     setSession('authenticated', true);
     render(<ExportPdfButton test={sampleTest} />);

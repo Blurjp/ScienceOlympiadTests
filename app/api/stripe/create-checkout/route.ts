@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { stripe, PRO_PRICE_ID, SEASON_PASS_PRICE_ID } from '@/lib/stripe';
+import {
+  stripe,
+  PRO_PRICE_ID,
+  SEASON_PASS_PRICE_ID,
+  getPromotionCouponId,
+} from '@/lib/stripe';
+import { getActivePromotion } from '@/lib/promotion';
 import { getUserByEmail, updateUserSubscription } from '@/lib/database';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -94,6 +100,13 @@ export async function POST(request: NextRequest) {
     // The idempotency key buckets by user+plan+minute so double-clicks and network
     // retries replay the same session instead of creating (and potentially charging) duplicates.
     const idempotencyKey = `checkout:${user.id}:${plan}:${Math.floor(Date.now() / 60_000)}`;
+
+    // Black Friday promotion: attach the 50%-off coupon to the session when
+    // the promo window is active. A coupon failure falls back to an
+    // undiscounted session (the promo is a bonus, not a payment blocker).
+    const promotion = getActivePromotion();
+    const promotionCouponId = promotion ? await getPromotionCouponId() : null;
+
     const checkoutSession = await stripe.checkout.sessions.create(
       {
         customer: customerId,
@@ -105,6 +118,9 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
+        ...(promotionCouponId
+          ? { discounts: [{ coupon: promotionCouponId }] }
+          : {}),
         success_url: `${origin}/profile?subscription=success`,
         cancel_url: `${origin}/pricing?canceled=true`,
         metadata: {

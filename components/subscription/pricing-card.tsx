@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 interface PricingCardProps {
   name: string;
   price: string;
+  /** Original price shown struck-through above `price` (promotions). */
+  originalPrice?: string;
   period?: string;
   description: string;
   features: string[];
@@ -20,6 +22,7 @@ interface PricingCardProps {
 export function PricingCard({
   name,
   price,
+  originalPrice,
   period = '/month',
   description,
   features,
@@ -52,6 +55,14 @@ export function PricingCard({
       </CardHeader>
       <CardContent className="flex flex-col flex-1">
         <div className="text-center mb-6">
+          {originalPrice && (
+            <span
+              className="mr-2 text-lg text-muted-foreground line-through"
+              aria-label={`Original price ${originalPrice}`}
+            >
+              {originalPrice}
+            </span>
+          )}
           <span className="text-4xl font-bold">{price}</span>
           {price !== 'Free' && (
             <span className="text-muted-foreground">{period}</span>

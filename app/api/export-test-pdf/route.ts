@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getSubscriptionStatus } from '@/lib/database';
+import { getSubscriptionStatus, getTest } from '@/lib/database';
+import { isAdminEmail } from '@/lib/admin-auth';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { generateTestPdf, buildPdfFilename } from '@/lib/test-pdf';
 import type { Test } from '@/lib/types';
@@ -10,11 +11,12 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/export-test-pdf — Pro-only export of a test to a printable PDF.
  *
- * Body: { test: Test, includeAnswerKey?: boolean }
+ * Body: { testId } | { test: Test }, plus optional includeAnswerKey (default true)
  *
- * The test content is supplied by the client (it already has access to it —
- * private tests are only ever served to their owner), so the payload is
- * validated and length-capped rather than re-fetched from the database.
+ * `testId` loads a stored test (access-checked like GET /api/tests/[id]:
+ * public tests for everyone, private tests for their owner or an admin).
+ * `test` accepts an inline object the client already has (e.g. a just-
+ * generated test); it is validated and length-capped rather than re-fetched.
  * Pro status is always verified server-side via getSubscriptionStatus.
  */
 
@@ -27,6 +29,7 @@ const MAX_QUESTIONS = 200;
 
 interface ExportRequest {
   test?: unknown;
+  testId?: unknown;
   includeAnswerKey?: unknown;
 }
 
@@ -107,12 +110,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const test = extractValidTest(body);
-  if (!test) {
-    return NextResponse.json(
-      { error: 'Invalid test payload: a title and at least one question are required' },
-      { status: 400 }
-    );
+  // Resolve the test: either a stored test id (access-checked) or an inline
+  // client-supplied object (shape-validated).
+  let test: Test | null = null;
+
+  if (typeof body.testId === 'string' && body.testId.trim().length > 0) {
+    try {
+      const stored = await getTest(body.testId.trim());
+      // Every denial is a 404 (never 403) so private-test existence isn't
+      // leaked — mirrors GET /api/tests/[id].
+      if (!stored) {
+        return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+      }
+      const isAdmin = Boolean(
+        session?.user?.email && isAdminEmail(session.user.email)
+      );
+      if (stored.isPublic === false && stored.userId !== userId && !isAdmin) {
+        return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+      }
+      test = stored;
+    } catch (dbError) {
+      console.error('Test fetch error:', dbError);
+      return NextResponse.json(
+        { error: 'Failed to load the test. Please try again.' },
+        { status: 500 }
+      );
+    }
+  } else {
+    test = extractValidTest(body);
+    if (!test) {
+      return NextResponse.json(
+        { error: 'Invalid test payload: a title and at least one question are required' },
+        { status: 400 }
+      );
+    }
   }
 
   // Render the PDF.

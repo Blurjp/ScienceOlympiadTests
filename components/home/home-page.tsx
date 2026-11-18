@@ -6,6 +6,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Test, TestSummary, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
+import { ExportPdfButton } from '@/components/scioly/export-pdf-button';
+import { getActivePromotion } from '@/lib/promotion';
 import { Button } from '@/components/ui/button';
 import { UpgradeButton } from '@/components/subscription/upgrade-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -593,6 +595,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
 
   // Get selected source info for display
   const selectedSourceInfo = pdfSources.find(s => s.id === selectedPdfSource);
+  const promotion = getActivePromotion();
 
   // Render based on current view
   if (currentView === 'test' && selectedTest) {
@@ -655,6 +658,22 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
             {' '}<Link href="/events/disease-detectives" className="text-blue-700 underline hover:text-blue-900">Disease Detectives</Link>.
           </p>
         </div>
+
+        {/* Black Friday promotion strip */}
+        {promotion && (
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-800">
+              <span className="font-semibold">
+                {promotion.name}: {promotion.percentOff}% off Pro &amp; the Season Pass
+              </span>{' '}
+              — ends{' '}
+              {promotion.endsAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </p>
+            <Link href="/pricing">
+              <Button size="sm" variant="default">View the deal</Button>
+            </Link>
+          </div>
+        )}
 
         {/* Unsaved-test warning (generation succeeded, library save failed) */}
         {saveWarning && (
@@ -1240,6 +1259,14 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                             View History
                           </Button>
                         </Link>
+                      )}
+                      {test.userId && test.userId === session?.user?.id && (
+                        <ExportPdfButton
+                          testId={test.id}
+                          label="PDF"
+                          variant="outline"
+                          className="gap-2"
+                        />
                       )}
                     </div>
                   </CardContent>

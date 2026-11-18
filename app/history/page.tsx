@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { ExportPdfButton } from '@/components/scioly/export-pdf-button';
 
 interface TestResultWithTest {
   id: string;
@@ -346,6 +347,15 @@ export default function HistoryPage() {
                           {formatTime(result.timeSpent)}
                         </p>
                         <p className="text-xs text-gray-500">time</p>
+                      </div>
+
+                      <div className="border-l pl-4">
+                        <ExportPdfButton
+                          testId={result.testId}
+                          label="PDF"
+                          variant="outline"
+                          size="sm"
+                        />
                       </div>
                     </div>
                   </div>
