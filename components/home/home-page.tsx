@@ -141,7 +141,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const [selectedPdfSource, setSelectedPdfSource] = useState<string>('');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [pdfQuestionCount, setPdfQuestionCount] = useState(20);
-  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModal, setLimitModal] = useState<{ title: string; body: string } | null>(null);
   // Set when a generation succeeded but the DB save failed — the test is
   // usable but will vanish from "My Tests" once the user leaves the page.
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
@@ -422,6 +422,17 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       return;
     }
 
+    // 30/40-question tests are Pro-only. The options are visible to everyone
+    // (labeled "Pro" in the selector); free users get the upgrade path here.
+    // The server re-checks on every request.
+    if (genConfig.questionCount > 10 && !session.user?.isPro) {
+      setLimitModal({
+        title: 'Larger tests are a Pro feature',
+        body: `Free plan tests are limited to 10 questions. Upgrade to Pro to generate up to 40 questions per test.`,
+      });
+      return;
+    }
+
     setIsGenerating(true);
     setGenProgress(null);
     try {
@@ -505,7 +516,10 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       } else if (result.signInRequired) {
         router.push('/api/auth/signin');
       } else if (result.limitReached) {
-        setShowLimitModal(true);
+        setLimitModal({
+          title: 'You\u2019ve used all 5 free tests this month',
+          body: 'Your free limit resets on the 1st of next month. Upgrade to Pro for unlimited AI test generations — or compare the plans first.',
+        });
       } else {
         alert(result.error || 'Failed to generate test. Please try again.');
       }
@@ -562,7 +576,10 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       } else if (result.signInRequired) {
         router.push('/api/auth/signin');
       } else if (result.limitReached) {
-        setShowLimitModal(true);
+        setLimitModal({
+          title: 'You\u2019ve used all 5 free tests this month',
+          body: 'Your free limit resets on the 1st of next month. Upgrade to Pro for unlimited AI test generations — or compare the plans first.',
+        });
       } else {
         alert(result.error || 'Failed to generate test. Please try again.');
       }
@@ -694,18 +711,31 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                 </select>
               </div>
 
-              {/* Question Count */}
+              {/* Question Count - 30/40 are Pro-only, visible to everyone */}
               <div>
-                <Label htmlFor="gen-count" className="text-sm">Questions (max 20)</Label>
-                <Input
+                <Label htmlFor="gen-count" className="text-sm">
+                  Questions
+                  {!session?.user?.isPro && (
+                    <span className="ml-1 text-xs text-amber-600">(30–40 with Pro)</span>
+                  )}
+                </Label>
+                <select
                   id="gen-count"
-                  type="number"
-                  min="5"
-                  max="20"
                   value={genConfig.questionCount}
-                  onChange={(e) => setGenConfig({ ...genConfig, questionCount: Math.min(parseInt(e.target.value) || 10, 20) })}
-                  className="mt-1"
-                />
+                  onChange={(e) =>
+                    setGenConfig({ ...genConfig, questionCount: parseInt(e.target.value, 10) })
+                  }
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value={5}>5 questions</option>
+                  <option value={10}>10 questions</option>
+                  <option value={30}>
+                    30 questions{!session?.user?.isPro ? ' — Pro' : ''}
+                  </option>
+                  <option value={40}>
+                    40 questions{!session?.user?.isPro ? ' — Pro' : ''}
+                  </option>
+                </select>
               </div>
 
               {/* Generate Button */}
@@ -1219,25 +1249,25 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
           </div>
         )}
 
-        {/* Free-tier limit reached dialog - replaces the old raw alert() with an upgrade path */}
-        {showLimitModal && (
+        {/* Upgrade / limit dialog - shared by the free-tier usage cap and the
+            Pro-only question-count gate */}
+        {limitModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="limit-modal-title"
-            onClick={() => setShowLimitModal(false)}
+            onClick={() => setLimitModal(null)}
           >
             <div
               className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 id="limit-modal-title" className="mb-2 text-lg font-semibold">
-                You&apos;ve used all 5 free tests this month
+                {limitModal.title}
               </h2>
               <p className="mb-4 text-sm text-muted-foreground">
-                Your free limit resets on the 1st of next month. Upgrade to Pro for unlimited AI test
-                generations — or compare the plans first.
+                {limitModal.body}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1">
@@ -1249,7 +1279,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
               </div>
               <button
                 type="button"
-                onClick={() => setShowLimitModal(false)}
+                onClick={() => setLimitModal(null)}
                 className="mt-3 text-xs text-muted-foreground hover:underline"
               >
                 Maybe later

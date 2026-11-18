@@ -22,8 +22,11 @@ interface GenerateRequest {
 }
 
 // Netlify has 26s timeout (Pro) or 10s (Free)
-// OpenAI needs ~2-3 seconds per question, so limit to 10 questions max for reliability
+// OpenAI needs ~2-3 seconds per question, so free-tier tests cap at 10.
+// The route streams with parallel 4-question chunks, so wall time stays
+// bounded by the slowest chunk — Pro users may go up to 40 questions.
 const MAX_QUESTIONS_FOR_TIMEOUT = 10;
+const PRO_MAX_QUESTIONS = 40;
 
 /** Count complete question objects in the partial JSON stream. */
 function countGeneratedQuestions(text: string): number {
@@ -144,8 +147,31 @@ export async function POST(request: NextRequest) {
     difficulty = 'Regional',
   } = body;
 
+  // Pro-only question counts: free-tier tests cap at 10 questions. The
+  // client shows the 30/40 options to everyone, but the server decides who
+  // may actually use them (a stale session flag can never unlock this).
+  let isProUser = false;
+  if (userId) {
+    try {
+      isProUser = (await getSubscriptionStatus(userId)) === 'active';
+    } catch (statusError) {
+      console.error('Subscription status check for question cap (non-fatal):', statusError);
+    }
+  }
+  const maxQuestions = isProUser ? PRO_MAX_QUESTIONS : MAX_QUESTIONS_FOR_TIMEOUT;
+  if (!isProUser && requestedCount > maxQuestions) {
+    return NextResponse.json(
+      {
+        error: 'Larger tests are a Pro feature',
+        upgradeRequired: true,
+        message: `Free plan tests are limited to ${MAX_QUESTIONS_FOR_TIMEOUT} questions. Upgrade to Pro to generate up to ${PRO_MAX_QUESTIONS}.`,
+      },
+      { status: 403 }
+    );
+  }
+
   // Limit question count to avoid timeout (Netlify has 26s limit)
-  const questionCount = Math.min(requestedCount, MAX_QUESTIONS_FOR_TIMEOUT);
+  const questionCount = Math.min(requestedCount, maxQuestions);
 
   if (!topic) {
     return NextResponse.json(
