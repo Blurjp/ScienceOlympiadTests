@@ -124,6 +124,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
           const dbUser = await getUserByEmail(token.email as string)
           if (dbUser) {
+            // Self-heal the token identity: if the sign-in DB lookup
+            // failed, token.id is the OAuth provider id, which matches no
+            // rows in tests/users. That silently empties "My Tests" for
+            // the life of the JWT. Repair it from the authoritative row.
+            token.id = dbUser.id
             const status = await getSubscriptionStatus(dbUser.id)
             token.subscriptionStatus = status
             token.isPro = status === 'active'

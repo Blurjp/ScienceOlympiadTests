@@ -57,6 +57,35 @@ interface TestResultWithTest {
   completedAt: string;
 }
 
+/** Shown when a generated test could not be persisted to the user's library. */
+function SaveWarningBanner({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+        <p className="flex-1">
+          <strong>Couldn&apos;t save this test to your library.</strong>{' '}
+          {message}
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 rounded px-2 py-1 text-amber-700 hover:bg-amber-100"
+          aria-label="Dismiss warning"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface HomePageProps {
   initialTests: TestSummary[];
   initialTopics: string[];
@@ -113,6 +142,9 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [pdfQuestionCount, setPdfQuestionCount] = useState(20);
   const [showLimitModal, setShowLimitModal] = useState(false);
+  // Set when a generation succeeded but the DB save failed — the test is
+  // usable but will vanish from "My Tests" once the user leaves the page.
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
 
   // Revalidate server-provided data on mount (initial data comes from SSR).
   // Tests are loaded by the filter effect below (it also runs on mount).
@@ -412,6 +444,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         let buffer = '';
         let completeResult: { test: Parameters<typeof handleStartTest>[0] } | null = null;
         let streamError: string | null = null;
+        let saveWarning: string | null = null;
 
         // Keep draining until the server closes the stream so the server can
         // finish its post-response DB writes (save + usage logging).
@@ -433,6 +466,8 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                 completeResult = payload;
               } else if (payload.type === 'error') {
                 streamError = payload.error || 'Failed to generate test. Please try again.';
+              } else if (payload.type === 'save-warning') {
+                saveWarning = payload.message || null;
               }
             } catch {
               // Ignore malformed events
@@ -441,6 +476,7 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         }
 
         if (completeResult?.test) {
+          if (saveWarning) setSaveWarning(saveWarning);
           // Refresh lists in the background; don't make the user wait on them.
           void Promise.all([
             loadTests({
@@ -508,6 +544,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
       const result = await response.json();
 
       if (response.ok && result.success) {
+        if (result.saved === false) {
+          setSaveWarning(
+            'It won\u2019t appear under \u201cMy Tests\u201d after you leave this page — take it now or export it to PDF to keep it.'
+          );
+        }
         // Refresh lists in the background; don't make the user wait on them.
         void Promise.all([
           loadTests({
@@ -539,24 +580,44 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
   // Render based on current view
   if (currentView === 'test' && selectedTest) {
     return (
-      <TestViewer
-        test={selectedTest}
-        onSubmit={handleSubmitTest}
-        onBack={handleBackToHome}
-      />
+      <>
+        {saveWarning && (
+          <div className="mx-auto max-w-4xl px-4 pt-4">
+            <SaveWarningBanner
+              message={saveWarning}
+              onDismiss={() => setSaveWarning(null)}
+            />
+          </div>
+        )}
+        <TestViewer
+          test={selectedTest}
+          onSubmit={handleSubmitTest}
+          onBack={handleBackToHome}
+        />
+      </>
     );
   }
 
   if (currentView === 'results' && selectedTest) {
     return (
-      <ResultsScreen
-        test={selectedTest}
-        userAnswers={userAnswers}
-        timeSpent={timeSpent}
-        userId={session?.user?.id}
-        onRetakeTest={handleRetakeTest}
-        onBackToHome={handleBackToHome}
-      />
+      <>
+        {saveWarning && (
+          <div className="mx-auto max-w-4xl px-4 pt-4">
+            <SaveWarningBanner
+              message={saveWarning}
+              onDismiss={() => setSaveWarning(null)}
+            />
+          </div>
+        )}
+        <ResultsScreen
+          test={selectedTest}
+          userAnswers={userAnswers}
+          timeSpent={timeSpent}
+          userId={session?.user?.id}
+          onRetakeTest={handleRetakeTest}
+          onBackToHome={handleBackToHome}
+        />
+      </>
     );
   }
 
@@ -577,6 +638,16 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
             {' '}<Link href="/events/disease-detectives" className="text-blue-700 underline hover:text-blue-900">Disease Detectives</Link>.
           </p>
         </div>
+
+        {/* Unsaved-test warning (generation succeeded, library save failed) */}
+        {saveWarning && (
+          <div className="mb-6">
+            <SaveWarningBanner
+              message={saveWarning}
+              onDismiss={() => setSaveWarning(null)}
+            />
+          </div>
+        )}
 
         {/* AI Test Generator Section */}
         <Card id="ai-generator" className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">

@@ -2,7 +2,7 @@ import { auth, signOut } from "@/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, LogOut, Upload, Crown, MessageCircle } from "lucide-react"
+import { User, LogOut, Upload, Crown, MessageCircle, History } from "lucide-react"
 import { HomeNavLink, HomeLogo } from "./home-nav-link"
 import { SignOutForm } from "./auth/sign-out-form"
 
@@ -39,6 +39,15 @@ export default async function Header() {
                   Import
                 </Link>
               )}
+              {session && (
+                <Link
+                  href="/history"
+                  className="text-gray-700 hover:text-blue-600 transition-colors flex items-center"
+                >
+                  <History className="w-4 h-4 mr-1" />
+                  History
+                </Link>
+              )}
             </nav>
           </div>
 
@@ -51,6 +60,15 @@ export default async function Header() {
             >
               <MessageCircle className="w-5 h-5" />
             </Link>
+            {session && (
+              <Link
+                href="/history"
+                aria-label="Your test history and grades"
+                className="md:hidden text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                <History className="w-5 h-5" />
+              </Link>
+            )}
             {session?.user ? (
               <>
                 <Link href="/profile">

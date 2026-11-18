@@ -504,6 +504,14 @@ Output valid JSON only.`;
           await saveTest(test, undefined, undefined, userId, true);
         } catch (dbError) {
           console.error('Database save error (non-fatal):', dbError);
+          // Non-fatal for the response, but NOT silent for the user: an
+          // unsaved test vanishes from "My Tests", which historically read
+          // as "the app lost my tests". Tell the client so it can warn.
+          send({
+            type: 'save-warning',
+            message:
+              'It won\u2019t appear under \u201cMy Tests\u201d after you leave this page — take it now or export it to PDF to keep it.',
+          });
         }
         await logUsage(true, questions.length);
 

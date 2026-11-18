@@ -250,6 +250,7 @@ export async function POST(request: NextRequest) {
           questions,
         };
 
+        let savedToLibrary = true;
         try {
           // Exam-inspired output stays private: it is derived from someone
           // else's uploaded exam, and an LLM working from a source exam can
@@ -258,7 +259,7 @@ export async function POST(request: NextRequest) {
           await saveTest(test, undefined, undefined, userId);
         } catch (dbError) {
           console.error('Database save error (non-fatal):', dbError);
-          // Continue anyway - user still gets the test
+          savedToLibrary = false;
         }
 
         return NextResponse.json({
@@ -268,6 +269,7 @@ export async function POST(request: NextRequest) {
           totalPoints,
           totalTime,
           fromCache: true,
+          saved: savedToLibrary,
           inspiredBy: {
             name: examSourceName,
             level: examSource.level,
@@ -566,6 +568,10 @@ MATHEMATICAL ACCURACY:
         console.error(`Post-generation write ${i} failed:`, result.reason);
       }
     });
+    // A failed save is non-fatal for the response, but the user must know:
+    // an unsaved test silently vanishing from "My Tests" is exactly the
+    // "the app lost my tests" failure mode. surfaced via `saved: false`.
+    const savedToLibrary = writeResults[0].status === 'fulfilled';
 
     return NextResponse.json({
       success: true,
@@ -574,6 +580,7 @@ MATHEMATICAL ACCURACY:
       totalPoints,
       totalTime,
       fromCache: false,
+      saved: savedToLibrary,
       inspiredBy: {
         name: examSourceName,
         level: examSource.level,
