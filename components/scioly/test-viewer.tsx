@@ -7,6 +7,7 @@ import { Timer } from './timer';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { ExportPdfButton } from './export-pdf-button';
 
 interface TestViewerProps {
   test: Test;
@@ -78,9 +79,12 @@ export function TestViewer({ test, onSubmit, onBack }: TestViewerProps) {
       <div className="mx-auto max-w-4xl px-4">
         {/* Header */}
         <div className="mb-6">
-          <Button variant="ghost" onClick={onBack} className="mb-4">
-            ← Back to Browse
-          </Button>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <Button variant="ghost" onClick={onBack}>
+              ← Back to Browse
+            </Button>
+            <ExportPdfButton test={test} />
+          </div>
           <h1 className="text-3xl font-bold text-gray-900">{test.title}</h1>
           <p className="mt-2 text-gray-600">{test.description}</p>
         </div>

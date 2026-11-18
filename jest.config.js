@@ -2,6 +2,10 @@
 const config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  // Let node-env suites resolve serverless ESM bundles (e.g. unpdf's pdf.js)
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },

@@ -17,6 +17,7 @@ import {
   Download,
   RotateCcw,
 } from 'lucide-react';
+import { ExportPdfButton } from './export-pdf-button';
 
 interface ResultsScreenProps {
   test: Test;
@@ -189,15 +190,16 @@ export function ResultsScreen({
                   )}
                 </div>
 
-                <div className="mt-6 flex gap-2">
+                <div className="mt-6 flex flex-wrap gap-2">
                   <Button onClick={onRetakeTest} variant="outline" className="flex-1 gap-2">
                     <RotateCcw className="h-4 w-4" />
                     Retake Test
                   </Button>
                   <Button onClick={handleExportResults} variant="outline" className="flex-1 gap-2">
                     <Download className="h-4 w-4" />
-                    Export
+                    Export JSON
                   </Button>
+                  <ExportPdfButton test={test} className="flex-1" />
                 </div>
               </div>
             </div>
@@ -235,7 +237,7 @@ export function ResultsScreen({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <Button onClick={onBackToHome} className="gap-2">
             <Home className="h-4 w-4" />
             Back to Home
@@ -244,6 +246,7 @@ export function ResultsScreen({
             <RotateCcw className="h-4 w-4" />
             Take Another Test
           </Button>
+          <ExportPdfButton test={test} />
         </div>
       </div>
     </div>
