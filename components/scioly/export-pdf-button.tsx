@@ -2,9 +2,8 @@
 
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { UpgradeButton } from '@/components/subscription/upgrade-button';
+import { ProFeatureModal } from '@/components/subscription/pro-feature-modal';
 import type { Test } from '@/lib/types';
 import { FileDown, Loader2 } from 'lucide-react';
 
@@ -124,52 +123,12 @@ export function ExportPdfButton({
         )}
       </Button>
 
-      {showUpgradeModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="pdf-export-upgrade-title"
-          onClick={() => setShowUpgradeModal(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              id="pdf-export-upgrade-title"
-              className="mb-2 text-lg font-semibold"
-            >
-              PDF export is a Pro feature
-            </h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Upgrade to Pro to download any test as a print-ready PDF with an
-              answer key — from the library, your history, or the results screen.
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              {sessionStatus === 'authenticated' ? (
-                <div className="flex-1">
-                  <UpgradeButton className="w-full" />
-                </div>
-              ) : (
-                <Link href="/login" className="flex-1">
-                  <Button className="w-full">Sign in to upgrade</Button>
-                </Link>
-              )}
-              <Link href="/pricing" className="flex-1">
-                <Button variant="outline" className="w-full">View plans</Button>
-              </Link>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowUpgradeModal(false)}
-              className="mt-3 text-xs text-muted-foreground hover:underline"
-            >
-              Maybe later
-            </button>
-          </div>
-        </div>
-      )}
+      <ProFeatureModal
+        open={showUpgradeModal}
+        title="PDF export is a Pro feature"
+        message="Upgrade to Pro to download any test as a print-ready PDF with an answer key — from the library, your history, or the results screen."
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </>
   );
 }

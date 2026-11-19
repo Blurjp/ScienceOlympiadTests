@@ -7,9 +7,9 @@ import { Test, TestSummary, UserAnswer, ViewType } from '@/lib/types';
 import { TestViewer } from '@/components/scioly/test-viewer';
 import { ResultsScreen } from '@/components/scioly/results-screen';
 import { ExportPdfButton } from '@/components/scioly/export-pdf-button';
+import { ProFeatureModal } from '@/components/subscription/pro-feature-modal';
 import { getActivePromotion } from '@/lib/promotion';
 import { Button } from '@/components/ui/button';
-import { UpgradeButton } from '@/components/subscription/upgrade-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -1279,40 +1279,12 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         {/* Upgrade / limit dialog - shared by the free-tier usage cap and the
             Pro-only question-count gate */}
         {limitModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="limit-modal-title"
-            onClick={() => setLimitModal(null)}
-          >
-            <div
-              className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 id="limit-modal-title" className="mb-2 text-lg font-semibold">
-                {limitModal.title}
-              </h2>
-              <p className="mb-4 text-sm text-muted-foreground">
-                {limitModal.body}
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="flex-1">
-                  <UpgradeButton className="w-full" />
-                </div>
-                <Link href="/pricing" className="flex-1">
-                  <Button variant="outline" className="w-full">View plans</Button>
-                </Link>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLimitModal(null)}
-                className="mt-3 text-xs text-muted-foreground hover:underline"
-              >
-                Maybe later
-              </button>
-            </div>
-          </div>
+          <ProFeatureModal
+            open
+            title={limitModal.title}
+            message={limitModal.body}
+            onClose={() => setLimitModal(null)}
+          />
         )}
 
         {/* Ad before footer - only when real content is loaded (AdSense policy) */}

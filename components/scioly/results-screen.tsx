@@ -18,6 +18,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { ExportPdfButton } from './export-pdf-button';
+import { ExplainAnswerButton } from './explain-answer-button';
 
 interface ResultsScreenProps {
   test: Test;
@@ -222,15 +223,22 @@ export function ResultsScreen({
                 question.correctAnswer.trim().toLowerCase();
 
               return (
-                <QuestionDisplay
-                  key={question.id}
-                  question={question}
-                  questionNumber={index + 1}
-                  userAnswer={userAnswer?.answer || ''}
-                  onAnswerChange={() => {}}
-                  showResults={true}
-                  isCorrect={isCorrect}
-                />
+                <div key={question.id}>
+                  <QuestionDisplay
+                    question={question}
+                    questionNumber={index + 1}
+                    userAnswer={userAnswer?.answer || ''}
+                    onAnswerChange={() => {}}
+                    showResults={true}
+                    isCorrect={isCorrect}
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <ExplainAnswerButton
+                      question={question}
+                      userAnswer={userAnswer?.answer || ''}
+                    />
+                  </div>
+                </div>
               );
             })}
           </div>

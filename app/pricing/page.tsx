@@ -21,6 +21,7 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   'Unlimited AI-generated tests',
   'Up to 40 questions per test (free: 10)',
+  'AI explanations for every answer on your results',
   'Export tests as printable PDFs with answer keys',
   'Export from the library, history, or results screen',
   'Priority test generation',
