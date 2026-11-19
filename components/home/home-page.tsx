@@ -505,7 +505,9 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
         if (streamError) {
           alert(streamError);
         } else {
-          alert('Failed to generate test. Please try again.');
+          alert(
+            'The generator didn\u2019t finish in time. Very large tests can take longer than the server allows \u2014 please try again, or choose a smaller question count.'
+          );
         }
         return;
       }

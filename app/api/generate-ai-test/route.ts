@@ -12,8 +12,10 @@ import { TOPIC_DESCRIPTIONS, DIFFICULTY_DESCRIPTIONS } from '@/lib/topic-descrip
 
 export const dynamic = 'force-dynamic';
 
-// Increase function timeout for serverless
-export const maxDuration = 60; // 60 seconds max
+// Increase function timeout for serverless. Pro plans honor up to 300s;
+// Hobby silently caps at 60s — the top-up deadline below plus the smaller
+// default counts keep most generations inside even that budget.
+export const maxDuration = 300;
 
 interface GenerateRequest {
   topic: string;
@@ -27,6 +29,14 @@ interface GenerateRequest {
 // bounded by the slowest chunk — Pro users may go up to 40 questions.
 const MAX_QUESTIONS_FOR_TIMEOUT = 10;
 const PRO_MAX_QUESTIONS = 40;
+
+/**
+ * Skip the serial top-up round once this much of the function's execution
+ * budget is gone. The top-up is the biggest timeout multiplier (a full
+ * second round of model calls); dropping it delivers a slightly shorter
+ * test instead of losing the whole generation to a platform timeout.
+ */
+const TOP_UP_DEADLINE_MS = 25_000;
 
 /** Count complete question objects in the partial JSON stream. */
 function countGeneratedQuestions(text: string): number {
@@ -324,6 +334,7 @@ Output valid JSON only.`;
       };
 
       let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;
+      const generationStartedAt = Date.now();
 
       try {
         send({ type: 'start', total: questionCount });
@@ -445,20 +456,30 @@ Output valid JSON only.`;
         }
 
         // Rare top-up when duplicates were dropped, so users always get the
-        // requested question count. Small serial call; skipped on failure.
+        // requested question count. Small serial call; skipped on failure,
+        // and also skipped when we're running low on execution time — a
+        // killed function loses the WHOLE test (no complete event, no save,
+        // no usage row), while a slightly shorter one still delivers.
         if (unique.length > 0 && unique.length < questionCount) {
-          const missing = questionCount - unique.length;
-          try {
-            const topUp = await runChunk(
-              missing,
-              2,
-              unique.map((q) => q.question)
+          const elapsedMs = Date.now() - generationStartedAt;
+          if (elapsedMs > TOP_UP_DEADLINE_MS) {
+            console.warn(
+              `Skipping top-up chunk: ${elapsedMs}ms elapsed, delivering ${unique.length}/${questionCount} questions`
             );
-            for (const q of topUp) {
-              if (unique.length < questionCount) unique.push(q);
+          } else {
+            const missing = questionCount - unique.length;
+            try {
+              const topUp = await runChunk(
+                missing,
+                2,
+                unique.map((q) => q.question)
+              );
+              for (const q of topUp) {
+                if (unique.length < questionCount) unique.push(q);
+              }
+            } catch (topUpError) {
+              console.error('Top-up chunk failed (non-fatal):', topUpError);
             }
-          } catch (topUpError) {
-            console.error('Top-up chunk failed (non-fatal):', topUpError);
           }
         }
 
