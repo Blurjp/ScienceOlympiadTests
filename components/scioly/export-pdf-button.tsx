@@ -44,6 +44,49 @@ export function ExportPdfButton({
 
   const isPro = session?.user?.isPro === true;
 
+  /** Fetch one PDF from the export API and hand back its blob + filename. */
+  const fetchPdf = async (payload: Record<string, unknown>) => {
+    let response: Response;
+    try {
+      response = await fetch('/api/export-test-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new Error('Network error — please check your connection and try again.');
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw Object.assign(new Error('upgrade'), { upgrade: true });
+    }
+    if (response.status === 404) {
+      throw Object.assign(new Error('missing'), { missing: true });
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to export the PDF. Please try again.');
+    }
+
+    // Prefer the server-provided filename; fall back to the local title.
+    const disposition = response.headers.get('content-disposition') || '';
+    const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+    const blob = await response.blob();
+    return { blob, filename: filenameMatch?.[1] || null };
+  };
+
+  /** Trigger a browser download for a fetched blob. */
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = async () => {
     // Fast path: the session already says this user is not Pro.
     if (sessionStatus !== 'authenticated' || !isPro) {
@@ -51,50 +94,35 @@ export function ExportPdfButton({
       return;
     }
 
+    const basePayload = test ? { test } : { testId };
+    const fallbackSlug = test
+      ? test.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'test'
+      : 'test';
+
     setIsExporting(true);
     try {
-      const response = await fetch('/api/export-test-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(test ? { test } : { testId }),
-      });
+      // Export is a PAIR of files: questions for students, answers for the
+      // coach. Sequential downloads with a short gap so browsers don't
+      // collapse the second into the first.
+      const questions = await fetchPdf({ ...basePayload, includeAnswerKey: false });
+      downloadBlob(questions.blob, questions.filename || `${fallbackSlug}_Questions.pdf`);
 
-      if (response.status === 401 || response.status === 403) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      const answers = await fetchPdf({ ...basePayload, answerKeyOnly: true });
+      downloadBlob(answers.blob, answers.filename || `${fallbackSlug}_Answer_Key.pdf`);
+    } catch (error: any) {
+      if (error?.upgrade) {
         // Signed out, session expired, or Pro check failed server-side.
         setShowUpgradeModal(true);
         return;
       }
-
-      if (response.status === 404) {
+      if (error?.missing) {
         alert('This test is no longer available to export.');
         return;
       }
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        alert(data.error || 'Failed to export the PDF. Please try again.');
-        return;
-      }
-
-      // Prefer the server-provided filename; fall back to the local title.
-      const disposition = response.headers.get('content-disposition') || '';
-      const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
-      const fallback = test
-        ? `${test.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'test'}.pdf`
-        : 'test.pdf';
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filenameMatch?.[1] || fallback;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
       console.error('PDF export error:', error);
-      alert('Failed to export the PDF. Please try again.');
+      alert(error?.message || 'Failed to export the PDF. Please try again.');
     } finally {
       setIsExporting(false);
     }

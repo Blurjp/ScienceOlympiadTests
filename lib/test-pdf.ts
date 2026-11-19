@@ -19,6 +19,8 @@ import type { Test } from '@/lib/types';
 export interface TestPdfOptions {
   /** Append an answer-key section after the questions. Default: true. */
   includeAnswerKey?: boolean;
+  /** Render ONLY the answer-key document (the companion "answers" file). */
+  answerKeyOnly?: boolean;
   /** Brand text shown in the footer. */
   siteName?: string;
 }
@@ -353,13 +355,7 @@ function drawQuestions(c: PdfComposer, test: Test): void {
   });
 }
 
-function drawAnswerKey(c: PdfComposer, test: Test): void {
-  c.addPage();
-  c.writeLines(['Answer Key'], { size: HEADING_SIZE, bold: true });
-  c.gap(4);
-  c.rule();
-  c.gap(6);
-
+function drawAnswerKeyBody(c: PdfComposer, test: Test): void {
   test.questions.forEach((question, index) => {
     c.ensure(c.lineHeight(BODY_SIZE) * 2);
     const answer = sanitizeForPdf(question.correctAnswer) || '(no answer recorded)';
@@ -368,6 +364,15 @@ function drawAnswerKey(c: PdfComposer, test: Test): void {
       { }
     );
   });
+}
+
+function drawAnswerKey(c: PdfComposer, test: Test): void {
+  c.addPage();
+  c.writeLines(['Answer Key'], { size: HEADING_SIZE, bold: true });
+  c.gap(4);
+  c.rule();
+  c.gap(6);
+  drawAnswerKeyBody(c, test);
 }
 
 // ---------------------------------------------------------------------------
@@ -379,29 +384,61 @@ export async function generateTestPdf(
   test: Test,
   options: TestPdfOptions = {}
 ): Promise<Uint8Array> {
-  const { includeAnswerKey = true, siteName = 'ScienceOlympiadTests' } = options;
+  const {
+    includeAnswerKey = true,
+    answerKeyOnly = false,
+    siteName = 'ScienceOlympiadTests',
+  } = options;
 
   const c = await PdfComposer.create();
-  drawHeader(c, test);
-  drawQuestions(c, test);
-  if (test.questions.length === 0) {
-    c.writeLines(['This test has no questions.'], { color: COLOR_MUTED });
+
+  if (answerKeyOnly) {
+    // Standalone answer document (the companion file to the questions PDF):
+    // identifying header, then the numbered key — no question text, no
+    // name/score row.
+    const title = sanitizeForPdf(test.title) || 'Untitled Test';
+    c.writeLines(wrapText(title, c.bold, TITLE_SIZE, CONTENT_WIDTH), {
+      size: TITLE_SIZE,
+      bold: true,
+    });
+    c.gap(4);
+    const metaParts = [
+      sanitizeForPdf(test.topic),
+      Number.isFinite(test.year) ? String(test.year) : '',
+      `${test.questions.length} answers`,
+    ].filter(Boolean);
+    c.writeLines([metaParts.join('  •  ')], { size: SUBTITLE_SIZE, color: COLOR_MUTED });
+    c.gap(6);
+    c.rule();
+    c.writeLines(['Answer Key'], { size: HEADING_SIZE, bold: true });
+    c.gap(4);
+    c.rule();
+    c.gap(6);
+    drawAnswerKeyBody(c, test);
+  } else {
+    drawHeader(c, test);
+    drawQuestions(c, test);
+    if (test.questions.length === 0) {
+      c.writeLines(['This test has no questions.'], { color: COLOR_MUTED });
+    }
+    if (includeAnswerKey && test.questions.length > 0) {
+      drawAnswerKey(c, test);
+    }
   }
-  if (includeAnswerKey && test.questions.length > 0) {
-    drawAnswerKey(c, test);
-  }
+
   c.stampFooters(sanitizeForPdf(siteName) || 'ScienceOlympiadTests');
 
   return c.doc.save();
 }
 
 /** Build a filesystem-safe attachment filename from a test title. */
-export function buildPdfFilename(title: unknown): string {
+export function buildPdfFilename(title: unknown, suffix?: string): string {
   const sanitized = sanitizeForPdf(title)
     .replace(/[^\w\s-]/g, '')
     .trim()
     .replace(/\s+/g, '_')
     .slice(0, 80)
     .replace(/^[_.-]+|[_.-]+$/g, '');
-  return `${sanitized || 'test'}.pdf`;
+  const base = sanitized || 'test';
+  return suffix ? `${base}_${suffix}.pdf` : `${base}.pdf`;
 }

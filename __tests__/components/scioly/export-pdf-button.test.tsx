@@ -146,7 +146,7 @@ describe('ExportPdfButton', () => {
     expect(screen.queryByText('PDF export is a Pro feature')).not.toBeInTheDocument();
   });
 
-  test('Pro users trigger a download from the export API', async () => {
+  test('Pro users get BOTH files: questions first, then the answer key', async () => {
     const fetchSpy = mockFetchOk();
     global.fetch = fetchSpy as never;
     const { clicks, spy } = clickAnchorSpy();
@@ -156,15 +156,20 @@ describe('ExportPdfButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /Export PDF/i }));
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/export-test-pdf',
-        expect.objectContaining({ method: 'POST' })
-      );
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
+    expect(fetchSpy.mock.calls[0][1].body).toBe(
+      JSON.stringify({ test: sampleTest, includeAnswerKey: false })
+    );
+    expect(fetchSpy.mock.calls[1][1].body).toBe(
+      JSON.stringify({ test: sampleTest, answerKeyOnly: true })
+    );
+
     await waitFor(() => {
-      expect(clicks.length).toBe(1);
+      expect(clicks.length).toBe(2);
     });
-    expect(clicks[0].download).toBe('Astronomy_Practice.pdf');
+    expect(clicks[0].download).toBe('Astronomy_Practice_Questions.pdf');
+    expect(clicks[1].download).toBe('Astronomy_Practice_Answer_Key.pdf');
     spy.mockRestore();
   });
 
@@ -185,16 +190,27 @@ describe('ExportPdfButton', () => {
     });
   });
 
-  test('testId mode: exports a stored test and uses the server filename', async () => {
-    const fetchSpy = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="Stored_Test.pdf"',
-      }),
-      blob: () => Promise.resolve(new Blob(['%PDF-mock'], { type: 'application/pdf' })),
-    });
+  test('testId mode: exports a stored test as both files with server filenames', async () => {
+    const fetchSpy = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="Stored_Test_Questions.pdf"',
+        }),
+        blob: () => Promise.resolve(new Blob(['%PDF-mock'], { type: 'application/pdf' })),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="Stored_Test_Answer_Key.pdf"',
+        }),
+        blob: () => Promise.resolve(new Blob(['%PDF-mock'], { type: 'application/pdf' })),
+      });
     global.fetch = fetchSpy as never;
     const { clicks, spy } = clickAnchorSpy();
     setSession('authenticated', true);
@@ -204,18 +220,16 @@ describe('ExportPdfButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /PDF/i }));
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/export-test-pdf',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ testId: 'stored-123' }),
-        })
-      );
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
+    expect(fetchSpy.mock.calls[0][1].body).toBe(JSON.stringify({ testId: 'stored-123', includeAnswerKey: false }));
+    expect(fetchSpy.mock.calls[1][1].body).toBe(JSON.stringify({ testId: 'stored-123', answerKeyOnly: true }));
+
     await waitFor(() => {
-      expect(clicks.length).toBe(1);
+      expect(clicks.length).toBe(2);
     });
-    expect(clicks[0].download).toBe('Stored_Test.pdf');
+    expect(clicks[0].download).toBe('Stored_Test_Questions.pdf');
+    expect(clicks[1].download).toBe('Stored_Test_Answer_Key.pdf');
     spy.mockRestore();
   });
 
@@ -247,7 +261,7 @@ describe('ExportPdfButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /Export PDF/i }));
 
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Failed to export the PDF. Please try again.');
+      expect(alertSpy).toHaveBeenCalledWith('Network error — please check your connection and try again.');
     });
     alertSpy.mockRestore();
   });

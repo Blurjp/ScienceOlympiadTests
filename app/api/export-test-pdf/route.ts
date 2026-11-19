@@ -31,6 +31,7 @@ interface ExportRequest {
   test?: unknown;
   testId?: unknown;
   includeAnswerKey?: unknown;
+  answerKeyOnly?: unknown;
 }
 
 /** Validate the client-supplied test shape; returns null when unusable. */
@@ -146,16 +147,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Render the PDF.
+  // Render the PDF. Exports come as a pair of files: the questions PDF
+  // (includeAnswerKey: false) and the standalone answer-key PDF
+  // (answerKeyOnly: true); the combined single-file mode remains available
+  // for programmatic callers that don't pass either flag.
   try {
     const includeAnswerKey = body.includeAnswerKey !== false;
-    const pdfBytes = await generateTestPdf(test, { includeAnswerKey });
+    const answerKeyOnly = body.answerKeyOnly === true;
+    const pdfBytes = await generateTestPdf(test, { includeAnswerKey, answerKeyOnly });
+    const filenameSuffix = answerKeyOnly
+      ? 'Answer_Key'
+      : includeAnswerKey
+        ? undefined
+        : 'Questions';
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${buildPdfFilename(test.title)}"`,
+        'Content-Disposition': `attachment; filename="${buildPdfFilename(test.title, filenameSuffix)}"`,
         'Cache-Control': 'no-store',
       },
     });

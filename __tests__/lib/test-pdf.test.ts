@@ -88,6 +88,21 @@ describe('generateTestPdf', () => {
     expect(withoutKey).not.toContain('Nuclear fusion');
   });
 
+  test('answerKeyOnly renders a standalone answer document without question text', async () => {
+    const bytes = await generateTestPdf(makeTest(), { answerKeyOnly: true });
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(1);
+
+    const text = await pdfText(bytes);
+    expect(text).toContain('Astronomy: Stellar Evolution');
+    expect(text).toContain('Answer Key');
+    expect(text).toContain('Nuclear fusion');
+    expect(text).toContain('1.989 x 10^30 kg');
+    // Question text and the student name/score row belong to the questions file.
+    expect(text).not.toContain('approximate mass of the Sun');
+    expect(text).not.toContain('Name ____');
+  });
+
   test('paginates long tests across multiple pages', async () => {
     const questions = Array.from({ length: 60 }, (_, i) => ({
       id: `q${i}`,
@@ -161,6 +176,15 @@ describe('generateTestPdf', () => {
 describe('buildPdfFilename', () => {
   test('builds a safe filename from a title', () => {
     expect(buildPdfFilename('Astronomy: 2026 Test!')).toBe('Astronomy_2026_Test.pdf');
+  });
+
+  test('appends a suffix for the paired export files', () => {
+    expect(buildPdfFilename('Astronomy: 2026 Test!', 'Questions')).toBe(
+      'Astronomy_2026_Test_Questions.pdf'
+    );
+    expect(buildPdfFilename('Astronomy Practice', 'Answer_Key')).toBe(
+      'Astronomy_Practice_Answer_Key.pdf'
+    );
   });
 
   test('falls back to "test" for empty or unsafe titles', () => {

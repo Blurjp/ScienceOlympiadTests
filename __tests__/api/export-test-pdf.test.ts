@@ -159,6 +159,29 @@ describe('export-test-pdf — happy path', () => {
     expect(buffer.slice(0, 5).toString('utf-8')).toBe('%PDF-');
   });
 
+  test('questions-only export is named ..._Questions.pdf', async () => {
+    const response = await exportTestPdf(
+      makeRequest({ test: validTest, includeAnswerKey: false })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-disposition')).toBe(
+      'attachment; filename="Astronomy_Practice_Questions.pdf"'
+    );
+  });
+
+  test('answer-key-only export is named ..._Answer_Key.pdf', async () => {
+    const response = await exportTestPdf(
+      makeRequest({ test: validTest, answerKeyOnly: true })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/pdf');
+    expect(response.headers.get('content-disposition')).toBe(
+      'attachment; filename="Astronomy_Practice_Answer_Key.pdf"'
+    );
+  });
+
   test('forwards includeAnswerKey=false without error', async () => {
     const response = await exportTestPdf(
       makeRequest({ test: validTest, includeAnswerKey: false })
