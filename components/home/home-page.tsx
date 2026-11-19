@@ -9,6 +9,15 @@ import { ResultsScreen } from '@/components/scioly/results-screen';
 import { ExportPdfButton } from '@/components/scioly/export-pdf-button';
 import { ProFeatureModal } from '@/components/subscription/pro-feature-modal';
 import { getActivePromotion } from '@/lib/promotion';
+import {
+  loadGeneratorPrefs,
+  saveGeneratorPrefs,
+  clearGeneratorPrefs,
+  AI_GENERATOR_PREFS_KEY,
+  PDF_GENERATOR_PREFS_KEY,
+  type StoredAiGeneratorPrefs,
+  type StoredPdfGeneratorPrefs,
+} from '@/lib/generator-prefs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +136,11 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     questionCount: 10,
     difficulty: 'Regional' as 'Invitational' | 'Regional' | 'State' | 'National',
   });
+  // "Remember my selections" for both generators (restored from localStorage)
+  const [rememberAiPrefs, setRememberAiPrefs] = useState(true);
+  const [rememberPdfPrefs, setRememberPdfPrefs] = useState(true);
+  const prefsHydratedRef = useRef(false);
+  const pendingPdfSourceRef = useRef<string | null>(null);
 
   // PDF-inspired generation state
   interface PDFSourceInfo {
@@ -154,6 +168,88 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
     if (initialTopics.length === 0) loadTopics();
     loadPdfSources();
   }, []);
+
+  // Restore remembered generator selections (client-only, after hydration,
+  // so SSR markup and the first client render stay identical).
+  useEffect(() => {
+    const DIFFICULTIES = ['Invitational', 'Regional', 'State', 'National'] as const;
+    type Difficulty = (typeof DIFFICULTIES)[number];
+    const COUNTS = [5, 10, 30, 40];
+
+    const ai = loadGeneratorPrefs<StoredAiGeneratorPrefs>(
+      window.localStorage,
+      AI_GENERATOR_PREFS_KEY
+    );
+    if (ai) {
+      if (typeof ai.remember === 'boolean') setRememberAiPrefs(ai.remember);
+      if (ai.remember !== false) {
+        setGenConfig((prev) => ({
+          topic: typeof ai.topic === 'string' && ai.topic.trim() ? ai.topic : prev.topic,
+          questionCount: COUNTS.includes(Number(ai.questionCount))
+            ? Number(ai.questionCount)
+            : prev.questionCount,
+          difficulty: DIFFICULTIES.includes(ai.difficulty as Difficulty)
+            ? (ai.difficulty as Difficulty)
+            : prev.difficulty,
+        }));
+      }
+    }
+
+    const pdf = loadGeneratorPrefs<StoredPdfGeneratorPrefs>(
+      window.localStorage,
+      PDF_GENERATOR_PREFS_KEY
+    );
+    if (pdf) {
+      if (typeof pdf.remember === 'boolean') setRememberPdfPrefs(pdf.remember);
+      if (pdf.remember !== false) {
+        const count = Number(pdf.questionCount);
+        if (Number.isFinite(count) && count >= 5 && count <= 50) {
+          setPdfQuestionCount(Math.round(count));
+        }
+        if (typeof pdf.sourceId === 'string' && pdf.sourceId) {
+          // Applied once the source list finishes loading (see effect below).
+          pendingPdfSourceRef.current = pdf.sourceId;
+        }
+      }
+    }
+
+    prefsHydratedRef.current = true;
+  }, []);
+
+  // Apply a remembered exam source once the source list has loaded.
+  useEffect(() => {
+    const pending = pendingPdfSourceRef.current;
+    if (!pending || pdfSources.length === 0) return;
+    pendingPdfSourceRef.current = null;
+    if (pdfSources.some((s) => s.id === pending)) setSelectedPdfSource(pending);
+  }, [pdfSources]);
+
+  // Persist the AI generator selections whenever they change.
+  useEffect(() => {
+    if (!prefsHydratedRef.current) return;
+    if (rememberAiPrefs) {
+      saveGeneratorPrefs(window.localStorage, AI_GENERATOR_PREFS_KEY, {
+        ...genConfig,
+        remember: true,
+      });
+    } else {
+      clearGeneratorPrefs(window.localStorage, AI_GENERATOR_PREFS_KEY);
+    }
+  }, [genConfig, rememberAiPrefs]);
+
+  // Persist the Exam-Inspired Generator selections whenever they change.
+  useEffect(() => {
+    if (!prefsHydratedRef.current) return;
+    if (rememberPdfPrefs) {
+      saveGeneratorPrefs(window.localStorage, PDF_GENERATOR_PREFS_KEY, {
+        sourceId: selectedPdfSource || undefined,
+        questionCount: pdfQuestionCount,
+        remember: true,
+      });
+    } else {
+      clearGeneratorPrefs(window.localStorage, PDF_GENERATOR_PREFS_KEY);
+    }
+  }, [selectedPdfSource, pdfQuestionCount, rememberPdfPrefs]);
 
   // Debounce the search box so we don't fire a request per keystroke
   useEffect(() => {
@@ -788,6 +884,16 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                 Will generate {genConfig.questionCount} {genConfig.difficulty.toLowerCase()} questions for {genConfig.topic}
               </p>
             )}
+
+            <label className="mt-3 flex items-center gap-2 text-sm text-gray-600 select-none">
+              <input
+                type="checkbox"
+                checked={rememberAiPrefs}
+                onChange={(e) => setRememberAiPrefs(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              Remember my selections on this device
+            </label>
           </CardContent>
         </Card>
 
@@ -847,6 +953,16 @@ export default function HomePage({ initialTests, initialTopics }: HomePageProps)
                   />
                 </div>
               </div>
+
+              <label className="mt-3 flex items-center gap-2 text-sm text-gray-600 select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberPdfPrefs}
+                  onChange={(e) => setRememberPdfPrefs(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Remember my selections on this device
+              </label>
 
               {/* Selected Source Info */}
               {selectedSourceInfo && (
