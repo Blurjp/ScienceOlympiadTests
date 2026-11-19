@@ -35,6 +35,12 @@ export const metadata: Metadata = {
   },
 };
 
+// Site-wide <noscript> digest: a concise, link-rich summary for clients that
+// do not run JavaScript — the crawlers behind ChatGPT, Claude, and Perplexity
+// fetch pages without executing scripts. (Structured data lives on the
+// homepage, rendered per request with live prices; this block deliberately
+// avoids prices so a statically cached layout can never advertise stale ones.)
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -53,6 +59,25 @@ export default function RootLayout({
           <Footer />
         </SessionProvider>
         <Analytics />
+        <noscript>
+          <h1>Science Olympiad Tests (SciolyPrep)</h1>
+          <p>
+            A free web app that generates and grades AI practice tests for Science
+            Olympiad Division B and C events at Invitational, Regional, State, and
+            National difficulty. The free tier includes 5 AI test generations per
+            month; a Pro plan adds unlimited generations, up to 40 questions per
+            test, AI answer explanations, and printable PDF exports. See{" "}
+            <a href="/pricing">pricing</a> for current plans.
+          </p>
+          <ul>
+            <li><a href="/">AI test generator and practice test library</a></li>
+            <li><a href="/events">Practice tests and study guides by event</a></li>
+            <li><a href="/pricing">Pricing and plans</a></li>
+            <li><a href="/about">About and how it works</a></li>
+            <li><a href="/contact">Contact and support</a></li>
+            <li><a href="/llms.txt">Site manifest for AI agents (llms.txt)</a></li>
+          </ul>
+        </noscript>
       </body>
     </html>
   );

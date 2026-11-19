@@ -2,7 +2,7 @@
  * Tests for lib/promotion.ts — Black Friday 2026 promotion window and
  * discounted price formatting.
  */
-import { getActivePromotion, formatDiscountedPrice } from '@/lib/promotion';
+import { getActivePromotion, formatDiscountedPrice, getPricingOffers } from '@/lib/promotion';
 
 const DURING = new Date('2026-11-28T15:00:00Z'); // Saturday of the sale
 const BEFORE = new Date('2026-11-26T15:00:00Z');
@@ -79,5 +79,30 @@ describe('formatDiscountedPrice', () => {
   test('returns the base price outside a promotion', () => {
     expect(formatDiscountedPrice(4.99, null)).toBe('$4.99');
     expect(formatDiscountedPrice(19.99, getActivePromotion(BEFORE))).toBe('$19.99');
+  });
+});
+
+describe('getPricingOffers', () => {
+  test('base prices outside the promotion window', () => {
+    const offers = getPricingOffers(BEFORE);
+    expect(offers.map((o) => o.name)).toEqual(['Free', 'Pro', 'Season Pass']);
+    expect(offers[0].price).toBe(0);
+    expect(offers[1].price).toBe(4.99);
+    expect(offers[2].price).toBe(19.99);
+    expect(offers[1].priceCurrency).toBe('USD');
+  });
+
+  test('promotion-aware prices during the window (JSON-LD must match billing)', () => {
+    const offers = getPricingOffers(DURING);
+    expect(offers[1].price).toBe(2.5);
+    expect(offers[2].price).toBe(10);
+    expect(offers[1].description).toContain('50% off');
+  });
+
+  test('descriptions mention the headline Pro features', () => {
+    const offers = getPricingOffers(BEFORE);
+    expect(offers[1].description).toContain('40 questions');
+    expect(offers[1].description).toContain('PDF export');
+    expect(offers[1].description).toContain('AI answer explanations');
   });
 });

@@ -1,21 +1,32 @@
 import { getSiteUrl } from '@/lib/site';
 import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { slugifyTopic } from '@/lib/event-pages';
+import { getActivePromotion, getPricingOffers } from '@/lib/promotion';
 
 // llms.txt (llmstxt.org convention): a markdown manifest that LLM agents and
 // answer engines can ingest to understand and cite the site accurately.
-// Bump LAST_UPDATED when facts below change so agents can trust recency.
-const LAST_UPDATED = '2026-10-16';
+// Pricing is generated from lib/promotion.ts so it always matches live
+// billing (including sale windows). Bump LAST_UPDATED when facts below
+// change so agents can trust recency.
+const LAST_UPDATED = '2026-11-19';
 
 export function GET() {
   const base = getSiteUrl();
+  const promotion = getActivePromotion();
+  const offers = getPricingOffers();
+  const offerLines = offers
+    .map((o) => `- ${o.name}: ${o.price === 0 ? 'Free' : `$${o.price.toFixed(2)}`} — ${o.description}`)
+    .join('\n');
+  const promoLine = promotion
+    ? `\n- Active promotion: ${promotion.name} — ${promotion.percentOff}% off Pro and the Season Pass through ${promotion.endsAt.toISOString().slice(0, 10)} (applied automatically at checkout)`
+    : '';
   const eventLinks = DEFAULT_TOPICS.map(
     (t) => `- [${t} practice tests](${base}/events/${slugifyTopic(t)}): AI-generated practice tests and a study guide for the ${t} event, from Invitational to National difficulty.`
   ).join('\n');
 
   const body = `# Science Olympiad Tests (SciolyPrep)
 
-> A free web app that generates and grades Science Olympiad practice tests for Division B and C events with AI, imports past exam PDFs into interactive tests, and tracks progress. 5 free AI test generations per month; paid plans unlock unlimited generations.
+> A free web app that generates and grades Science Olympiad practice tests for Division B and C events with AI, imports past exam PDFs into interactive tests, and tracks progress. 5 free AI test generations per month; paid plans unlock unlimited generations, up to 40 questions per test, AI answer explanations, and printable PDF exports.
 
 SciolyPrep helps Science Olympiad competitors practice for Division B and Division C events. It generates original multiple-choice practice questions with verified answers at Invitational, Regional, State, and National difficulty, parses real past-exam PDFs into interactive tests, and produces exam-inspired original tests modeled on real Science Olympiad exam structures. Answer grading uses AI to accept synonyms, abbreviations, and partial credit. The platform is independent and not affiliated with Science Olympiad, Inc.
 
@@ -24,10 +35,14 @@ SciolyPrep helps Science Olympiad competitors practice for Division B and Divisi
 - [Home / test generator](${base}/): AI test generator, exam-inspired generator, PDF import, test library with history.
 - [Event practice tests index](${base}/events): Study guides and practice tests for all ${DEFAULT_TOPICS.length} major Science Olympiad events across Divisions B and C.
 ${eventLinks}
-- [Pricing](${base}/pricing): Free tier (5 AI generations/month), Pro subscription, and Season Pass details.
+- [Pricing](${base}/pricing): Free tier, Pro subscription, and Season Pass details.
 - [About & event guide](${base}/about): How the app works and what each event tests.
 - [Contact](${base}/contact): Support, bug reports, feature requests, billing.
 - [Full site content](${base}/llms-full.txt): Complete text of every event study guide and FAQ, in one document.
+
+## Plans (always matches live billing)
+
+${offerLines}${promoLine}
 
 ## Facts
 
@@ -35,9 +50,10 @@ ${eventLinks}
 - Product name: SciolyPrep (operated by Pathvana LLC)
 - Site: ${base}
 - Support email: support@aitrove.ai
-- Questions per test: 5-50, multiple choice with 4 options, AI-graded with partial credit
+- Questions per test: free plan up to 10, Pro up to 40; multiple choice with 4 options, AI-graded with partial credit
 - Difficulty levels: Invitational (easiest), Regional, State, National (hardest)
 - Free tier: 5 AI test generations per month, no credit card required
+- Pro features: unlimited generations, 40-question tests, AI answer explanations, printable PDF export (separate question and answer-key files)
 `;
 
   return new Response(body, {

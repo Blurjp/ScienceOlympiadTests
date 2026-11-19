@@ -54,3 +54,55 @@ export function formatDiscountedPrice(
   const discountedCents = Math.round((cents * (100 - promotion.percentOff)) / 100);
   return `$${(discountedCents / 100).toFixed(2)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Structured-data offers: the single source of truth consumed by the
+// homepage JSON-LD (fresh per request) and /llms.txt, so prices advertised
+// to search engines and AI answer engines always match live billing.
+// ---------------------------------------------------------------------------
+
+export const PRO_BASE_USD = 4.99;
+export const SEASON_PASS_BASE_USD = 19.99;
+
+export interface PricingOffer {
+  name: string;
+  /** Price in USD as a number (JSON-LD wants "2.50", not "$2.50"). */
+  price: number;
+  priceCurrency: 'USD';
+  description: string;
+}
+
+/** The three plans with promotion-aware prices for `now`. */
+export function getPricingOffers(now: Date = new Date()): PricingOffer[] {
+  const promotion = getActivePromotion(now);
+  const applyPromo = (baseUsd: number): number => {
+    if (!promotion) return baseUsd;
+    const cents = Math.round(baseUsd * 100);
+    return Math.round((cents * (100 - promotion.percentOff)) / 100) / 100;
+  };
+
+  return [
+    {
+      name: 'Free',
+      price: 0,
+      priceCurrency: 'USD',
+      description:
+        '5 AI-generated tests per month (10 questions each), access to all practice tests, PDF parsing and import.',
+    },
+    {
+      name: 'Pro',
+      price: applyPromo(PRO_BASE_USD),
+      priceCurrency: 'USD',
+      description: `Unlimited AI test generations${
+        promotion ? ` at ${promotion.percentOff}% off` : ''
+      }, up to 40 questions per test, AI answer explanations, and printable PDF export of any test.`,
+    },
+    {
+      name: 'Season Pass',
+      price: applyPromo(SEASON_PASS_BASE_USD),
+      priceCurrency: 'USD',
+      description:
+        'Everything in Pro for the whole competition season (Sep 1 - May 31), one-time payment.',
+    },
+  ];
+}

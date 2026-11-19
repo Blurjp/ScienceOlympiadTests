@@ -3,6 +3,13 @@ import HomePage from '@/components/home/home-page';
 import { DEFAULT_TOPICS } from '@/lib/default-topics';
 import { JsonLd } from '@/components/seo/json-ld';
 import { getSiteUrl } from '@/lib/site';
+import {
+  getPricingOffers,
+  getActivePromotion,
+  formatDiscountedPrice,
+  PRO_BASE_USD,
+  SEASON_PASS_BASE_USD,
+} from '@/lib/promotion';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +68,10 @@ export default async function Page() {
       a: 'Yes. You get 5 free AI test generations every month, forever, with no credit card required. Paid plans unlock unlimited generations for competitors who need more volume during the season.',
     },
     {
+      q: 'What does Pro include?',
+      a: `Pro unlocks unlimited AI test generations (free plan: 5 per month), tests with up to 40 questions (free plan: 10), AI explanations for every answer on your results screen, and printable PDF exports — a separate questions file and answer-key file for every test. Pro is ${formatDiscountedPrice(PRO_BASE_USD, getActivePromotion())}/month; the Season Pass is ${formatDiscountedPrice(SEASON_PASS_BASE_USD, getActivePromotion())} for the whole competition season.`,
+    },
+    {
       q: 'How does the AI Science Olympiad test generator work?',
       a: 'Pick an event, a difficulty (Invitational, Regional, State, or National), and the number of questions. SciolyPrep generates multiple-choice questions and answers at that difficulty. AI-generated material can contain mistakes, so check answers against reliable sources.',
     },
@@ -107,14 +118,21 @@ export default async function Page() {
     operatingSystem: 'Web',
     description:
       'Generate and practice Science Olympiad tests for Division B and Division C events with AI. Original questions at Invitational through National difficulty, past-exam PDF import, and progress tracking.',
-    offers: {
+    // Live, promotion-aware prices (this page is force-dynamic, so advertised
+    // prices always match billing — including sale periods).
+    offers: getPricingOffers().map((offer) => ({
       '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'USD',
-      description: 'Free tier: 5 AI test generations per month',
-    },
+      name: offer.name,
+      price: offer.price.toFixed(2),
+      priceCurrency: offer.priceCurrency,
+      description: offer.description,
+      url: `${base}/pricing`,
+    })),
     featureList: [
-      'AI test generation for 20 Science Olympiad events',
+      'AI test generation for every major Science Olympiad event',
+      'Pro: up to 40 questions per test (free plan: 10)',
+      'Pro: printable PDF export — separate question and answer-key files',
+      'Pro: AI explanations for every answer on your results',
       'Past exam PDF import',
       'Exam-inspired original test generation',
       'AI answer grading with partial credit',
