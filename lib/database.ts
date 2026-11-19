@@ -1,4 +1,4 @@
-import { createClient, Client } from '@libsql/client';
+import { createClient, Client, InStatement } from '@libsql/client';
 import crypto from 'crypto';
 import { Test, Question, TestSummary } from './types';
 import { normalizeTopic } from './topic-utils';
@@ -1814,24 +1814,58 @@ export async function saveScrapedTestsBatch(tests: ScrapedTest[]): Promise<{ ins
   const database = await getDatabase();
   await initializeScrapedTestsTable();
 
-  let inserted = 0;
-  let skipped = 0;
-
+  // Dedupe within the batch itself; ON CONFLICT(url) upserts existing rows so
+  // a re-scrape also CORRECTS stale metadata — historically, mis-filed topics
+  // (e.g. Thermodynamics tests stored under Chemistry Lab) were kept forever
+  // by INSERT OR IGNORE, since the duplicate URL made the fresh, correctly
+  // labeled parse a no-op. Parsed state (parsed/parsed_at/question_count) is
+  // intentionally preserved.
+  const seenUrls = new Set<string>();
+  const statements: InStatement[] = [];
   for (const test of tests) {
+    if (seenUrls.has(test.url)) continue;
+    seenUrls.add(test.url);
+    statements.push({
+      sql: `INSERT INTO scraped_tests
+        (topic, year, tournament, division, test_type, url, title)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(url) DO UPDATE SET
+          topic = excluded.topic,
+          year = COALESCE(excluded.year, scraped_tests.year),
+          tournament = excluded.tournament,
+          division = excluded.division,
+          test_type = excluded.test_type,
+          title = excluded.title`,
+      args: [
+        normalizeTopic(test.topic),
+        test.year || null,
+        test.tournament || null,
+        test.division || null,
+        test.testType,
+        test.url,
+        test.title || null,
+      ],
+    });
+  }
+
+  // Execute in chunked batches: one remote round-trip per chunk instead of
+  // one per row (the original row-by-row loop took minutes over a remote
+  // libSQL/Turso connection and blew past serverless request timeouts).
+  const CHUNK_SIZE = 200;
+  let inserted = 0;
+  for (let i = 0; i < statements.length; i += CHUNK_SIZE) {
+    const chunk = statements.slice(i, i + CHUNK_SIZE);
     try {
-      const result = await saveScrapedTest(test);
-      if (result > 0) {
-        inserted++;
-      } else {
-        skipped++; // Already exists (IGNORE)
+      const results = await database.batch(chunk);
+      for (const result of results) {
+        if (Number(result.rowsAffected) > 0) inserted++;
       }
     } catch (e) {
-      console.error('Failed to save scraped test:', e);
-      skipped++;
+      console.error(`Scraped-test batch chunk ${Math.floor(i / CHUNK_SIZE)} failed:`, e);
     }
   }
 
-  return { inserted, skipped };
+  return { inserted, skipped: tests.length - inserted };
 }
 
 // Get scraped tests that haven't been parsed yet

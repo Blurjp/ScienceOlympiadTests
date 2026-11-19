@@ -43,14 +43,29 @@ function parseTestExchangeHTML(html: string): ScrapedTestLink[] {
   const headerRegex = /<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
   let headerMatch;
 
-  while ((headerMatch = headerRegex.exec(html)) !== null) {
-    // Strip HTML tags from header content
-    const headerText = headerMatch[1].replace(/<[^>]+>/g, '').toLowerCase().trim();
+  /** Resolve a header to a canonical topic, tolerating MediaWiki-style
+   *  parenthetical disambiguators — e.g. "Thermodynamics (Chemistry Lab)"
+   *  must resolve to Thermodynamics, not fall through to the previous
+   *  section (which historically mis-filed tests under the wrong event). */
+  const resolveHeaderTopic = (raw: string): string | null => {
+    const cleaned = raw.replace(/<[^>]+>/g, '').trim();
+    const variants = [cleaned];
+    const parenMatch = cleaned.match(/^(.*?)\s*\((.*?)\)\s*$/);
+    if (parenMatch) {
+      variants.push(parenMatch[1]); // "Thermodynamics (Chemistry Lab)" -> "Thermodynamics"
+      variants.push(parenMatch[2]); // fallback: the paren content itself
+    }
+    for (const variant of variants) {
+      const normalized = normalizeTopic(variant.toLowerCase().trim());
+      if (isValidTopic(normalized)) return normalized;
+    }
+    return null;
+  };
 
-    // Try to normalize the header text as a topic
-    const normalizedTopic = normalizeTopic(headerText);
-    if (isValidTopic(normalizedTopic)) {
-      sections.push({ topic: normalizedTopic, position: headerMatch.index });
+  while ((headerMatch = headerRegex.exec(html)) !== null) {
+    const topic = resolveHeaderTopic(headerMatch[1]);
+    if (topic) {
+      sections.push({ topic, position: headerMatch.index });
     }
   }
 
@@ -263,6 +278,37 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         message: 'Scraping complete - test metadata stored in database',
+        totalLinksFound: links.length,
+        ...result,
+      });
+    }
+
+    if (action === 'scrape-html') {
+      // The wiki now sits behind an anti-bot proof-of-work proxy (Anubis),
+      // which a server-side fetch cannot pass — a plain scrape finds 0 links.
+      // This action ingests the archive HTML fetched by a real browser
+      // (which executes the challenge) and runs it through the exact same
+      // parse + dedupe + store path as `scrape`.
+      const { html } = body as { html?: string };
+
+      if (typeof html !== 'string' || html.trim().length < 1000) {
+        return NextResponse.json(
+          { error: 'A non-empty `html` document is required' },
+          { status: 400 }
+        );
+      }
+      if (/anubis/i.test(html) && /challenge/i.test(html) && !/Test Exchange/i.test(html)) {
+        return NextResponse.json(
+          { error: 'This looks like the anti-bot challenge page, not the archive. Reload the page in a real browser first.' },
+          { status: 400 }
+        );
+      }
+
+      const links = parseTestExchangeHTML(html);
+      const result = await storeScrapedLinks(links);
+
+      return NextResponse.json({
+        message: 'Archive HTML parsed and stored',
         totalLinksFound: links.length,
         ...result,
       });
